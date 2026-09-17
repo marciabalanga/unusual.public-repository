@@ -231,8 +231,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'store' | 'capsule' | 'track' | 'admin' | 'product_detail'>(() => {
     if (typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      const hash = window.location.hash;
+      const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+      const hash = window.location.hash.toLowerCase();
       if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
         return 'admin';
       }

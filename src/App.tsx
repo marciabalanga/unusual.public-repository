@@ -41,8 +41,8 @@ const MainContent: React.FC = () => {
   const [isSplashActive, setIsSplashActive] = useState<boolean>(() => {
     // Skip splash screen if already navigating directly to admin
     if (typeof window !== 'undefined') {
-      const hash = window.location.hash;
-      const path = window.location.pathname;
+      const hash = window.location.hash.toLowerCase();
+      const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
       if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
         return false;
       }
@@ -62,8 +62,8 @@ const MainContent: React.FC = () => {
   // Check URL pathname or hash for /admin
   useEffect(() => {
     const handleUrlCheck = () => {
-      const path = window.location.pathname;
-      const hash = window.location.hash;
+      const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+      const hash = window.location.hash.toLowerCase();
       if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
         setActiveTab('admin');
         setIsSplashActive(false);
