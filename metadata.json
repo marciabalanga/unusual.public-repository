@@ -1,0 +1,6 @@
+{
+  "name": "Wearing Unusual",
+  "description": "E-commerce de streetwear minimalista high-end da Wearing Unusual com motores de catálogo dinâmico, checkout com comprovativo, código de rastreio único e painel CMS com Supabase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
