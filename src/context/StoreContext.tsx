@@ -229,7 +229,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'store' | 'capsule' | 'track' | 'admin' | 'product_detail'>('store');
+  const [activeTab, setActiveTab] = useState<'store' | 'capsule' | 'track' | 'admin' | 'product_detail'>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const hash = window.location.hash;
+      if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
+        return 'admin';
+      }
+    }
+    return 'store';
+  });
   const [selectedProductSlug, setSelectedProductSlug] = useState<string | null>(null);
   const [trackingInput, setTrackingInput] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
