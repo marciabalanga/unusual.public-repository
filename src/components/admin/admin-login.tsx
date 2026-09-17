@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { WULogo } from '../wu-logo';
-import { Lock, Mail, Eye, EyeOff, ShieldAlert, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Lock, Mail, Eye, EyeOff, ShieldAlert, ArrowLeft } from 'lucide-react';
 import { scrollToTop } from '../../lib/scroll';
 
 interface AdminLoginProps {
@@ -9,20 +9,17 @@ interface AdminLoginProps {
 }
 
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onCancel }) => {
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
 
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    setSuccessMessage(null);
 
     if (!email.trim() || !password) {
       setErrorMessage('Por favor, introduza o seu e-mail e palavra-passe.');
@@ -37,23 +34,11 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onCancel }) => {
     setIsSubmitting(true);
 
     try {
-      if (mode === 'signin') {
-        const res = await signIn(email, password);
-        if (res.error) {
-          setErrorMessage(res.error);
-        } else {
-          scrollToTop(true);
-        }
+      const res = await signIn(email, password);
+      if (res.error) {
+        setErrorMessage(res.error);
       } else {
-        const res = await signUp(email, password);
-        if (res.error) {
-          setErrorMessage(res.error);
-        } else {
-          setSuccessMessage(
-            res.message || 'Administrador registado com sucesso! Pode agora iniciar sessão.'
-          );
-          setMode('signin');
-        }
+        scrollToTop(true);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -86,38 +71,6 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onCancel }) => {
           </p>
         </div>
 
-        {/* Mode Selector (Entrar vs Criar Admin) */}
-        <div className="grid grid-cols-2 gap-1 p-1 bg-[#121212] border border-[#1c1c1c] rounded mb-6 text-xs font-sans">
-          <button
-            type="button"
-            onClick={() => {
-              setMode('signin');
-              setErrorMessage(null);
-            }}
-            className={`py-2 px-3 rounded text-center transition-all ${
-              mode === 'signin'
-                ? 'bg-white text-black font-semibold'
-                : 'text-[#777777] hover:text-white'
-            }`}
-          >
-            Iniciar Sessão
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode('signup');
-              setErrorMessage(null);
-            }}
-            className={`py-2 px-3 rounded text-center transition-all ${
-              mode === 'signup'
-                ? 'bg-white text-black font-semibold'
-                : 'text-[#777777] hover:text-white'
-            }`}
-          >
-            Criar Admin
-          </button>
-        </div>
-
         {/* Error Notification */}
         {errorMessage && (
           <div className="mb-6 p-3.5 bg-rose-950/40 border border-rose-800/80 rounded text-xs text-rose-200 flex items-start gap-2.5 leading-relaxed animate-in fade-in duration-200">
@@ -126,15 +79,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onCancel }) => {
           </div>
         )}
 
-        {/* Success Notification */}
-        {successMessage && (
-          <div className="mb-6 p-3.5 bg-emerald-950/40 border border-emerald-800/80 rounded text-xs text-emerald-200 flex items-start gap-2.5 leading-relaxed animate-in fade-in duration-200">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-            <span>{successMessage}</span>
-          </div>
-        )}
-
-        {/* Login / Registration Form */}
+        {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-5 font-sans">
           <div>
             <label className="block text-[11px] uppercase tracking-wider text-[#999999] mb-2">
@@ -162,7 +107,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onCancel }) => {
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
-                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
@@ -187,10 +132,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onCancel }) => {
           >
             {isSubmitting ? (
               <span className="inline-block animate-pulse">A verificar credenciais...</span>
-            ) : mode === 'signin' ? (
-              'Aceder ao Painel'
             ) : (
-              'Criar e Registar Admin'
+              'Aceder ao Painel'
             )}
           </button>
         </form>
