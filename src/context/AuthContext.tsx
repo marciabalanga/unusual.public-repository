@@ -70,34 +70,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Registration of new administrators is strictly disabled on client-side.
+  // Admins must be provisioned directly via Supabase Console.
   const signUp = async (
-    email: string,
-    password: string
+    _email: string,
+    _password: string
   ): Promise<{ error?: string; message?: string }> => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim(),
-        password,
-      });
-
-      if (error) {
-        return { error: error.message };
-      }
-
-      // If user session is created immediately (e.g. email confirmation disabled in Supabase)
-      if (data.session) {
-        setSession(data.session);
-        setUser(data.user);
-        return { message: 'Conta criada e autenticada com sucesso!' };
-      }
-
-      return {
-        message: 'Registo efetuado com sucesso. Se a confirmação de e-mail estiver ativa no Supabase, verifique o link enviado.',
-      };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return { error: msg || 'Erro ao criar conta de administrador.' };
-    }
+    return {
+      error:
+        'A criação de novas contas de administrador está desativada na aplicação. Contacte a administração da Wearing Unusual.',
+    };
   };
 
   const signOut = async (): Promise<void> => {
