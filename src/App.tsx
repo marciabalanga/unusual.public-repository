@@ -87,6 +87,46 @@ const MainContent: React.FC = () => {
     scrollToTop(true);
   }, [activeTab, selectedProductSlug]);
 
+  // Sincronização Dinâmica do Ícone (Favicon / Apple Touch Icon) e Redes Sociais com o Logótipo da Marca
+  useEffect(() => {
+    const rawLogo = settings.site_logo_url || settings.logo_url;
+    if (!rawLogo || rawLogo.trim() === '') return;
+
+    const absoluteLogoUrl = rawLogo.startsWith('http')
+      ? rawLogo
+      : `${window.location.origin}${rawLogo.startsWith('/') ? '' : '/'}${rawLogo}`;
+
+    // 1. Atualizar ou injetar favicons (<link rel="icon"> e <link rel="apple-touch-icon">)
+    const updateOrCreateLink = (rel: string, href: string, type?: string) => {
+      let link = document.querySelector(`link[rel="${rel}"]`) as HTMLLinkElement | null;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = rel;
+        document.head.appendChild(link);
+      }
+      link.href = href;
+      if (type) link.type = type;
+    };
+
+    updateOrCreateLink('icon', absoluteLogoUrl, 'image/png');
+    updateOrCreateLink('apple-touch-icon', absoluteLogoUrl);
+    updateOrCreateLink('shortcut icon', absoluteLogoUrl);
+
+    // 2. Atualizar ou injetar meta tags de partilha social (og:image e twitter:image)
+    const updateOrCreateMeta = (attrName: string, attrVal: string, content: string) => {
+      let meta = document.querySelector(`meta[${attrName}="${attrVal}"]`) as HTMLMetaElement | null;
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute(attrName, attrVal);
+        document.head.appendChild(meta);
+      }
+      meta.content = content;
+    };
+
+    updateOrCreateMeta('property', 'og:image', absoluteLogoUrl);
+    updateOrCreateMeta('name', 'twitter:image', absoluteLogoUrl);
+  }, [settings.site_logo_url, settings.logo_url]);
+
   // Find selected product for detail view
   const selectedProduct = selectedProductSlug
     ? products.find((p) => p.slug === selectedProductSlug) || products[0]

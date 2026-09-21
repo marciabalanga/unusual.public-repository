@@ -29,9 +29,22 @@ export const WishlistDrawer: React.FC = () => {
 
   const handleQuickAdd = (e: React.MouseEvent, product: any) => {
     e.stopPropagation();
-    const defaultSize = product.sizes.find((s: any) => s.in_stock)?.size || product.sizes[0]?.size || 'M';
+    const isSoldOut =
+      product.badge === 'ESGOTADO' ||
+      product.lifecycle === 'time_capsule' ||
+      !product.sizes ||
+      product.sizes.length === 0 ||
+      product.sizes.every((s: any) => !s.in_stock);
+
+    if (isSoldOut) {
+      return;
+    }
+
+    const firstInStockSize = product.sizes.find((s: any) => s.in_stock)?.size;
+    if (!firstInStockSize) return;
+
     const defaultColor = product.colors[0]?.name || 'Preto';
-    addToCart(product, defaultSize, defaultColor, 1);
+    addToCart(product, firstInStockSize, defaultColor, 1);
   };
 
   return (
@@ -130,14 +143,33 @@ export const WishlistDrawer: React.FC = () => {
                         <span className="text-xs font-mono text-white font-medium">
                           {formatAOA(product.price_aoa)}
                         </span>
-                        <button
-                          type="button"
-                          onClick={(e) => handleQuickAdd(e, product)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black hover:bg-neutral-200 text-[10px] font-sans font-bold tracking-[0.18em] uppercase rounded transition-colors"
-                        >
-                          <ShoppingBag className="w-3 h-3" />
-                          <span>Adicionar</span>
-                        </button>
+                        {(() => {
+                          const itemSoldOut =
+                            product.badge === 'ESGOTADO' ||
+                            product.lifecycle === 'time_capsule' ||
+                            !product.sizes ||
+                            product.sizes.length === 0 ||
+                            product.sizes.every((s) => !s.in_stock);
+
+                          if (itemSoldOut) {
+                            return (
+                              <span className="px-2.5 py-1 bg-[#161616] text-[#666666] border border-[#262626] text-[9px] font-sans font-semibold tracking-[0.15em] uppercase rounded">
+                                Esgotado
+                              </span>
+                            );
+                          }
+
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => handleQuickAdd(e, product)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black hover:bg-neutral-200 text-[10px] font-sans font-bold tracking-[0.18em] uppercase rounded transition-colors"
+                            >
+                              <ShoppingBag className="w-3 h-3" />
+                              <span>Adicionar</span>
+                            </button>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>

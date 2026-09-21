@@ -48,8 +48,16 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({ product, onBac
   });
 
   const [selectedSize, setSelectedSize] = useState<string>(() => {
+    const isInitiallySoldOut =
+      product.badge === 'ESGOTADO' ||
+      product.lifecycle === 'time_capsule' ||
+      !product.sizes ||
+      product.sizes.length === 0 ||
+      product.sizes.every((s) => !s.in_stock);
+
+    if (isInitiallySoldOut) return '';
     const firstInStock = product.sizes.find((s) => s.in_stock);
-    return firstInStock ? firstInStock.size : product.sizes[0]?.size || 'M';
+    return firstInStock ? firstInStock.size : '';
   });
   const [selectedColor, setSelectedColor] = useState<string>(product.colors[0]?.name || 'Carbon Black');
   const [quantity, setQuantity] = useState(1);
@@ -115,13 +123,22 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({ product, onBac
     toastTimeoutRef.current = setTimeout(() => setShowToast(false), 2500);
   };
 
+  const isSoldOut =
+    product.badge === 'ESGOTADO' ||
+    product.lifecycle === 'time_capsule' ||
+    !product.sizes ||
+    product.sizes.length === 0 ||
+    product.sizes.every((s) => !s.in_stock);
+
   const handleAddToCart = () => {
+    if (isSoldOut) return;
+    const currentSizeObj = product.sizes.find((s) => s.size === selectedSize);
+    if (currentSizeObj && !currentSizeObj.in_stock) return;
+
     addToCart(product, selectedSize, selectedColor, quantity);
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 2000);
   };
-
-  const isSoldOut = product.badge === 'ESGOTADO' || product.lifecycle === 'time_capsule';
 
   const mainImage = activeColorImage || allAvailableImages[selectedImageIndex] || allAvailableImages[0] || null;
 
@@ -297,22 +314,35 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({ product, onBac
             </div>
 
             <div className="grid grid-cols-5 gap-2">
-              {product.sizes.map((s) => (
-                <button
-                  key={s.size}
-                  disabled={!s.in_stock || isSoldOut}
-                  onClick={() => setSelectedSize(s.size)}
-                  className={`py-2.5 text-xs font-sans font-medium uppercase rounded border transition-all ${
-                    selectedSize === s.size
-                      ? 'bg-white text-black border-white font-bold'
-                      : s.in_stock
-                      ? 'bg-[#121212] text-[#cccccc] border-[#262626] hover:border-white'
-                      : 'bg-[#0e0e0e] text-[#444444] border-[#1a1a1a] line-through cursor-not-allowed'
-                  }`}
-                >
-                  {s.size}
-                </button>
-              ))}
+              {product.sizes.map((s) => {
+                const isSizeDisabled = !s.in_stock || isSoldOut;
+                return (
+                  <button
+                    key={s.size}
+                    type="button"
+                    disabled={isSizeDisabled}
+                    onClick={() => {
+                      if (!isSizeDisabled) setSelectedSize(s.size);
+                    }}
+                    title={
+                      isSoldOut
+                        ? 'Peça esgotada'
+                        : !s.in_stock
+                        ? `Tamanho ${s.size} esgotado`
+                        : `Tamanho ${s.size}`
+                    }
+                    className={`py-2.5 text-xs font-sans uppercase rounded border transition-all ${
+                      selectedSize === s.size && !isSoldOut
+                        ? 'bg-white text-black border-white font-bold cursor-pointer'
+                        : isSizeDisabled
+                        ? 'bg-[#0b0b0b] text-[#3e3e3e] border-[#181818] line-through cursor-not-allowed opacity-50 select-none pointer-events-none'
+                        : 'bg-[#121212] text-[#cccccc] border-[#262626] hover:border-white cursor-pointer font-medium'
+                    }`}
+                  >
+                    {s.size}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Inline Quick Caimento Callout */}

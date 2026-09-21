@@ -207,7 +207,7 @@ export const INITIAL_SETTINGS: SiteSettings = {
   contact_email: 'contato@wearingunusual.com',
   instagram_handle: '@wearingunusual',
   copyright_text: 'TODOS OS DIREITOS RESERVADOS. LUANDA, ANGOLA.',
-  delivery_fee_aoa: 0,
+  delivery_fee_aoa: 5000,
   maintenance_mode: false,
   maintenance_message: 'ESTAMOS A ATUALIZAR O NOSSO ESPAÇO PARA O PRÓXIMO LANÇAMENTO. RETORNAREMOS EM BREVE.',
   next_drop_mode: false,
@@ -333,6 +333,7 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
   marquee_enabled BOOLEAN DEFAULT true,
   marquee_messages JSONB DEFAULT '[]'::jsonb,
   footer_categories JSONB DEFAULT '[]'::jsonb,
+  delivery_fee_aoa NUMERIC DEFAULT 5000,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -479,6 +480,7 @@ ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS location_text TEXT;
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS instagram_handle TEXT;
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS copyright_text TEXT;
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS contact_email TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS delivery_fee_aoa NUMERIC DEFAULT 5000;
 
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;

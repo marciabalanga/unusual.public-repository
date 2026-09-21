@@ -52,6 +52,7 @@ interface StoreContextType {
   orders: Order[];
   createOrder: (orderData: Omit<Order, 'id' | 'tracking_code' | 'created_at' | 'status' | 'status_timeline'> & { tracking_code?: string }) => Promise<Order>;
   updateOrderStatus: (orderId: string, status: OrderStatus, timelineDesc?: string) => Promise<boolean>;
+  deleteOrder: (orderId: string) => Promise<boolean>;
   getOrderByTrackingCode: (code: string) => Promise<Order | null>;
 
   // Cart
@@ -116,6 +117,7 @@ const LOCAL_STORAGE_KEYS = {
   LOCATION_TEXT: 'wu_location_text_v1',
   INSTAGRAM_HANDLE: 'wu_instagram_handle_v1',
   DELETED_PRODUCTS: 'wu_deleted_products_v1',
+  DELETED_ORDERS: 'wu_deleted_orders_v1',
 };
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -190,8 +192,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [orders, setOrders] = useState<Order[]>(() => {
     try {
+      let deletedOrdersList: string[] = [];
+      try {
+        const rawDel = localStorage.getItem(LOCAL_STORAGE_KEYS.DELETED_ORDERS);
+        if (rawDel) deletedOrdersList = JSON.parse(rawDel);
+      } catch {}
+      const deletedSet = new Set(deletedOrdersList);
+
       const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.ORDERS);
-      return saved ? JSON.parse(saved) : [];
+      if (saved) {
+        const parsed: Order[] = JSON.parse(saved);
+        return parsed.filter((o) => !deletedSet.has(o.id) && !deletedSet.has(o.tracking_code));
+      }
+      return [];
     } catch {
       return [];
     }
@@ -291,7 +304,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         if (idbSettings) setSettings((prev) => ({ ...prev, ...idbSettings }));
         if (idbDict && Object.keys(idbDict).length > 0) setDictionary(idbDict);
-        if (idbOrders && idbOrders.length > 0) setOrders(idbOrders);
+        if (idbOrders && idbOrders.length > 0) {
+          let deletedOrdersList: string[] = [];
+          try {
+            const raw = localStorage.getItem(LOCAL_STORAGE_KEYS.DELETED_ORDERS);
+            if (raw) deletedOrdersList = JSON.parse(raw);
+          } catch {}
+          const deletedSet = new Set(deletedOrdersList);
+          setOrders(idbOrders.filter((o) => !deletedSet.has(o.id) && !deletedSet.has(o.tracking_code)));
+        }
       } catch (err) {
         console.warn('[IDB] Erro na hidratação de cache:', err);
       } finally {
@@ -648,9 +669,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
         setOrders((prevLocal) => {
           if (remoteOrders.length === 0) return prevLocal;
+          let deletedOrdersList: string[] = [];
+          try {
+            const raw = localStorage.getItem(LOCAL_STORAGE_KEYS.DELETED_ORDERS);
+            if (raw) deletedOrdersList = JSON.parse(raw);
+          } catch {}
+          const deletedSet = new Set(deletedOrdersList);
+
           const orderMap = new Map<string, Order>();
-          prevLocal.forEach((o) => orderMap.set(o.tracking_code || o.id, o));
-          remoteOrders.forEach((o) => orderMap.set(o.tracking_code || o.id, o));
+          prevLocal.forEach((o) => {
+            if (!deletedSet.has(o.id) && !deletedSet.has(o.tracking_code)) {
+              orderMap.set(o.tracking_code || o.id, o);
+            }
+          });
+          remoteOrders.forEach((o) => {
+            if (!deletedSet.has(o.id) && !deletedSet.has(o.tracking_code)) {
+              orderMap.set(o.tracking_code || o.id, o);
+            }
+          });
           const combined = Array.from(orderMap.values());
           combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
           return combined;
@@ -1109,6 +1145,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             'instagram_handle',
             'copyright_text',
             'contact_email',
+            'delivery_fee_aoa',
             'updated_at',
             'site_logo_url',
             'logo_url',
@@ -1181,6 +1218,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Cart Management
   const addToCart = (product: Product, size: string, color: string, quantity = 1) => {
+    // Validação estrita de stock: impede adicionar ao saco itens ou tamanhos esgotados
+    const isSoldOut =
+      product.badge === 'ESGOTADO' ||
+      product.lifecycle === 'time_capsule' ||
+      !product.sizes ||
+      product.sizes.length === 0 ||
+      product.sizes.every((s) => !s.in_stock);
+
+    if (isSoldOut) {
+      console.warn(`[StoreContext] Tentativa bloqueada de adicionar produto esgotado ao saco: ${product.name}`);
+      return;
+    }
+
+    const matchedSize = product.sizes.find((s) => s.size === size);
+    if (matchedSize && !matchedSize.in_stock) {
+      console.warn(`[StoreContext] Tentativa bloqueada de adicionar tamanho esgotado (${size}) ao saco: ${product.name}`);
+      return;
+    }
+
     setCart((prev) => {
       const existing = prev.find(
         (item) => item.product.id === product.id && item.size === size && item.color === color
@@ -1222,7 +1278,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const clearCart = () => setCart([]);
 
   const FREE_SHIPPING_THRESHOLD = 20000;
-  const STANDARD_SHIPPING_FEE = 5000;
+  const STANDARD_SHIPPING_FEE = settings.delivery_fee_aoa !== undefined ? settings.delivery_fee_aoa : 5000;
 
   const cartSubtotal = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.product.price_aoa * item.quantity, 0);
@@ -1231,7 +1287,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const deliveryFee = useMemo(() => {
     if (cart.length === 0) return 0;
     return cartSubtotal >= FREE_SHIPPING_THRESHOLD ? 0 : STANDARD_SHIPPING_FEE;
-  }, [cartSubtotal, cart.length]);
+  }, [cartSubtotal, cart.length, STANDARD_SHIPPING_FEE]);
 
   const cartTotal = useMemo(() => {
     if (cart.length === 0) return 0;
@@ -1504,6 +1560,46 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   };
 
+  const deleteOrder = async (orderId: string): Promise<boolean> => {
+    // 1. Identify target order
+    const target = orders.find((o) => o.id === orderId || o.tracking_code === orderId);
+    const idToDelete = target ? target.id : orderId;
+    const trackingToDelete = target?.tracking_code;
+
+    // 2. Persist to tombstone list in localStorage to prevent resurfacing on sync
+    try {
+      const raw = localStorage.getItem(LOCAL_STORAGE_KEYS.DELETED_ORDERS);
+      const list: string[] = raw ? JSON.parse(raw) : [];
+      if (!list.includes(idToDelete)) list.push(idToDelete);
+      if (trackingToDelete && !list.includes(trackingToDelete)) list.push(trackingToDelete);
+      localStorage.setItem(LOCAL_STORAGE_KEYS.DELETED_ORDERS, JSON.stringify(list));
+    } catch {}
+
+    // 3. Remove immediately from local state
+    setOrders((prev) => {
+      const remaining = prev.filter((o) => o.id !== idToDelete && o.tracking_code !== trackingToDelete);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEYS.ORDERS, JSON.stringify(remaining));
+      } catch {}
+      setStoredItem(LOCAL_STORAGE_KEYS.ORDERS, remaining).catch(() => {});
+      return remaining;
+    });
+
+    // 4. Delete from Supabase orders table
+    if (supabaseStatus.connected && !supabaseStatus.missingTables.includes('orders')) {
+      try {
+        await supabase.from('orders').delete().eq('id', idToDelete);
+        if (trackingToDelete) {
+          await supabase.from('orders').delete().eq('tracking_code', trackingToDelete);
+        }
+      } catch (err) {
+        console.warn('[Supabase] Erro ao excluir encomenda:', err);
+      }
+    }
+
+    return true;
+  };
+
   const getOrderByTrackingCode = async (code: string): Promise<Order | null> => {
     const formatted = code.trim().toUpperCase();
 
@@ -1587,6 +1683,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         orders,
         createOrder,
         updateOrderStatus,
+        deleteOrder,
         getOrderByTrackingCode,
         cart,
         addToCart,
