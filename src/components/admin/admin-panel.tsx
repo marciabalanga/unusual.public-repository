@@ -62,6 +62,7 @@ export const AdminPanel: React.FC = () => {
     saveSettings,
     orders,
     updateOrderStatus,
+    deleteOrder,
     supabaseStatus,
     refreshSupabase,
     isSyncing,
@@ -254,7 +255,7 @@ export const AdminPanel: React.FC = () => {
       )}
 
       {/* Admin Top Header */}
-      <div className="border-b border-[#1c1c1c] bg-[#0c0c0c] sticky top-20 z-30 px-4 sm:px-8 py-4">
+      <div className="border-b border-[#1c1c1c] bg-[#0c0c0c] sticky top-0 z-30 px-4 sm:px-8 py-4">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <WULogo size="sm" imgClassName="h-7 w-auto object-contain" />
@@ -685,14 +686,31 @@ export const AdminPanel: React.FC = () => {
                                   </span>
                                 )}
 
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedOrder(order)}
-                                  className="py-2.5 px-3 bg-[#1f1f1f] hover:bg-white hover:text-black rounded text-[11px] uppercase tracking-wider font-semibold transition-colors flex items-center justify-center gap-1"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                  <span>Inspecionar</span>
-                                </button>
+                                <div className="flex gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedOrder(order)}
+                                    className="flex-1 py-2.5 px-3 bg-[#1f1f1f] hover:bg-white hover:text-black rounded text-[11px] uppercase tracking-wider font-semibold transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>Inspecionar</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      const confirmed = window.confirm(
+                                        `Tem a certeza que deseja eliminar a encomenda ${order.tracking_code}?`
+                                      );
+                                      if (!confirmed) return;
+                                      await deleteOrder(order.id);
+                                      showToast(`Encomenda ${order.tracking_code} eliminada!`);
+                                    }}
+                                    title="Eliminar Encomenda"
+                                    className="p-2.5 bg-[#1a1414] hover:bg-red-900/80 border border-red-900/40 hover:border-red-600 text-red-400 hover:text-white rounded transition-colors flex items-center justify-center cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -846,15 +864,32 @@ export const AdminPanel: React.FC = () => {
 
                                   {/* Ações */}
                                   <td className="py-4 px-4 align-top text-right">
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedOrder(order);
-                                      }}
-                                      className="px-3 py-1.5 bg-[#1f1f1f] hover:bg-white hover:text-black rounded text-[11px] uppercase tracking-wider font-semibold transition-colors shadow-sm"
-                                    >
-                                      Inspecionar
-                                    </button>
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedOrder(order);
+                                        }}
+                                        className="px-3 py-1.5 bg-[#1f1f1f] hover:bg-white hover:text-black rounded text-[11px] uppercase tracking-wider font-semibold transition-colors shadow-sm cursor-pointer"
+                                      >
+                                        Inspecionar
+                                      </button>
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          const confirmed = window.confirm(
+                                            `Tem a certeza que deseja eliminar a encomenda ${order.tracking_code}?`
+                                          );
+                                          if (!confirmed) return;
+                                          await deleteOrder(order.id);
+                                          showToast(`Encomenda ${order.tracking_code} eliminada!`);
+                                        }}
+                                        title="Eliminar Encomenda"
+                                        className="p-1.5 bg-[#1a1414] hover:bg-red-900/80 border border-red-900/40 hover:border-red-600 text-red-400 hover:text-white rounded transition-colors cursor-pointer"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
                                   </td>
                                 </tr>
                               );
@@ -1131,12 +1166,29 @@ export const AdminPanel: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Close Footer Action */}
-                  <div className="pt-2 border-t border-[#1c1c1c]">
+                  {/* Modal Footer Actions */}
+                  <div className="pt-3 border-t border-[#1c1c1c] flex flex-col sm:flex-row items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const confirmed = window.confirm(
+                          `Tem a certeza que deseja eliminar permanentemente a encomenda ${selectedOrder.tracking_code}? Esta ação removerá o código de rastreio e libertará espaço.`
+                        );
+                        if (!confirmed) return;
+                        const code = selectedOrder.tracking_code;
+                        await deleteOrder(selectedOrder.id);
+                        setSelectedOrder(null);
+                        showToast(`Encomenda ${code} eliminada com sucesso!`);
+                      }}
+                      className="w-full sm:w-auto px-4 py-3 bg-red-950/60 hover:bg-red-900 border border-red-800 text-red-300 hover:text-white rounded text-xs uppercase font-sans font-bold tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-400" />
+                      <span>Excluir Encomenda</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => setSelectedOrder(null)}
-                      className="w-full py-3 bg-[#1a1a1a] hover:bg-[#252525] text-white rounded text-xs uppercase font-sans font-bold tracking-wider transition-colors"
+                      className="flex-1 w-full py-3 bg-[#1a1a1a] hover:bg-[#252525] text-white rounded text-xs uppercase font-sans font-bold tracking-wider transition-colors text-center"
                     >
                       Fechar Inspeção
                     </button>
@@ -2278,7 +2330,7 @@ export const AdminPanel: React.FC = () => {
                 </span>
                 <p className="text-[#a0a0a0] leading-relaxed">
                   • Subtotal das compras <strong className="text-white">igual ou superior a 20.000 AOA</strong>: Taxa de entrega é <strong className="text-emerald-400 uppercase">GRÁTIS (0 AOA)</strong> com barra de progresso visual no checkout.<br />
-                  • Subtotal das compras <strong className="text-white">inferior a 20.000 AOA</strong>: Taxa de entrega fixa calculada automaticamente em <strong className="text-white">5.000 AOA</strong>.
+                  • Subtotal das compras <strong className="text-white">inferior a 20.000 AOA</strong>: Taxa de entrega fixa configurada em <strong className="text-white font-mono">{formatAOA(settingsForm.delivery_fee_aoa !== undefined ? settingsForm.delivery_fee_aoa : 5000)}</strong>.
                 </p>
               </div>
             </div>
@@ -2332,6 +2384,28 @@ export const AdminPanel: React.FC = () => {
                   />
                   <span className="text-[10px] text-[#666666] mt-1 block">
                     Apresentado no checkout como &quot;Nº do Express&quot; para os clientes efetuarem o pagamento direto.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-[#888888] uppercase mb-1">Taxa de Entrega Padrão (&lt; 20.000 AOA) *</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={0}
+                      step={500}
+                      value={settingsForm.delivery_fee_aoa !== undefined ? settingsForm.delivery_fee_aoa : 5000}
+                      onChange={(e) => {
+                        setSettingsForm((prev) => ({ ...prev, delivery_fee_aoa: Number(e.target.value) }));
+                        setIsSettingsDirty(true);
+                      }}
+                      placeholder="5000"
+                      className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded text-white font-mono font-bold"
+                    />
+                    <span className="absolute right-3 top-2 text-xs font-mono text-[#777777]">AOA</span>
+                  </div>
+                  <span className="text-[10px] text-[#666666] mt-1 block">
+                    Valor cobrado automaticamente no checkout se o subtotal for inferior a 20.000 AOA (acima disso o frete é Grátis).
                   </span>
                 </div>
 
@@ -2518,7 +2592,7 @@ export const AdminPanel: React.FC = () => {
                     <label className="block text-[#888888] uppercase mb-1">Taxa Base de Encomendas &lt; 20.000 AOA</label>
                     <input
                       type="number"
-                      value={settingsForm.delivery_fee_aoa || 5000}
+                      value={settingsForm.delivery_fee_aoa !== undefined ? settingsForm.delivery_fee_aoa : 5000}
                       onChange={(e) => {
                         setSettingsForm((prev) => ({ ...prev, delivery_fee_aoa: Number(e.target.value) }));
                         setIsSettingsDirty(true);
