@@ -8,21 +8,39 @@ import {
   Ruler,
   Heart,
   X,
+  Clock,
+  BellRing,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { formatAOA } from '../lib/format';
 import { Product } from '../types';
 import { scrollToTop } from '../lib/scroll';
+import { PreOrderModal } from './pre-order-modal';
+import { RestockRequestModal } from './restock-request-modal';
 
 interface ProductDetailProps {
   product: Product;
   onBack: () => void;
+  onOpenPreOrderCheckout?: (item: {
+    product: Product;
+    size: string;
+    color: string;
+    quantity: number;
+    price: number;
+  }) => void;
 }
 
-export const ProductDetailView: React.FC<ProductDetailProps> = ({ product, onBack }) => {
-  const { addToCart, toggleWishlist, isInWishlist, t } = useStore();
+export const ProductDetailView: React.FC<ProductDetailProps> = ({
+  product,
+  onBack,
+  onOpenPreOrderCheckout,
+}) => {
+  const { addToCart, toggleWishlist, isInWishlist, t, settings, language } = useStore();
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
+  const [showPreOrderModal, setShowPreOrderModal] = useState(false);
+  const [showRestockModal, setShowRestockModal] = useState(false);
 
   const validImages = (product.images || []).filter(
     (img): img is string => typeof img === 'string' && img.trim() !== ''
@@ -46,6 +64,10 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({ product, onBac
     }
     return validImages[0] || null;
   });
+
+  const isTimeCapsuleProduct =
+    product.lifecycle === 'time_capsule' ||
+    (product.category && (product.category.toLowerCase().includes('capsul') || product.category.toLowerCase().includes('cápsul')));
 
   const [selectedSize, setSelectedSize] = useState<string>(() => {
     const isInitiallySoldOut =
@@ -365,19 +387,96 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({ product, onBac
             </div>
           </div>
 
-          {/* Add to Cart Button */}
+          {/* Add to Cart Button or Pre-Order / Restock Buttons */}
           <div className="space-y-3 pt-2">
-            {isSoldOut ? (
-              <button
-                disabled
-                className="w-full py-4 bg-[#141414] border border-[#262626] text-[#666666] font-sans font-semibold text-xs tracking-[0.25em] uppercase rounded cursor-not-allowed"
-              >
-                PEÇA ESGOTADA • ARQUIVADA NA CÁPSULA
-              </button>
+            {/* 1. PRE-ORDER: O administrador decidiu produzir novamente */}
+            {product.enable_pre_order && settings.enable_pre_order_button !== false ? (
+              <div className="space-y-2.5">
+                {/* Coming Back Soon Indicator */}
+                <div className="flex items-center gap-2 px-3 py-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono">
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  <span className="font-bold uppercase tracking-wider">
+                    {t('badge_coming_back_soon', 'COMING BACK SOON')}
+                  </span>
+                  <span className="text-[#888888] text-[11px] ml-auto">
+                    {product.pre_order_estimated_delivery || '15–25 Outubro'}
+                  </span>
+                </div>
+
+                {/* Pre-Order Action Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowPreOrderModal(true)}
+                  className="w-full py-4 bg-white hover:bg-[#eaeaea] text-black font-sans font-bold text-xs tracking-[0.25em] uppercase rounded transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <Clock className="w-4 h-4 text-black" />
+                  <span>
+                    {language === 'en'
+                      ? settings.pre_order_button_text_en || t('preorder_btn_action', 'PRE-ORDER')
+                      : settings.pre_order_button_text_pt || t('preorder_btn_action', 'PRE-ORDER')}
+                  </span>
+                </button>
+              </div>
+            ) : isTimeCapsuleProduct ? (
+              /* 2. CÁPSULA DO TEMPO: Produto arquivado/esgotado - medição de interesse sem Pre-Order ativo */
+              <div className="space-y-3">
+                {/* Banner de Apelo Cápsula do Tempo */}
+                <div className="p-3 bg-[#111111] border border-[#222222] rounded-lg text-center space-y-1">
+                  <span className="text-[10px] text-amber-400 font-mono tracking-widest uppercase block">
+                    {language === 'en'
+                      ? settings.restock_badge_text_en || 'TIME CAPSULE • INTEREST SURVEY'
+                      : settings.restock_badge_text_pt || 'CÁPSULA DO TEMPO • AVALIAÇÃO DE INTERESSE'}
+                  </span>
+                  <p className="text-xs font-display uppercase tracking-wider text-white">
+                    {language === 'en'
+                      ? settings.restock_title_en || 'WOULD YOU LIKE THIS COLLECTION TO RETURN?'
+                      : settings.restock_title_pt || 'GOSTARIAS QUE ESTA COLEÇÃO VOLTASSE?'}
+                  </p>
+                  <p className="text-[11px] text-[#888888] font-sans">
+                    {language === 'en'
+                      ? settings.restock_description_en || 'Let us know. Your interest helps us decide which pieces may return.'
+                      : settings.restock_description_pt || 'Deixa-nos saber. O teu interesse ajuda-nos a decidir quais peças podem voltar.'}
+                  </p>
+                </div>
+
+                {/* Botão de Request Restock para Cápsula do Tempo (se ativado pelo admin) */}
+                {product.enable_request_restock !== false && settings.enable_request_restock_button !== false ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowRestockModal(true)}
+                    className="w-full py-4 bg-[#141414] hover:bg-white text-white hover:text-black border border-[#333333] hover:border-white font-sans font-bold text-xs tracking-[0.25em] uppercase rounded transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95"
+                  >
+                    <BellRing className="w-4 h-4 text-amber-400" />
+                    <span>
+                      {language === 'en'
+                        ? settings.request_restock_button_text_en || 'REQUEST RESTOCK'
+                        : settings.request_restock_button_text_pt || 'REQUEST RESTOCK'}
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    disabled
+                    className="w-full py-3.5 bg-[#141414] border border-[#262626] text-[#666666] font-sans font-semibold text-xs tracking-[0.25em] uppercase rounded cursor-not-allowed"
+                  >
+                    {t('badge_sold_out', 'SOLD OUT')} • ARQUIVADO NA CÁPSULA
+                  </button>
+                )}
+              </div>
+            ) : isSoldOut ? (
+              /* 3. DROP ATIVO ESGOTADO: Apenas estado esgotado (Request Restock NÃO aparece no drop normal) */
+              <div className="space-y-2.5">
+                <button
+                  disabled
+                  className="w-full py-3.5 bg-[#141414] border border-[#262626] text-[#666666] font-sans font-semibold text-xs tracking-[0.25em] uppercase rounded cursor-not-allowed"
+                >
+                  {t('badge_sold_out', 'SOLD OUT')} • PEÇA ESGOTADA
+                </button>
+              </div>
             ) : (
+              /* 4. DROP ATIVO DISPONÍVEL: Compra normal imediata */
               <button
                 onClick={handleAddToCart}
-                className="w-full py-4 bg-white hover:bg-[#eaeaea] text-black font-sans font-bold text-xs tracking-[0.25em] uppercase rounded transition-all flex items-center justify-center gap-2"
+                className="w-full py-4 bg-white hover:bg-[#eaeaea] text-black font-sans font-bold text-xs tracking-[0.25em] uppercase rounded transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
               >
                 {isAdded ? (
                   <>
@@ -530,6 +629,30 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({ product, onBac
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* PRE-ORDER MODAL */}
+      <PreOrderModal
+        isOpen={showPreOrderModal}
+        onClose={() => setShowPreOrderModal(false)}
+        product={product}
+        selectedSize={selectedSize}
+        selectedColor={selectedColor}
+        onProceedToCheckout={(item) => {
+          setShowPreOrderModal(false);
+          if (onOpenPreOrderCheckout) {
+            onOpenPreOrderCheckout(item);
+          } else {
+            addToCart(item.product, item.size, item.color, item.quantity);
+          }
+        }}
+      />
+
+      {/* RESTOCK REQUEST MODAL (CÁPSULA DO TEMPO) */}
+      <RestockRequestModal
+        isOpen={showRestockModal}
+        onClose={() => setShowRestockModal(false)}
+        product={product}
+      />
     </div>
   );
 };

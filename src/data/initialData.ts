@@ -195,7 +195,36 @@ export const INITIAL_DICTIONARY: DictionaryEntry[] = [
   { key: 'track_step_3_alert', pt: 'Certifique-se de se manter contactável.', en: 'Please make sure your phone remains reachable.', category: 'tracking' },
   { key: 'track_step_4_title', pt: 'Entregue', en: 'Delivered', category: 'tracking' },
   { key: 'track_step_4_desc', pt: 'Peça entregue em mãos com sucesso.', en: 'Garment successfully delivered in hands.', category: 'tracking' },
-  { key: 'footer_rights', pt: 'TODOS OS DIREITOS RESERVADOS. LUANDA, ANGOLA.', en: 'ALL RIGHTS RESERVED. LUANDA, ANGOLA.', category: 'footer' }
+  { key: 'footer_rights', pt: 'TODOS OS DIREITOS RESERVADOS. LUANDA, ANGOLA.', en: 'ALL RIGHTS RESERVED. LUANDA, ANGOLA.', category: 'footer' },
+
+  // Pre-Order & Restock Universal Autonomous Dictionary
+  { key: 'preorder_badge_sold_out', pt: 'SOLD OUT', en: 'SOLD OUT', category: 'headings' },
+  { key: 'preorder_badge_coming_soon', pt: 'COMING BACK SOON', en: 'COMING BACK SOON', category: 'headings' },
+  { key: 'preorder_btn_action', pt: 'PRE-ORDER', en: 'PRE-ORDER', category: 'buttons' },
+  { key: 'preorder_btn_request_restock', pt: 'REQUEST RESTOCK', en: 'REQUEST RESTOCK', category: 'buttons' },
+  { key: 'preorder_modal_title_suffix', pt: '— PRE-ORDER', en: '— PRE-ORDER', category: 'headings' },
+  { key: 'preorder_modal_desc', pt: 'This is a pre-order item. Your piece will be produced specifically for this restock.', en: 'This is a pre-order item. Your piece will be produced specifically for this restock.', category: 'headings' },
+  { key: 'preorder_estimated_delivery_label', pt: 'Estimated delivery:', en: 'Estimated delivery:', category: 'headings' },
+  { key: 'preorder_price_label', pt: 'Price:', en: 'Price:', category: 'headings' },
+  { key: 'preorder_whatsapp_label', pt: 'WhatsApp:', en: 'WhatsApp:', category: 'headings' },
+  { key: 'preorder_confirm_btn', pt: 'CONFIRM PRE-ORDER', en: 'CONFIRM PRE-ORDER', category: 'buttons' },
+  { key: 'preorder_confirmed_title', pt: 'PRE-ORDER CONFIRMED ✓', en: 'PRE-ORDER CONFIRMED ✓', category: 'headings' },
+  { key: 'preorder_confirmed_tagline', pt: "You're in.", en: "You're in.", category: 'headings' },
+  { key: 'preorder_confirmed_msg', pt: "We'll contact you on WhatsApp as soon as your piece is ready for delivery.", en: "We'll contact you on WhatsApp as soon as your piece is ready for delivery.", category: 'headings' },
+  { key: 'preorder_ready_title', pt: 'YOUR PRE-ORDER IS READY 🖤', en: 'YOUR PRE-ORDER IS READY 🖤', category: 'headings' },
+  { key: 'preorder_ready_delivery_starts', pt: 'Delivery starts on October 18th.', en: 'Delivery starts on October 18th.', category: 'headings' },
+  { key: 'preorder_ready_choose_date', pt: 'Please choose your preferred delivery date.', en: 'Please choose your preferred delivery date.', category: 'headings' },
+  { key: 'preorder_choose_date_btn', pt: 'CHOOSE DELIVERY DATE', en: 'CHOOSE DELIVERY DATE', category: 'buttons' },
+  { key: 'preorder_date_selector_label', pt: 'SELECIONE A SUA DATA PREFERIDA DE ENTREGA', en: 'SELECT YOUR PREFERRED DELIVERY DATE', category: 'headings' },
+  { key: 'preorder_confirm_date_btn', pt: 'CONFIRM DELIVERY DATE', en: 'CONFIRM DELIVERY DATE', category: 'buttons' },
+  { key: 'preorder_delivery_scheduled_title', pt: 'DELIVERY SCHEDULED ✓', en: 'DELIVERY SCHEDULED ✓', category: 'headings' },
+  { key: 'preorder_delivery_scheduled_msg', pt: 'Your order will be delivered on [DATE].', en: 'Your order will be delivered on [DATE].', category: 'headings' },
+  { key: 'preorder_delivery_scheduled_sub', pt: 'Please keep your phone nearby on the delivery day.', en: 'Please keep your phone nearby on the delivery day.', category: 'headings' },
+  { key: 'preorder_out_for_delivery_title', pt: 'YOUR ORDER IS ON ITS WAY 🖤', en: 'YOUR ORDER IS ON ITS WAY 🖤', category: 'headings' },
+  { key: 'preorder_out_for_delivery_msg', pt: 'Please stay available and keep your phone nearby. Your order will arrive shortly.', en: 'Please stay available and keep your phone nearby. Your order will arrive shortly.', category: 'headings' },
+  { key: 'preorder_delivered_title', pt: 'DELIVERED ✓', en: 'DELIVERED ✓', category: 'headings' },
+  { key: 'preorder_delivered_msg', pt: 'Sua peça foi entregue em mãos. Obrigado por fazer parte da Wearing Unusual.', en: 'Your piece has been delivered. Thank you for being part of Wearing Unusual.', category: 'headings' },
+  { key: 'preorder_restock_success_msg', pt: 'INTERESSE REGISTADO COM SUCESSO. AVISAREMOS NO WHATSAPP ASSIM QUE O ITEM ENTRAR EM PRÉ-VENDA.', en: 'INTEREST REGISTERED. WE WILL NOTIFY YOU ON WHATSAPP AS SOON AS PRE-ORDER OPENS.', category: 'headings' }
 ];
 
 export const INITIAL_SETTINGS: SiteSettings = {
@@ -236,7 +265,41 @@ export const INITIAL_SETTINGS: SiteSettings = {
     'Denim',
     'Outerwear',
     'Acessórios'
-  ]
+  ],
+  enable_pre_order_button: true,
+  enable_request_restock_button: true,
+  pre_order_button_text_pt: 'PRE-ORDER',
+  pre_order_button_text_en: 'PRE-ORDER',
+  request_restock_button_text_pt: 'REQUEST RESTOCK',
+  request_restock_button_text_en: 'REQUEST RESTOCK',
+
+  // Request Restock Content (Settings -> Request Restock Content)
+  restock_title_pt: 'GOSTARIAS QUE ESTA COLEÇÃO VOLTASSE?',
+  restock_title_en: 'WOULD YOU LIKE THIS COLLECTION TO RETURN?',
+  restock_description_pt: 'Deixa-nos saber. O teu interesse ajuda-nos a decidir quais peças podem voltar.',
+  restock_description_en: 'Let us know. Your interest helps us decide which pieces may return.',
+  restock_badge_text_pt: 'CÁPSULA DO TEMPO • AVALIAÇÃO DE INTERESSE',
+  restock_badge_text_en: 'TIME CAPSULE • INTEREST SURVEY',
+  restock_name_label_pt: 'O SEU NOME (OPCIONAL)',
+  restock_name_label_en: 'YOUR NAME (OPTIONAL)',
+  restock_name_placeholder_pt: 'ex: Aldemir Santos',
+  restock_name_placeholder_en: 'e.g. John Doe',
+  restock_phone_label_pt: 'WHATSAPP / TELEFONE (OBRIGATÓRIO) *',
+  restock_phone_label_en: 'WHATSAPP / PHONE (REQUIRED) *',
+  restock_phone_placeholder_pt: '+244 9XX XXX XXX',
+  restock_phone_placeholder_en: '+244 9XX XXX XXX',
+  restock_submit_btn_pt: 'REQUEST RESTOCK',
+  restock_submit_btn_en: 'REQUEST RESTOCK',
+  restock_submitting_text_pt: 'A REGISTAR INTERESSE...',
+  restock_submitting_text_en: 'REGISTERING INTEREST...',
+  restock_success_title_pt: 'INTERESSE REGISTADO COM SUCESSO',
+  restock_success_title_en: 'INTEREST REGISTERED SUCCESSFULLY',
+  restock_success_message_pt: 'O teu interesse foi anotado pelo atelier. Se decidirmos reabrir a produção para pré-venda, contactamos-te em primeira mão via WhatsApp.',
+  restock_success_message_en: 'Your interest has been noted by the atelier. If we decide to reopen production for pre-order, we will contact you first via WhatsApp.',
+  restock_error_message_pt: 'Ocorreu um erro ao registar o seu interesse. Por favor tente novamente.',
+  restock_error_message_en: 'An error occurred while registering your interest. Please try again.',
+  restock_phone_required_error_pt: 'Por favor introduza o seu número de WhatsApp / Telefone.',
+  restock_phone_required_error_en: 'Please enter your WhatsApp / Phone number.'
 };
 
 export const SUPABASE_SCHEMA_SQL = `-- ==============================================================================
@@ -263,6 +326,15 @@ CREATE TABLE IF NOT EXISTS public.products (
   is_visible BOOLEAN DEFAULT true,
   is_featured BOOLEAN DEFAULT false,
   order_index INTEGER DEFAULT 0,
+  enable_pre_order BOOLEAN DEFAULT false,
+  pre_order_price_aoa NUMERIC,
+  pre_order_estimated_delivery TEXT,
+  pre_order_start_date TIMESTAMPTZ,
+  pre_order_end_date TIMESTAMPTZ,
+  pre_order_max_quantity INTEGER,
+  pre_order_custom_notice TEXT,
+  coming_soon_badge BOOLEAN DEFAULT false,
+  enable_request_restock BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -271,6 +343,7 @@ CREATE TABLE IF NOT EXISTS public.products (
 CREATE TABLE IF NOT EXISTS public.orders (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   tracking_code TEXT UNIQUE NOT NULL,
+  order_type TEXT DEFAULT 'regular',
   customer_name TEXT NOT NULL,
   customer_phone TEXT NOT NULL,
   customer_city TEXT NOT NULL,
@@ -281,6 +354,28 @@ CREATE TABLE IF NOT EXISTS public.orders (
   payment_proof_url TEXT,
   status TEXT NOT NULL DEFAULT 'Pendente',
   status_timeline JSONB DEFAULT '[]'::jsonb,
+  is_pre_order BOOLEAN DEFAULT false,
+  estimated_delivery_text TEXT,
+  scheduled_delivery_date TIMESTAMPTZ,
+  available_delivery_dates JSONB DEFAULT '[]'::jsonb,
+  delivery_window TEXT,
+  actual_delivered_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 2B. TABELA DE PEDIDOS DE RESTOCK (REQUEST RESTOCK - MEDIÇÃO DE PROCURA CÁPSULA DO TEMPO)
+CREATE TABLE IF NOT EXISTS public.restock_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  product_id TEXT NOT NULL,
+  product_name TEXT NOT NULL,
+  collection_name TEXT,
+  customer_name TEXT,
+  customer_phone TEXT NOT NULL,
+  language TEXT DEFAULT 'pt',
+  status TEXT DEFAULT 'Interesse Registado',
+  notes TEXT,
+  size TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -334,12 +429,19 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
   marquee_messages JSONB DEFAULT '[]'::jsonb,
   footer_categories JSONB DEFAULT '[]'::jsonb,
   delivery_fee_aoa NUMERIC DEFAULT 5000,
+  enable_pre_order_button BOOLEAN DEFAULT true,
+  enable_request_restock_button BOOLEAN DEFAULT true,
+  pre_order_button_text_pt TEXT DEFAULT 'PRE-ORDER',
+  pre_order_button_text_en TEXT DEFAULT 'PRE-ORDER',
+  request_restock_button_text_pt TEXT DEFAULT 'REQUEST RESTOCK',
+  request_restock_button_text_en TEXT DEFAULT 'REQUEST RESTOCK',
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- HABILITAR ROW LEVEL SECURITY (RLS) COM POLÍTICAS PÚBLICAS (ANON KEY)
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.restock_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_dictionary ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
@@ -359,7 +461,7 @@ BEGIN
     SELECT schemaname, tablename, policyname 
     FROM pg_policies 
     WHERE schemaname = 'public' 
-      AND tablename IN ('products', 'orders', 'site_blocks', 'site_dictionary', 'site_settings')
+      AND tablename IN ('products', 'orders', 'restock_requests', 'site_blocks', 'site_dictionary', 'site_settings')
   ) LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', r.policyname, r.schemaname, r.tablename);
   END LOOP;
@@ -390,6 +492,12 @@ CREATE POLICY "Public Insert Orders" ON public.orders FOR INSERT WITH CHECK (tru
 CREATE POLICY "Public Read Orders" ON public.orders FOR SELECT USING (true);
 CREATE POLICY "Admin Update Orders" ON public.orders FOR UPDATE TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Admin Delete Orders" ON public.orders FOR DELETE TO authenticated USING (auth.role() = 'authenticated');
+
+-- Pedidos de Restock (Cápsula do Tempo): Clientes públicos manifestam interesse; consulta e gestão de dados pelo admin
+CREATE POLICY "Public Insert Restock Requests" ON public.restock_requests FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public Read Restock Requests" ON public.restock_requests FOR SELECT USING (true);
+CREATE POLICY "Admin Update Restock Requests" ON public.restock_requests FOR UPDATE TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Admin Delete Restock Requests" ON public.restock_requests FOR DELETE TO authenticated USING (auth.role() = 'authenticated');
 
 -- 4. Garante que o registo do bloco da Cápsula do Tempo existe em site_blocks
 INSERT INTO public.site_blocks (id, block_type, title, subtitle, content, is_active, order_index)
@@ -466,13 +574,35 @@ BEGIN
     SELECT schemaname, tablename, policyname 
     FROM pg_policies 
     WHERE schemaname = 'public' 
-      AND tablename IN ('products', 'orders', 'site_blocks', 'site_dictionary', 'site_settings')
+      AND tablename IN ('products', 'orders', 'restock_requests', 'site_blocks', 'site_dictionary', 'site_settings')
   ) LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', r.policyname, r.schemaname, r.tablename);
   END LOOP;
 END $$;
 
 -- 3. Habilita RLS e garante colunas atualizadas em todas as tabelas
+CREATE TABLE IF NOT EXISTS public.restock_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  product_id TEXT NOT NULL,
+  product_name TEXT NOT NULL,
+  collection_name TEXT,
+  customer_name TEXT,
+  customer_phone TEXT NOT NULL,
+  language TEXT DEFAULT 'pt',
+  status TEXT DEFAULT 'Interesse Registado',
+  notes TEXT,
+  size TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS enable_pre_order BOOLEAN DEFAULT false;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS pre_order_price_aoa NUMERIC;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS pre_order_estimated_delivery TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS pre_order_custom_notice TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS coming_soon_badge BOOLEAN DEFAULT false;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS enable_request_restock BOOLEAN DEFAULT true;
+
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS site_logo_url TEXT;
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS logo_url TEXT;
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS brand_bio TEXT;
@@ -481,9 +611,42 @@ ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS instagram_handle TEXT;
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS copyright_text TEXT;
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS contact_email TEXT;
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS delivery_fee_aoa NUMERIC DEFAULT 5000;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS enable_pre_order_button BOOLEAN DEFAULT true;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS enable_request_restock_button BOOLEAN DEFAULT true;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS pre_order_button_text_pt TEXT DEFAULT 'PRE-ORDER';
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS pre_order_button_text_en TEXT DEFAULT 'PRE-ORDER';
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS request_restock_button_text_pt TEXT DEFAULT 'REQUEST RESTOCK';
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS request_restock_button_text_en TEXT DEFAULT 'REQUEST RESTOCK';
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_title_pt TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_title_en TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_description_pt TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_description_en TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_badge_text_pt TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_badge_text_en TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_name_label_pt TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_name_label_en TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_name_placeholder_pt TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_name_placeholder_en TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_phone_label_pt TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_phone_label_en TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_phone_placeholder_pt TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_phone_placeholder_en TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_submit_btn_pt TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_submit_btn_en TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_submitting_text_pt TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_submitting_text_en TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_success_title_pt TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_success_title_en TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_success_message_pt TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_success_message_en TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_error_message_pt TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_error_message_en TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_phone_required_error_pt TEXT;
+ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS restock_phone_required_error_en TEXT;
 
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.restock_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_dictionary ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
@@ -513,6 +676,12 @@ CREATE POLICY "Public Insert Orders" ON public.orders FOR INSERT WITH CHECK (tru
 CREATE POLICY "Public Read Orders" ON public.orders FOR SELECT USING (true);
 CREATE POLICY "Admin Update Orders" ON public.orders FOR UPDATE TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Admin Delete Orders" ON public.orders FOR DELETE TO authenticated USING (auth.role() = 'authenticated');
+
+-- Pedidos de Restock (Cápsula do Tempo): Inserção e Consulta públicas; Alteração e Eliminação por administradores
+CREATE POLICY "Public Insert Restock Requests" ON public.restock_requests FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public Read Restock Requests" ON public.restock_requests FOR SELECT USING (true);
+CREATE POLICY "Admin Update Restock Requests" ON public.restock_requests FOR UPDATE TO authenticated USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Admin Delete Restock Requests" ON public.restock_requests FOR DELETE TO authenticated USING (auth.role() = 'authenticated');
 
 -- 5. Garante a existência do bloco da Cápsula do Tempo
 INSERT INTO public.site_blocks (id, block_type, title, subtitle, content, is_active, order_index)

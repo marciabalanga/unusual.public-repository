@@ -13,12 +13,16 @@ import {
   AlertTriangle,
   ExternalLink,
   MessageSquare,
-  FileText
+  FileText,
+  Calendar,
+  Sparkles,
+  Truck
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { formatAOA, formatDate } from '../lib/format';
 import { Order, OrderStatus } from '../types';
 import { scrollToTop } from '../lib/scroll';
+import { ScheduleDeliveryModal } from './schedule-delivery-modal';
 
 export const TrackOrderView: React.FC = () => {
   const {
@@ -34,6 +38,7 @@ export const TrackOrderView: React.FC = () => {
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
   const handleSearch = async (codeToSearch?: string) => {
     const code = (codeToSearch || searchedCode).trim().toUpperCase();
@@ -63,9 +68,24 @@ export const TrackOrderView: React.FC = () => {
     }
   }, [trackingInput]);
 
+  const isPreOrder = Boolean(currentOrder?.is_pre_order || currentOrder?.order_type === 'pre_order');
+
   // Stage mapping helper
   const getStageState = (orderStatus: OrderStatus) => {
-    const map: Record<OrderStatus, number> = {
+    if (isPreOrder) {
+      const preOrderMap: Record<string, number> = {
+        'PRE-ORDER CONFIRMED': 1,
+        'PAYMENT VERIFIED': 2,
+        'IN PRODUCTION': 3,
+        'PRODUCTION COMPLETED / READY FOR DELIVERY': 4,
+        'DELIVERY SCHEDULED': 5,
+        'OUT FOR DELIVERY': 6,
+        'DELIVERED': 7,
+      };
+      return preOrderMap[orderStatus] || 1;
+    }
+
+    const map: Record<string, number> = {
       'Pendente de Verificação': 1,
       Pendente: 1,
       Aprovado: 1,
@@ -81,7 +101,7 @@ export const TrackOrderView: React.FC = () => {
 
   const activeStage = currentOrder ? getStageState(currentOrder.status) : 1;
 
-  const steps = [
+  const regularSteps = [
     {
       step: 1,
       title: 'Pedido Confirmado',
@@ -112,6 +132,64 @@ export const TrackOrderView: React.FC = () => {
       isAlert: false,
     },
   ];
+
+  const preOrderSteps = [
+    {
+      step: 1,
+      title: 'PRE-ORDER CONFIRMED',
+      subtitle: 'Pré-encomenda registada no atelier. A sua peça será produzida especificamente para esta reposição.',
+      icon: Clock,
+      isAlert: false,
+    },
+    {
+      step: 2,
+      title: 'PAYMENT VERIFIED',
+      subtitle: 'Pagamento/comprovativo validado. Vaga no lote de produção assegurada.',
+      icon: Check,
+      isAlert: false,
+    },
+    {
+      step: 3,
+      title: 'IN PRODUCTION',
+      subtitle: 'A produção da sua peça está em andamento no atelier.',
+      icon: Package,
+      isAlert: false,
+    },
+    {
+      step: 4,
+      title: 'PRODUCTION COMPLETED / READY FOR DELIVERY',
+      subtitle: 'A produção terminou e a sua peça está pronta para entrega. Escolha a sua data preferida.',
+      icon: Sparkles,
+      isAlert: true,
+      alertText: 'Peça pronta para entrega! Clique no botão abaixo para agendar a data de entrega.',
+    },
+    {
+      step: 5,
+      title: 'DELIVERY SCHEDULED',
+      subtitle: currentOrder?.scheduled_delivery_date
+        ? `Data de entrega agendada para ${currentOrder.scheduled_delivery_date}${currentOrder.delivery_window ? ` (${currentOrder.delivery_window})` : ''}.`
+        : 'Data de entrega agendada pelo cliente.',
+      icon: Calendar,
+      isAlert: false,
+    },
+    {
+      step: 6,
+      title: 'OUT FOR DELIVERY',
+      subtitle: 'A sua encomenda está a caminho. Mantenha o telefone por perto no dia agendado.',
+      icon: Truck,
+      isAlert: true,
+      alertText: t('out_for_delivery_notice', 'YOUR ORDER IS ON ITS WAY 🖤 Please stay available and keep your phone nearby. Your order will arrive shortly.'),
+    },
+    {
+      step: 7,
+      title: 'DELIVERED',
+      subtitle: 'Encomenda entregue em mãos com sucesso.',
+      icon: CheckCircle2,
+      isAlert: false,
+    },
+  ];
+
+  const steps = isPreOrder ? preOrderSteps : regularSteps;
 
   return (
     <div id="track-top" className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
@@ -276,18 +354,34 @@ export const TrackOrderView: React.FC = () => {
                             </div>
                           )}
 
-                          {/* Highlight Alert Box for Step 3 */}
+                          {/* Highlight Alert Box for Step */}
                           {st.isAlert && (isCurrent || isCompleted) && (
-                            <div className="mt-3 p-3.5 bg-[#1a1712] border border-amber-800/60 rounded-md flex items-start gap-2.5 max-w-lg">
-                              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                              <div className="text-xs font-sans">
-                                <strong className="text-amber-300 uppercase tracking-wider block">
-                                  {st.alertText}
-                                </strong>
-                                <span className="text-[#a5998a] text-[11px] mt-0.5 block">
-                                  O nosso serviço de estafeta efetuará o contacto telefónico antes da entrega no seu endereço.
-                                </span>
+                            <div className="mt-3 p-3.5 bg-[#1a1712] border border-amber-800/60 rounded-md flex flex-col gap-2.5 max-w-lg">
+                              <div className="flex items-start gap-2.5">
+                                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                                <div className="text-xs font-sans">
+                                  <strong className="text-amber-300 uppercase tracking-wider block">
+                                    {st.alertText}
+                                  </strong>
+                                  <span className="text-[#a5998a] text-[11px] mt-0.5 block">
+                                    {isPreOrder && st.step === 4
+                                      ? 'A sua peça foi finalizada com perfeição. Escolha a data de entrega mais conveniente para si.'
+                                      : 'O nosso serviço de estafeta efetuará o contacto telefónico antes da entrega no seu endereço.'}
+                                  </span>
+                                </div>
                               </div>
+
+                              {/* Button to Choose Delivery Date on Step 4 */}
+                              {isPreOrder && st.step === 4 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowScheduleModal(true)}
+                                  className="mt-1 w-full py-2.5 bg-white hover:bg-[#eaeaea] text-black font-sans font-bold text-xs uppercase tracking-[0.2em] rounded flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+                                >
+                                  <Calendar className="w-3.5 h-3.5 text-black" />
+                                  <span>{t('btn_choose_delivery_date', 'CHOOSE DELIVERY DATE')}</span>
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -408,6 +502,18 @@ export const TrackOrderView: React.FC = () => {
             </div>
           )}
         </>
+      )}
+
+      {/* SCHEDULE DELIVERY POP-UP / MODAL */}
+      {currentOrder && (
+        <ScheduleDeliveryModal
+          isOpen={showScheduleModal}
+          onClose={() => setShowScheduleModal(false)}
+          order={currentOrder}
+          onScheduledSuccess={() => {
+            handleSearch(currentOrder.tracking_code);
+          }}
+        />
       )}
     </div>
   );

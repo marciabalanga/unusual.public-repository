@@ -120,6 +120,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setIsSubmitting(true);
     setSubmittingStep('A validar comprovativo e a gerar código de rastreio...');
 
+    const isPreOrderCart = cart.some((i) => i.is_pre_order || i.product.enable_pre_order);
+
     try {
       // 1. Gera o código de rastreio automático no formato WU-XXXXXX
       const trackingCode = generateTrackingCode();
@@ -145,6 +147,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             quantity: item.quantity,
             price_aoa: item.product.price_aoa,
             image_url: item.product.images[0] || '',
+            is_pre_order: item.is_pre_order || item.product.enable_pre_order || false,
           }))
         : [
             {
@@ -155,12 +158,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               quantity: 1,
               price_aoa: cartTotal || 45000,
               image_url: '',
+              is_pre_order: false,
             },
           ];
 
       // 3. Salva o pedido na tabela 'orders' com o link do comprovativo e código de rastreio
       const newOrder = await createOrder({
         tracking_code: trackingCode,
+        order_type: isPreOrderCart ? 'pre_order' : 'regular',
+        is_pre_order: isPreOrderCart,
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim(),
         customer_city: customerCity.trim(),
@@ -185,6 +191,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       const fallbackOrder: Order = {
         id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `wu-${Date.now()}`,
         tracking_code: fallbackCode,
+        order_type: isPreOrderCart ? 'pre_order' : 'regular',
+        is_pre_order: isPreOrderCart,
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim(),
         customer_city: customerCity.trim(),
@@ -199,6 +207,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           quantity: item.quantity,
           price_aoa: item.product.price_aoa,
           image_url: item.product.images[0] || '',
+          is_pre_order: item.is_pre_order || item.product.enable_pre_order || false,
         })),
         total_aoa: cartTotal,
         payment_method: 'Multicaixa Express',

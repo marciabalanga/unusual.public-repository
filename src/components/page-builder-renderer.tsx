@@ -258,18 +258,29 @@ export const PageBuilderRenderer: React.FC = () => {
                         ) : (
                           <ShoppingBag className="w-12 h-12 text-[#333333]" />
                         )}
-                        {/* Dynamic Badge */}
-                        {product.badge && (
-                          <span
-                            className={`absolute top-3 left-3 text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase z-10 ${
-                              product.badge === 'ESGOTADO'
-                                ? 'bg-red-950 text-red-300 border border-red-800'
-                                : 'bg-white text-black'
-                            }`}
-                          >
-                            {product.badge}
-                          </span>
-                        )}
+                        {/* Dynamic Badge & Pre-Order Status Badge */}
+                        <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
+                          {product.enable_pre_order && settings.enable_pre_order_button !== false ? (
+                            <>
+                              <span className="text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase bg-amber-400 text-black shadow-lg">
+                                {t('badge_pre_order', 'PRE-ORDER')}
+                              </span>
+                              <span className="text-[8px] font-mono font-bold tracking-[0.18em] px-2 py-0.5 rounded uppercase bg-black/80 text-amber-300 border border-amber-500/40 backdrop-blur-sm">
+                                {t('badge_coming_back_soon', 'COMING BACK SOON')}
+                              </span>
+                            </>
+                          ) : product.badge ? (
+                            <span
+                              className={`text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase ${
+                                product.badge === 'ESGOTADO'
+                                  ? 'bg-red-950 text-red-300 border border-red-800'
+                                  : 'bg-white text-black'
+                              }`}
+                            >
+                              {product.badge}
+                            </span>
+                          ) : null}
+                        </div>
 
                         {/* Botão de Favoritos com Ícone de Coração em Destaque */}
                         <button
@@ -486,9 +497,20 @@ export const PageBuilderRenderer: React.FC = () => {
                           ) : (
                             <Archive className="w-10 h-10 text-[#333333]" />
                           )}
-                          <span className="absolute top-3 left-3 text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded bg-red-950/80 text-red-300 border border-red-800 uppercase">
-                            ARQUIVADO • ESGOTADO
-                          </span>
+                          {product.enable_pre_order && settings.enable_pre_order_button !== false ? (
+                            <span className="absolute top-3 left-3 text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded bg-amber-400 text-black uppercase shadow-lg">
+                              PRE-ORDER
+                            </span>
+                          ) : product.enable_request_restock !== false && settings.enable_request_restock_button !== false ? (
+                            <span className="absolute top-3 left-3 text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded bg-[#161616] text-amber-300 border border-amber-500/30 uppercase flex items-center gap-1.5 shadow-md">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                              REQUEST RESTOCK
+                            </span>
+                          ) : (
+                            <span className="absolute top-3 left-3 text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded bg-red-950/80 text-red-300 border border-red-800 uppercase">
+                              ARQUIVADO • ESGOTADO
+                            </span>
+                          )}
                         </div>
 
                         <div className="mt-4 flex items-center justify-between">

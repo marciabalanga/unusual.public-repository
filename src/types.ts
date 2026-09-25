@@ -35,7 +35,29 @@ export interface Product {
   order_index: number;
   created_at?: string;
   updated_at?: string;
+
+  // Pre-Order & Restock Engine
+  enable_pre_order?: boolean;
+  pre_order_price_aoa?: number;
+  pre_order_estimated_delivery?: string;
+  pre_order_start_date?: string;
+  pre_order_end_date?: string;
+  pre_order_max_quantity?: number;
+  pre_order_custom_notice?: string;
+  coming_soon_badge?: boolean;
+  enable_request_restock?: boolean;
 }
+
+export type OrderType = 'regular' | 'pre_order';
+
+export type PreOrderStatus =
+  | 'PRE-ORDER CONFIRMED'
+  | 'PAYMENT VERIFIED'
+  | 'IN PRODUCTION'
+  | 'PRODUCTION COMPLETED / READY FOR DELIVERY'
+  | 'DELIVERY SCHEDULED'
+  | 'OUT FOR DELIVERY'
+  | 'DELIVERED';
 
 export type OrderStatus =
   | 'Pendente de Verificação'
@@ -46,7 +68,8 @@ export type OrderStatus =
   | 'Em Produção/Trânsito'
   | 'Prestes a Chegar'
   | 'Entregue'
-  | 'Cancelado';
+  | 'Cancelado'
+  | PreOrderStatus;
 
 export interface OrderItem {
   product_id: string;
@@ -56,6 +79,8 @@ export interface OrderItem {
   quantity: number;
   price_aoa: number;
   image_url: string;
+  is_pre_order?: boolean;
+  estimated_delivery?: string;
 }
 
 export interface OrderTimelineEvent {
@@ -68,9 +93,25 @@ export interface OrderTimelineEvent {
   admin_note?: string;
 }
 
+export interface RestockRequest {
+  id: string;
+  product_id: string;
+  product_name: string;
+  collection_name?: string;
+  customer_name?: string;
+  customer_phone: string;
+  language?: string;
+  status?: string;
+  notes?: string;
+  size?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface Order {
   id: string;
   tracking_code: string; // e.g. WU-849201
+  order_type?: OrderType; // 'regular' vs 'pre_order'
   customer_name: string;
   customer_phone: string;
   customer_city: string;
@@ -86,6 +127,14 @@ export interface Order {
   status_timeline?: OrderTimelineEvent[];
   created_at: string;
   updated_at?: string;
+
+  // Pre-Order Tracking & Scheduling Fields
+  is_pre_order?: boolean;
+  estimated_delivery_text?: string;
+  scheduled_delivery_date?: string; // Data escolhida pelo cliente no calendário
+  available_delivery_dates?: string[]; // Datas autorizadas pela UNUSUAL para agendamento
+  delivery_window?: string; // Turno/Horário de entrega se aplicável
+  actual_delivered_at?: string;
 }
 
 export interface CartItem {
@@ -93,6 +142,8 @@ export interface CartItem {
   size: string;
   color: string;
   quantity: number;
+  is_pre_order?: boolean;
+  estimated_delivery?: string;
 }
 
 export type BlockType =
@@ -150,5 +201,42 @@ export interface SiteSettings {
   marquee_enabled: boolean;
   marquee_messages: string[];
   footer_categories: string[];
+
+  // Global Button Toggles & Autonomy
+  enable_pre_order_button?: boolean;
+  enable_request_restock_button?: boolean;
+  pre_order_button_text_pt?: string;
+  pre_order_button_text_en?: string;
+  request_restock_button_text_pt?: string;
+  request_restock_button_text_en?: string;
+
+  // Settings -> Request Restock Content (Cápsula do Tempo)
+  restock_title_pt?: string;
+  restock_title_en?: string;
+  restock_description_pt?: string;
+  restock_description_en?: string;
+  restock_badge_text_pt?: string;
+  restock_badge_text_en?: string;
+  restock_name_label_pt?: string;
+  restock_name_label_en?: string;
+  restock_name_placeholder_pt?: string;
+  restock_name_placeholder_en?: string;
+  restock_phone_label_pt?: string;
+  restock_phone_label_en?: string;
+  restock_phone_placeholder_pt?: string;
+  restock_phone_placeholder_en?: string;
+  restock_submit_btn_pt?: string;
+  restock_submit_btn_en?: string;
+  restock_submitting_text_pt?: string;
+  restock_submitting_text_en?: string;
+  restock_success_title_pt?: string;
+  restock_success_title_en?: string;
+  restock_success_message_pt?: string;
+  restock_success_message_en?: string;
+  restock_error_message_pt?: string;
+  restock_error_message_en?: string;
+  restock_phone_required_error_pt?: string;
+  restock_phone_required_error_en?: string;
+
   updated_at?: string;
 }

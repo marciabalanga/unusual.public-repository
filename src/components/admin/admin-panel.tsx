@@ -29,12 +29,18 @@ import {
   Truck,
   Download,
   MessageSquare,
-  LogOut
+  LogOut,
+  BellRing,
+  Users,
+  TrendingUp,
+  CheckCheck,
+  Send,
+  Archive
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatAOA, formatDate } from '../../lib/format';
-import { Product, Order, OrderStatus, SiteBlock, DictionaryEntry, SiteSettings, BlockType } from '../../types';
+import { Product, Order, OrderStatus, SiteBlock, DictionaryEntry, SiteSettings, BlockType, RestockRequest } from '../../types';
 import { SUPABASE_SCHEMA_SQL, SUPABASE_FIX_RLS_SQL } from '../../data/initialData';
 import { BlockEditorModal } from './block-editor-modal';
 import { MultiImageUploader } from './image-uploader';
@@ -63,6 +69,10 @@ export const AdminPanel: React.FC = () => {
     orders,
     updateOrderStatus,
     deleteOrder,
+    scheduleDeliveryDate,
+    restockRequests,
+    updateRestockStatus,
+    deleteRestockRequest,
     supabaseStatus,
     refreshSupabase,
     isSyncing,
@@ -83,6 +93,11 @@ export const AdminPanel: React.FC = () => {
   const [activeEngine, setActiveEngine] = useState<
     'orders' | 'catalog' | 'blocks' | 'dictionary' | 'brand' | 'settings' | 'supabase'
   >('orders');
+
+  // Sub-categories within Orders Engine (1. PRE-ORDERS | 2. ORDERS | 3. RESTOCK REQUESTS)
+  const [ordersCategory, setOrdersCategory] = useState<'pre_orders' | 'regular_orders' | 'restock_requests'>('pre_orders');
+  const [restockSearch, setRestockSearch] = useState('');
+  const [restockStatusFilter, setRestockStatusFilter] = useState<string>('all');
 
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
@@ -244,6 +259,21 @@ export const AdminPanel: React.FC = () => {
     showToast('Script de Reparo RLS copiado para a área de transferência!');
   };
 
+  const handleQuickActivatePreOrder = async (productId: string) => {
+    const prod = products.find((p) => p.id === productId);
+    if (!prod) {
+      showToast('Produto não encontrado no catálogo.');
+      return;
+    }
+    const updated: Product = {
+      ...prod,
+      enable_pre_order: true,
+      pre_order_estimated_delivery: prod.pre_order_estimated_delivery || '15–25 Outubro',
+    };
+    await saveProduct(updated);
+    showToast(`Pre-Order ATIVADO para "${prod.name}"! O botão [ PRE-ORDER ] já está visível na loja pública.`);
+  };
+
   return (
     <div className="min-h-screen bg-[#070707] text-[#e0e0e0] pb-24">
       {/* Toast Notification */}
@@ -333,7 +363,7 @@ export const AdminPanel: React.FC = () => {
             }`}
           >
             <PackageCheck className="w-4 h-4" />
-            <span>5. Vendas & Rastreio ({orders.length})</span>
+            <span>5. Encomendas & Produção ({orders.length})</span>
           </button>
 
           <button
@@ -471,44 +501,139 @@ export const AdminPanel: React.FC = () => {
         {/* ============================================================================== */}
         {activeEngine === 'orders' && (
           <div className="space-y-6">
+            {/* Header & Synchronization */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0d0d0d] p-4 rounded-lg border border-[#1f1f1f]">
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="font-display uppercase text-lg text-white tracking-wider">
-                    5. VENDAS & RASTREIO (TABELA SUPABASE)
+                    5. BASE DE DADOS: PEDIDOS & ESTUDO DE PROCURA
                   </h2>
                   <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800 font-mono">
-                    {orders.length} {orders.length === 1 ? 'Pedido' : 'Pedidos'}
+                    {orders.length + restockRequests.length} Registos Totais
                   </span>
                 </div>
                 <p className="text-xs text-[#777777] font-sans mt-0.5">
-                  Conexão direta com a tabela 'orders' do Supabase. Verifique comprovativos e atualize estados em tempo real.
+                  Organização rigorosa: 1. Pre-Orders (Prioritário) • 2. Orders (Vendas Regulares) • 3. Restock Requests (Interesse Cápsula do Tempo).
                 </p>
               </div>
 
-              {/* Actions & Filters */}
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={async () => {
                     await refreshSupabase();
-                    showToast('Vendas sincronizadas com o Supabase!');
+                    showToast('Base de dados sincronizada com o Supabase!');
                   }}
-                  className="px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#252525] border border-[#333333] text-white rounded text-xs font-sans flex items-center gap-1.5 transition-colors"
-                  title="Atualizar lista de encomendas da nuvem"
+                  className="px-3.5 py-2 bg-[#1a1a1a] hover:bg-[#252525] border border-[#333333] text-white rounded text-xs font-sans flex items-center gap-1.5 transition-colors"
+                  title="Atualizar lista de encomendas e pedidos de restock da nuvem"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-[#aaaaaa]" />
                   <span>Sincronizar Supabase</span>
                 </button>
+              </div>
+            </div>
 
-                <div className="relative">
+            {/* 3 CATEGORIAS OBRIGATÓRIAS (ORDEM ESTRITA): 1. PRE-ORDERS | 2. ORDERS | 3. RESTOCK REQUESTS */}
+            {(() => {
+              const preOrdersCount = orders.filter(
+                (o) => o.order_type === 'pre_order' || o.is_pre_order || (o.items && o.items.some((i) => i.is_pre_order))
+              ).length;
+              const regularOrdersCount = orders.filter(
+                (o) => !o.is_pre_order && o.order_type !== 'pre_order' && (!o.items || !o.items.some((i) => i.is_pre_order))
+              ).length;
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-sans">
+                  {/* 1. PRE-ORDERS */}
+                  <button
+                    type="button"
+                    onClick={() => setOrdersCategory('pre_orders')}
+                    className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative overflow-hidden ${
+                      ordersCategory === 'pre_orders'
+                        ? 'bg-amber-500/10 border-amber-400 text-white shadow-xl ring-1 ring-amber-400/50'
+                        : 'bg-[#0e0e0e] border-[#222222] text-[#888888] hover:text-white hover:border-[#333333]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-mono tracking-widest uppercase px-2 py-0.5 rounded bg-amber-400 text-black font-bold">
+                        PRIORIDADE 1
+                      </span>
+                      <Clock className={`w-4 h-4 ${ordersCategory === 'pre_orders' ? 'text-amber-400' : 'text-[#666666]'}`} />
+                    </div>
+                    <div className="font-display uppercase text-sm sm:text-base font-bold text-white tracking-wider">
+                      1. PRE-ORDERS
+                    </div>
+                    <div className="text-xs text-[#888888] mt-1 leading-snug">
+                      {preOrdersCount} {preOrdersCount === 1 ? 'encomenda real' : 'encomendas reais'} (produção confirmada)
+                    </div>
+                  </button>
+
+                  {/* 2. ORDERS */}
+                  <button
+                    type="button"
+                    onClick={() => setOrdersCategory('regular_orders')}
+                    className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative overflow-hidden ${
+                      ordersCategory === 'regular_orders'
+                        ? 'bg-white/10 border-white text-white shadow-xl ring-1 ring-white/50'
+                        : 'bg-[#0e0e0e] border-[#222222] text-[#888888] hover:text-white hover:border-[#333333]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-mono tracking-widest uppercase px-2 py-0.5 rounded bg-[#222222] text-[#cccccc] font-bold">
+                        VENDAS LOJA
+                      </span>
+                      <PackageCheck className={`w-4 h-4 ${ordersCategory === 'regular_orders' ? 'text-white' : 'text-[#666666]'}`} />
+                    </div>
+                    <div className="font-display uppercase text-sm sm:text-base font-bold text-white tracking-wider">
+                      2. ORDERS
+                    </div>
+                    <div className="text-xs text-[#888888] mt-1 leading-snug">
+                      {regularOrdersCount} {regularOrdersCount === 1 ? 'pedido regular' : 'pedidos regulares'} (stock normal)
+                    </div>
+                  </button>
+
+                  {/* 3. RESTOCK REQUESTS */}
+                  <button
+                    type="button"
+                    onClick={() => setOrdersCategory('restock_requests')}
+                    className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative overflow-hidden ${
+                      ordersCategory === 'restock_requests'
+                        ? 'bg-amber-400/10 border-amber-300 text-white shadow-xl ring-1 ring-amber-300/50'
+                        : 'bg-[#0e0e0e] border-[#222222] text-[#888888] hover:text-white hover:border-[#333333]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-mono tracking-widest uppercase px-2 py-0.5 rounded bg-[#1e1e1e] text-amber-300 border border-amber-500/30 font-bold">
+                        CÁPSULA DO TEMPO
+                      </span>
+                      <BellRing className={`w-4 h-4 ${ordersCategory === 'restock_requests' ? 'text-amber-300' : 'text-[#666666]'}`} />
+                    </div>
+                    <div className="font-display uppercase text-sm sm:text-base font-bold text-white tracking-wider">
+                      3. RESTOCK REQUESTS
+                    </div>
+                    <div className="text-xs text-[#888888] mt-1 leading-snug">
+                      {restockRequests.length} {restockRequests.length === 1 ? 'manifestação' : 'manifestações'} de interesse
+                    </div>
+                  </button>
+                </div>
+              );
+            })()}
+
+            {/* Actions & Filters for Orders (Pre-Orders or Regular Orders) */}
+            {ordersCategory !== 'restock_requests' && (
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0d0d0d] p-3 rounded-lg border border-[#1f1f1f]">
+                <div className="relative flex-1 min-w-[220px]">
                   <Search className="w-3.5 h-3.5 text-[#666666] absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="Filtrar por código ou cliente..."
+                    placeholder={
+                      ordersCategory === 'pre_orders'
+                        ? 'Pesquisar pre-orders por código, cliente ou telefone...'
+                        : 'Pesquisar pedidos regulares por código, cliente ou telefone...'
+                    }
                     value={orderSearch}
                     onChange={(e) => setOrderSearch(e.target.value)}
-                    className="pl-8 pr-3 py-1.5 bg-[#141414] border border-[#262626] rounded text-xs text-white placeholder-[#555555] font-sans"
+                    className="pl-8 pr-3 py-1.5 bg-[#141414] border border-[#262626] rounded text-xs text-white placeholder-[#555555] font-sans w-full"
                   />
                 </div>
 
@@ -525,32 +650,467 @@ export const AdminPanel: React.FC = () => {
                   <option value="Cancelado">Cancelado</option>
                 </select>
               </div>
-            </div>
+            )}
 
-            {/* Orders Management: Mobile Cards (block md:hidden) & Desktop Table (hidden md:block) */}
-            {(() => {
-              const filteredOrders = orders.filter((o) => {
-                const matchQ =
-                  !orderSearch ||
-                  o.tracking_code.toLowerCase().includes(orderSearch.toLowerCase()) ||
-                  o.customer_name.toLowerCase().includes(orderSearch.toLowerCase()) ||
-                  o.customer_phone.toLowerCase().includes(orderSearch.toLowerCase()) ||
-                  (o.customer_city && o.customer_city.toLowerCase().includes(orderSearch.toLowerCase()));
-                const normalizedStatus =
-                  o.status === 'Pedido Confirmado' || o.status === 'Pendente de Verificação'
-                    ? 'Pendente'
-                    : o.status === 'Em Produção/Trânsito'
-                    ? 'Em Trânsito'
-                    : o.status;
-                const matchS =
-                  orderStatusFilter === 'all' ||
-                  o.status === orderStatusFilter ||
-                  normalizedStatus === orderStatusFilter;
-                return matchQ && matchS;
-              });
+            {/* Orders Management: 1. PRE-ORDERS | 2. ORDERS | 3. RESTOCK REQUESTS */}
+            {ordersCategory === 'restock_requests' ? (
+              <div className="space-y-6 font-sans">
+                {/* Banner Cápsula do Tempo */}
+                <div className="p-4 bg-amber-400/5 border border-amber-400/20 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-3">
+                    <BellRing className="w-5 h-5 text-amber-400 shrink-0" />
+                    <div>
+                      <span className="text-white font-bold block uppercase tracking-wider text-xs">
+                        3. RESTOCK REQUESTS — MEDIÇÃO DE PROCURA (CÁPSULA DO TEMPO)
+                      </span>
+                      <p className="text-[#999999] text-[11px] mt-0.5 leading-relaxed">
+                        Manifestações de interesse de clientes em peças arquivadas da Cápsula do Tempo. NÃO são compras nem reservas (sem recolha de tamanhos nem de pagamento). O objetivo é estudar a procura antes de decidir produzir novamente. Se decidir produzir, ative o botão Pre-Order no produto correspondente.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono text-amber-300 bg-amber-950/80 px-2.5 py-1 rounded border border-amber-800/80 shrink-0">
+                    {restockRequests.length} Interessados
+                  </span>
+                </div>
 
-              return (
-                <div className="space-y-4">
+                {/* Resumo de Procura por Peça / Coleção (Estudo de Mercado) */}
+                {(() => {
+                  const demandByProduct = restockRequests.reduce((acc, req) => {
+                    const key = req.product_id || req.product_name;
+                    if (!acc[key]) {
+                      acc[key] = {
+                        product_id: req.product_id,
+                        product_name: req.product_name,
+                        collection_name: req.collection_name || 'Cápsula do Tempo',
+                        count: 0,
+                        requests: [] as RestockRequest[],
+                      };
+                    }
+                    acc[key].count += 1;
+                    acc[key].requests.push(req);
+                    return acc;
+                  }, {} as Record<string, { product_id: string; product_name: string; collection_name: string; count: number; requests: RestockRequest[] }>);
+
+                  const sortedDemand = Object.values(demandByProduct).sort((a, b) => b.count - a.count);
+
+                  return (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xs uppercase font-display tracking-wider text-white flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-amber-400" />
+                          <span>Estudo de Procura por Peça ({sortedDemand.length} Peças com Interesse Mapeado)</span>
+                        </h3>
+                        <span className="text-[10px] text-[#777777]">
+                          Utilize estes dados para decidir quando abrir Pre-Order
+                        </span>
+                      </div>
+
+                      {sortedDemand.length === 0 ? (
+                        <div className="p-8 text-center text-xs text-[#777777] bg-[#0e0e0e] border border-[#1c1c1c] rounded-lg">
+                          Nenhuma manifestação de interesse registada até ao momento na Cápsula do Tempo.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {sortedDemand.map((item) => {
+                            const matchedProduct = products.find(
+                              (p) => p.id === item.product_id || p.name.toLowerCase() === item.product_name.toLowerCase()
+                            );
+
+                            return (
+                              <div
+                                key={item.product_id || item.product_name}
+                                className="p-4 bg-[#0e0e0e] border border-[#222222] rounded-xl space-y-3 shadow-lg"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="w-12 h-14 bg-[#141414] rounded overflow-hidden shrink-0 border border-[#262626] flex items-center justify-center">
+                                    {matchedProduct && matchedProduct.images && matchedProduct.images[0] ? (
+                                      <img
+                                        src={matchedProduct.images[0]}
+                                        alt={item.product_name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <Archive className="w-5 h-5 text-[#555555]" />
+                                    )}
+                                  </div>
+
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-[9px] font-mono uppercase tracking-wider text-[#666666] block truncate">
+                                      {item.collection_name}
+                                    </span>
+                                    <h4 className="font-display uppercase text-sm text-white font-bold tracking-wider truncate mt-0.5">
+                                      {item.product_name}
+                                    </h4>
+                                    <div className="mt-1 flex items-center gap-1.5">
+                                      <span className="text-amber-400 font-mono font-bold text-xs">
+                                        {item.count} {item.count === 1 ? 'pessoa interessada' : 'pessoas demonstraram interesse'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="pt-2 border-t border-[#1c1c1c] flex items-center justify-between gap-2">
+                                  {matchedProduct && matchedProduct.enable_pre_order ? (
+                                    <span className="text-[10px] font-mono font-bold text-emerald-300 bg-emerald-950/60 border border-emerald-800/80 px-2.5 py-1 rounded">
+                                      PRE-ORDER JÁ ATIVO
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (matchedProduct) {
+                                          handleQuickActivatePreOrder(matchedProduct.id);
+                                        } else {
+                                          showToast('Peça não encontrada no catálogo para ativar pre-order.');
+                                        }
+                                      }}
+                                      className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-bold uppercase rounded text-[10px] tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer shadow"
+                                    >
+                                      <Clock className="w-3 h-3 text-black" />
+                                      <span>Ativar Pre-Order</span>
+                                    </button>
+                                  )}
+
+                                  {matchedProduct && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingProduct(matchedProduct)}
+                                      className="text-[10px] text-[#888888] hover:text-white underline font-mono cursor-pointer"
+                                    >
+                                      Editar Ficha
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Filtros para Registos de Restock */}
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-[#0d0d0d] p-3 rounded-lg border border-[#1f1f1f]">
+                  <div className="relative flex-1 min-w-[220px]">
+                    <Search className="w-3.5 h-3.5 text-[#666666] absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Pesquisar por nome, telefone, peça ou coleção..."
+                      value={restockSearch}
+                      onChange={(e) => setRestockSearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 bg-[#141414] border border-[#262626] rounded text-xs text-white placeholder-[#555555] font-sans"
+                    />
+                  </div>
+
+                  <select
+                    value={restockStatusFilter}
+                    onChange={(e) => setRestockStatusFilter(e.target.value)}
+                    className="px-3 py-1.5 bg-[#141414] border border-[#262626] rounded text-xs text-white font-sans"
+                  >
+                    <option value="all">Todos os Estados</option>
+                    <option value="Interesse Registado">Interesse Registado</option>
+                    <option value="Pendente de Avaliação">Pendente de Avaliação</option>
+                    <option value="Aprovado para Produção">Aprovado para Produção</option>
+                    <option value="Contactado">Contactado via WhatsApp</option>
+                    <option value="Arquivado">Arquivado</option>
+                  </select>
+                </div>
+
+                {/* Tabela e Cards Móveis de Restock */}
+                {(() => {
+                  const filteredRestock = restockRequests.filter((r) => {
+                    const matchQ =
+                      !restockSearch ||
+                      (r.customer_name && r.customer_name.toLowerCase().includes(restockSearch.toLowerCase())) ||
+                      r.customer_phone.toLowerCase().includes(restockSearch.toLowerCase()) ||
+                      r.product_name.toLowerCase().includes(restockSearch.toLowerCase()) ||
+                      (r.collection_name && r.collection_name.toLowerCase().includes(restockSearch.toLowerCase()));
+                    const matchS = restockStatusFilter === 'all' || r.status === restockStatusFilter;
+                    return matchQ && matchS;
+                  });
+
+                  return (
+                    <div className="space-y-4">
+                      {/* Mobile Cards */}
+                      <div className="block md:hidden space-y-3">
+                        {filteredRestock.length === 0 ? (
+                          <div className="p-8 text-center text-xs text-[#777777] bg-[#0e0e0e] border border-[#1c1c1c] rounded-lg">
+                            Nenhum pedido de restock encontrado.
+                          </div>
+                        ) : (
+                          filteredRestock.map((req) => {
+                            const cleanPhone = req.customer_phone.replace(/\D/g, '');
+                            const msg = encodeURIComponent(
+                              `Olá ${req.customer_name || ''}! Estamos a entrar em contacto da Wearing Unusual sobre o teu interesse na reposição da peça "${req.product_name}". Já estamos a planear a reabertura de produção!`
+                            );
+
+                            return (
+                              <div
+                                key={req.id}
+                                className="p-4 bg-[#0e0e0e] border border-[#222222] rounded-lg space-y-3"
+                              >
+                                <div className="flex items-start justify-between gap-2 pb-2 border-b border-[#1c1c1c]">
+                                  <div>
+                                    <span className="text-[10px] text-[#666666] uppercase block font-mono">
+                                      {req.collection_name || 'Cápsula do Tempo'}
+                                    </span>
+                                    <span className="font-display uppercase text-sm font-bold text-white block mt-0.5">
+                                      {req.product_name}
+                                    </span>
+                                    <span className="text-[10px] text-[#777777] block mt-0.5">
+                                      {formatDate(req.created_at)} • {req.language ? req.language.toUpperCase() : 'PT'}
+                                    </span>
+                                  </div>
+
+                                  <select
+                                    value={req.status || 'Interesse Registado'}
+                                    onChange={async (e) => {
+                                      await updateRestockStatus(req.id, e.target.value);
+                                      showToast('Estado atualizado!');
+                                    }}
+                                    className="text-[10px] px-2 py-1 bg-[#161616] border border-[#2c2c2c] text-amber-300 rounded font-sans"
+                                  >
+                                    <option value="Interesse Registado">Interesse Registado</option>
+                                    <option value="Pendente de Avaliação">Pendente de Avaliação</option>
+                                    <option value="Aprovado para Produção">Aprovado para Produção</option>
+                                    <option value="Contactado">Contactado</option>
+                                    <option value="Arquivado">Arquivado</option>
+                                  </select>
+                                </div>
+
+                                <div className="space-y-1 text-xs">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-[#888888] uppercase text-[10px]">Cliente:</span>
+                                    <span className="text-white font-medium">{req.customer_name || 'Anónimo'}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-[#888888] uppercase text-[10px]">WhatsApp:</span>
+                                    <a
+                                      href={`https://wa.me/${cleanPhone}?text=${msg}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-emerald-400 hover:underline font-mono inline-flex items-center gap-1"
+                                    >
+                                      <Phone className="w-3 h-3" />
+                                      <span>{req.customer_phone}</span>
+                                    </a>
+                                  </div>
+                                </div>
+
+                                <div className="pt-2 border-t border-[#1c1c1c] flex items-center justify-between gap-2">
+                                  <a
+                                    href={`https://wa.me/${cleanPhone}?text=${msg}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex-1 py-1.5 bg-[#181818] hover:bg-emerald-950 text-emerald-400 border border-emerald-900/60 rounded text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors"
+                                  >
+                                    <MessageSquare className="w-3.5 h-3.5" />
+                                    <span>WhatsApp</span>
+                                  </a>
+
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (window.confirm('Eliminar esta manifestação de interesse?')) {
+                                        await deleteRestockRequest(req.id);
+                                        showToast('Registo eliminado!');
+                                      }
+                                    }}
+                                    className="p-1.5 text-[#666666] hover:text-red-400 rounded bg-[#141414] border border-[#222222]"
+                                    title="Eliminar"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {/* Desktop Table */}
+                      <div className="hidden md:block bg-[#0e0e0e] border border-[#1c1c1c] rounded-lg overflow-hidden shadow-xl">
+                        <table className="w-full text-left font-sans text-xs">
+                          <thead className="bg-[#141414] text-[#888888] uppercase text-[10px] tracking-wider border-b border-[#222222]">
+                            <tr>
+                              <th className="py-3.5 px-4">DATA & IDIOMA</th>
+                              <th className="py-3.5 px-4">CLIENTE & WHATSAPP</th>
+                              <th className="py-3.5 px-4">PEÇA ARQUIVADA & COLEÇÃO</th>
+                              <th className="py-3.5 px-4">ESTADO</th>
+                              <th className="py-3.5 px-4 text-right">AÇÕES</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#181818]">
+                            {filteredRestock.length === 0 ? (
+                              <tr>
+                                <td colSpan={5} className="py-8 text-center text-xs text-[#777777]">
+                                  Nenhum pedido de restock registado com estes filtros.
+                                </td>
+                              </tr>
+                            ) : (
+                              filteredRestock.map((req) => {
+                                const cleanPhone = req.customer_phone.replace(/\D/g, '');
+                                const msg = encodeURIComponent(
+                                  `Olá ${req.customer_name || ''}! Estamos a entrar em contacto da Wearing Unusual sobre o teu interesse na reposição da peça "${req.product_name}". Já estamos a planear a reabertura de produção!`
+                                );
+
+                                return (
+                                  <tr key={req.id} className="hover:bg-[#141414] transition-colors">
+                                    <td className="py-4 px-4 align-top">
+                                      <span className="text-white block font-mono text-xs">
+                                        {formatDate(req.created_at)}
+                                      </span>
+                                      <span className="text-[10px] text-[#777777] block mt-0.5 font-mono">
+                                        Idioma: {req.language ? req.language.toUpperCase() : 'PT'}
+                                      </span>
+                                    </td>
+
+                                    <td className="py-4 px-4 align-top">
+                                      <span className="text-white font-semibold block text-xs">
+                                        {req.customer_name || 'Anónimo / Não informado'}
+                                      </span>
+                                      <a
+                                        href={`https://wa.me/${cleanPhone}?text=${msg}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-emerald-400 hover:underline text-[11px] inline-flex items-center gap-1 font-mono mt-0.5"
+                                        title="Abrir WhatsApp com mensagem automática"
+                                      >
+                                        <Phone className="w-3 h-3" />
+                                        <span>{req.customer_phone}</span>
+                                      </a>
+                                    </td>
+
+                                    <td className="py-4 px-4 align-top">
+                                      <span className="text-[10px] text-[#777777] uppercase block font-mono">
+                                        {req.collection_name || 'Cápsula do Tempo'}
+                                      </span>
+                                      <span className="text-white font-display uppercase tracking-wider block font-bold text-xs mt-0.5">
+                                        {req.product_name}
+                                      </span>
+                                    </td>
+
+                                    <td className="py-4 px-4 align-top">
+                                      <select
+                                        value={req.status || 'Interesse Registado'}
+                                        onChange={async (e) => {
+                                          await updateRestockStatus(req.id, e.target.value);
+                                          showToast('Estado do pedido de reposição atualizado!');
+                                        }}
+                                        className="px-2.5 py-1.5 bg-[#161616] hover:bg-[#202020] border border-[#2e2e2e] rounded text-xs font-semibold text-amber-300 cursor-pointer focus:outline-none"
+                                      >
+                                        <option value="Interesse Registado">Interesse Registado</option>
+                                        <option value="Pendente de Avaliação">Pendente de Avaliação</option>
+                                        <option value="Aprovado para Produção">Aprovado para Produção</option>
+                                        <option value="Contactado">Contactado</option>
+                                        <option value="Arquivado">Arquivado</option>
+                                      </select>
+                                    </td>
+
+                                    <td className="py-4 px-4 align-top text-right">
+                                      <div className="flex items-center justify-end gap-2">
+                                        <a
+                                          href={`https://wa.me/${cleanPhone}?text=${msg}`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="px-3 py-1.5 bg-[#1c1c1c] hover:bg-emerald-950 text-emerald-400 border border-emerald-900/60 rounded text-[11px] font-bold uppercase tracking-wider inline-flex items-center gap-1.5 transition-colors"
+                                          title="Contactar no WhatsApp"
+                                        >
+                                          <MessageSquare className="w-3.5 h-3.5" />
+                                          <span>WhatsApp</span>
+                                        </a>
+
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            if (window.confirm(`Eliminar pedido de interesse de "${req.customer_name || req.customer_phone}"?`)) {
+                                              await deleteRestockRequest(req.id);
+                                              showToast('Registo de interesse eliminado!');
+                                            }
+                                          }}
+                                          className="p-1.5 bg-[#1a1414] hover:bg-red-900/80 border border-red-900/40 text-red-400 hover:text-white rounded transition-colors"
+                                          title="Eliminar registo"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : (
+              (() => {
+                const targetOrders = ordersCategory === 'pre_orders'
+                  ? orders.filter((o) => o.order_type === 'pre_order' || o.is_pre_order || (o.items && o.items.some((i) => i.is_pre_order)))
+                  : orders.filter((o) => !o.is_pre_order && o.order_type !== 'pre_order' && (!o.items || !o.items.some((i) => i.is_pre_order)));
+
+                const filteredOrders = targetOrders.filter((o) => {
+                  const matchQ =
+                    !orderSearch ||
+                    o.tracking_code.toLowerCase().includes(orderSearch.toLowerCase()) ||
+                    o.customer_name.toLowerCase().includes(orderSearch.toLowerCase()) ||
+                    o.customer_phone.toLowerCase().includes(orderSearch.toLowerCase()) ||
+                    (o.customer_city && o.customer_city.toLowerCase().includes(orderSearch.toLowerCase()));
+                  const normalizedStatus =
+                    o.status === 'Pedido Confirmado' || o.status === 'Pendente de Verificação'
+                      ? 'Pendente'
+                      : o.status === 'Em Produção/Trânsito'
+                      ? 'Em Trânsito'
+                      : o.status;
+                  const matchS =
+                    orderStatusFilter === 'all' ||
+                    o.status === orderStatusFilter ||
+                    normalizedStatus === orderStatusFilter;
+                  return matchQ && matchS;
+                });
+
+                return (
+                  <div className="space-y-4">
+                    {/* Category Informational Banner */}
+                    {ordersCategory === 'pre_orders' ? (
+                      <div className="p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-sans">
+                        <div className="flex items-center gap-2.5">
+                          <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                          <div>
+                            <span className="font-bold text-amber-300 uppercase tracking-wider block">
+                              1. PRE-ORDERS — ENCOMENDAS REAIS (PRODUÇÃO CONFIRMADA)
+                            </span>
+                            <span className="text-[#999999] text-[11px]">
+                              Peças que o administrador decidiu produzir. Encomendas reais com pagamento Multicaixa Express e prioridade de despacho.
+                            </span>
+                          </div>
+                        </div>
+                        <span className="font-mono text-amber-300 text-xs font-bold px-2 py-0.5 rounded bg-black/60 border border-amber-500/30 shrink-0">
+                          {filteredOrders.length} {filteredOrders.length === 1 ? 'Encomenda' : 'Encomendas'}
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="p-3.5 bg-[#141414] border border-[#262626] rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-sans">
+                        <div className="flex items-center gap-2.5">
+                          <PackageCheck className="w-4 h-4 text-white shrink-0" />
+                          <div>
+                            <span className="font-bold text-white uppercase tracking-wider block">
+                              2. ORDERS — VENDAS REGULARES DA LOJA
+                            </span>
+                            <span className="text-[#888888] text-[11px]">
+                              Pedidos normais de peças disponíveis em stock da loja pública.
+                            </span>
+                          </div>
+                        </div>
+                        <span className="font-mono text-white text-xs font-bold px-2 py-0.5 rounded bg-[#1e1e1e] border border-[#333333] shrink-0">
+                          {filteredOrders.length} {filteredOrders.length === 1 ? 'Pedido' : 'Pedidos'}
+                        </span>
+                      </div>
+                    )}
                   {/* MOBILE CARDS VIEW */}
                   <div className="block md:hidden space-y-3 font-sans">
                     {filteredOrders.length === 0 ? (
@@ -574,6 +1134,11 @@ export const AdminPanel: React.FC = () => {
                             {/* Card Header: Tracking Code + Status + Date */}
                             <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-[#1c1c1c]">
                               <div>
+                                {(order.order_type === 'pre_order' || order.is_pre_order || (order.items && order.items.some((i) => i.is_pre_order))) && (
+                                  <span className="text-[9px] font-sans font-bold px-1.5 py-0.5 rounded bg-amber-400 text-black uppercase tracking-wider inline-block mb-1">
+                                    PRE-ORDER
+                                  </span>
+                                )}
                                 <span className="text-[10px] text-[#666666] uppercase tracking-wider block">
                                   CÓDIGO DE RASTREIO
                                 </span>
@@ -757,6 +1322,11 @@ export const AdminPanel: React.FC = () => {
                                 >
                                   {/* Código de Rastreio e Data/Hora */}
                                   <td className="py-4 px-4 align-top">
+                                    {(order.order_type === 'pre_order' || order.is_pre_order || (order.items && order.items.some((i) => i.is_pre_order))) && (
+                                      <span className="text-[9px] font-sans font-bold px-1.5 py-0.5 rounded bg-amber-400 text-black uppercase tracking-wider inline-block mb-1">
+                                        PRE-ORDER
+                                      </span>
+                                    )}
                                     <span className="font-mono font-bold text-white text-sm tracking-wider block">
                                       {order.tracking_code}
                                     </span>
@@ -901,7 +1471,7 @@ export const AdminPanel: React.FC = () => {
                   </div>
                 </div>
               );
-            })()}
+            })())}
 
             {/* Order Inspection Modal */}
             {selectedOrder && (
@@ -1404,6 +1974,54 @@ export const AdminPanel: React.FC = () => {
                         {product.is_visible ? 'Visível na Loja' : 'Oculto'}
                       </button>
                     </div>
+
+                    {/* Pre-Order Quick Toggle */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#777777] text-[11px] flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-amber-400" />
+                        <span>Pre-Order:</span>
+                      </span>
+                      <button
+                        onClick={async () => {
+                          const nextState = !product.enable_pre_order;
+                          const updated = { ...product, enable_pre_order: nextState };
+                          await saveProduct(updated);
+                          showToast(`Pre-Order ${nextState ? 'ATIVADO' : 'DESATIVADO'} para "${product.name}"`);
+                        }}
+                        className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
+                          product.enable_pre_order
+                            ? 'bg-amber-400 text-black font-bold'
+                            : 'bg-[#1a1a1a] text-[#777777] hover:text-white border border-[#262626]'
+                        }`}
+                      >
+                        {product.enable_pre_order ? 'Pre-Order ON' : 'Pre-Order OFF'}
+                      </button>
+                    </div>
+
+                    {/* Request Restock Quick Toggle */}
+                    {product.lifecycle === 'time_capsule' && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[#777777] text-[11px] flex items-center gap-1">
+                          <BellRing className="w-3 h-3 text-amber-300" />
+                          <span>Restock:</span>
+                        </span>
+                        <button
+                          onClick={async () => {
+                            const nextState = product.enable_request_restock === false ? true : false;
+                            const updated = { ...product, enable_request_restock: nextState };
+                            await saveProduct(updated);
+                            showToast(`Request Restock ${nextState ? 'ATIVADO' : 'DESATIVADO'} para "${product.name}"`);
+                          }}
+                          className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
+                            product.enable_request_restock !== false
+                              ? 'bg-white text-black font-bold'
+                              : 'bg-[#1a1a1a] text-[#777777] hover:text-white border border-[#262626]'
+                          }`}
+                        >
+                          {product.enable_request_restock !== false ? 'Restock ON' : 'Restock OFF'}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Action buttons */}
@@ -1657,6 +2275,171 @@ export const AdminPanel: React.FC = () => {
                             {s.size} {s.in_stock ? '(Em Stock)' : '(Esgotado)'}
                           </button>
                         ))}
+                      </div>
+                    </div>
+
+                    {/* CONTROLOS EDITORIAIS: PRE-ORDER & REQUEST RESTOCK */}
+                    <div className="sm:col-span-2 space-y-4 pt-4 border-t border-[#1c1c1c] bg-[#0f0f0f] p-4 rounded-lg border border-[#222222]">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="block uppercase text-white text-xs tracking-wider font-bold flex items-center gap-2">
+                            <Sliders className="w-4 h-4 text-amber-400" />
+                            <span>CONTROLOS EDITORIAIS DE BOTÕES (PRE-ORDER & RESTOCK)</span>
+                          </span>
+                          <span className="text-[11px] text-[#777777] block mt-0.5">
+                            Controlo total independente do administrador sobre os botões de pré-encomenda e reposição.
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                        {/* 1. ENABLE PRE-ORDER BUTTON */}
+                        <div className={`p-3.5 rounded-lg border transition-all ${
+                          editingProduct.enable_pre_order
+                            ? 'bg-amber-500/10 border-amber-400/60'
+                            : 'bg-[#141414] border-[#262626]'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Clock className={`w-4 h-4 ${editingProduct.enable_pre_order ? 'text-amber-400' : 'text-[#666666]'}`} />
+                              <div>
+                                <span className="text-white text-xs font-bold uppercase tracking-wider block">
+                                  ENABLE PRE-ORDER BUTTON
+                                </span>
+                                <span className="text-[10px] text-[#888888] block">
+                                  {editingProduct.enable_pre_order ? 'ATIVO NO FRONTEND' : 'DESLIGADO'}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingProduct({
+                                  ...editingProduct,
+                                  enable_pre_order: !editingProduct.enable_pre_order,
+                                });
+                              }}
+                              className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-wider transition-colors ${
+                                editingProduct.enable_pre_order
+                                  ? 'bg-amber-400 text-black shadow-md'
+                                  : 'bg-[#1f1f1f] text-[#777777] hover:text-white border border-[#2e2e2e]'
+                              }`}
+                            >
+                              {editingProduct.enable_pre_order ? 'ON' : 'OFF'}
+                            </button>
+                          </div>
+
+                          <p className="text-[11px] text-[#888888] mt-2 leading-relaxed">
+                            Quando ON, a peça mostra o botão <strong className="text-white">[ PRE-ORDER ]</strong> na loja pública e abre o fluxo completo de encomenda real com pagamento.
+                          </p>
+
+                          {editingProduct.enable_pre_order && (
+                            <div className="space-y-2.5 mt-3 pt-3 border-t border-amber-500/20">
+                              <div>
+                                <label className="block text-[10px] uppercase tracking-wider text-amber-300/80 mb-1 font-mono">
+                                  Previsão de Entrega
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editingProduct.pre_order_estimated_delivery || ''}
+                                  onChange={(e) =>
+                                    setEditingProduct({
+                                      ...editingProduct,
+                                      pre_order_estimated_delivery: e.target.value,
+                                    })
+                                  }
+                                  placeholder="ex: 15–25 Outubro"
+                                  className="w-full px-2.5 py-1.5 bg-[#0a0a0a] border border-amber-500/30 rounded text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[10px] uppercase tracking-wider text-amber-300/80 mb-1 font-mono">
+                                  Aviso Personalizado de Produção (Opcional)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editingProduct.pre_order_custom_notice || ''}
+                                  onChange={(e) =>
+                                    setEditingProduct({
+                                      ...editingProduct,
+                                      pre_order_custom_notice: e.target.value,
+                                    })
+                                  }
+                                  placeholder="ex: Peça produzida sob encomenda no atelier"
+                                  className="w-full px-2.5 py-1.5 bg-[#0a0a0a] border border-amber-500/30 rounded text-white text-xs font-sans focus:border-amber-400 focus:outline-none"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 2. ENABLE REQUEST RESTOCK BUTTON */}
+                        <div className={`p-3.5 rounded-lg border transition-all ${
+                          editingProduct.enable_request_restock !== false
+                            ? 'bg-[#161616] border-[#333333]'
+                            : 'bg-[#141414] border-[#222222] opacity-60'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <BellRing className={`w-4 h-4 ${editingProduct.enable_request_restock !== false ? 'text-amber-300' : 'text-[#666666]'}`} />
+                              <div>
+                                <span className="text-white text-xs font-bold uppercase tracking-wider block">
+                                  ENABLE REQUEST RESTOCK BUTTON
+                                </span>
+                                <span className="text-[10px] text-[#888888] block">
+                                  {editingProduct.enable_request_restock !== false ? 'ATIVO NO FRONTEND' : 'DESLIGADO'}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingProduct({
+                                  ...editingProduct,
+                                  enable_request_restock: editingProduct.enable_request_restock === false ? true : false,
+                                });
+                              }}
+                              className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-wider transition-colors ${
+                                editingProduct.enable_request_restock !== false
+                                  ? 'bg-white text-black shadow-md'
+                                  : 'bg-[#1f1f1f] text-[#777777] hover:text-white border border-[#2e2e2e]'
+                              }`}
+                            >
+                              {editingProduct.enable_request_restock !== false ? 'ON' : 'OFF'}
+                            </button>
+                          </div>
+
+                          <p className="text-[11px] text-[#888888] mt-2 leading-relaxed">
+                            Mede o interesse do público sem tamanhos ou pagamentos. Guarda o nome e WhatsApp na base de dados para avaliação da procura.
+                          </p>
+
+                          {/* Regra de Contexto Visual */}
+                          <div className="mt-3 pt-2 border-t border-[#222222] text-[10px] font-sans">
+                            {editingProduct.lifecycle !== 'time_capsule' ? (
+                              <div className="p-2 rounded bg-amber-950/40 border border-amber-800/60 text-amber-300 flex items-start gap-1.5">
+                                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                <span>
+                                  <strong>REGRA DE CONTEXTO:</strong> Produto está no <em>Drop Ativo</em>. O botão [ REQUEST RESTOCK ] só aparece quando a peça estiver na <em>Cápsula do Tempo</em>.
+                                </span>
+                              </div>
+                            ) : editingProduct.enable_pre_order ? (
+                              <div className="p-2 rounded bg-purple-950/40 border border-purple-800/60 text-purple-300 flex items-start gap-1.5">
+                                <Clock className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                <span>
+                                  <strong>PRIORIDADE:</strong> Pre-Order está ON. Como o Pre-Order representa produção real, o botão [ PRE-ORDER ] tem prioridade e o Restock fica oculto.
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="p-2 rounded bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 flex items-start gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                <span>
+                                  <strong>VISÍVEL NA CÁPSULA:</strong> O botão [ REQUEST RESTOCK ] será exibido no frontend para medir o interesse do público.
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -2530,6 +3313,212 @@ export const AdminPanel: React.FC = () => {
                       }`}
                     />
                   </button>
+                </div>
+              </div>
+
+              {/* Global Button Toggles & Micro-copy Configuration */}
+              <div className="bg-[#0e0e0e] border border-[#1c1c1c] rounded-lg p-6 space-y-5 font-sans text-xs md:col-span-2">
+                <div className="pb-3 border-b border-[#1c1c1c] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-display uppercase text-sm text-white tracking-wider flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-white" />
+                      <span>AUTONOMIA DE BOTÕES & MICRO-COPY (PRE-ORDER & REPOSIÇÃO)</span>
+                    </h3>
+                    <p className="text-[11px] text-[#777777] mt-0.5">
+                      Controlo dinâmico da visibilidade e dos rótulos dos botões na montra pública sem necessidade de alterar código.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#161616] text-[#888888] border border-[#262626] self-start sm:self-auto">
+                    AUTONOMIA TOTAL
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* PRE-ORDER BUTTON CONFIG */}
+                  <div className="p-4 bg-[#141414] border border-[#222222] rounded space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-amber-400" />
+                        <div>
+                          <span className="text-white font-medium block">Botão de Pre-Order Global</span>
+                          <span className="text-[11px] text-[#777777] block">
+                            Ativa o botão de pré-venda nas peças com pre-order configurada.
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSettingsForm((prev) => ({
+                            ...prev,
+                            enable_pre_order_button: prev.enable_pre_order_button !== false ? false : true,
+                          }));
+                          setIsSettingsDirty(true);
+                        }}
+                        className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${
+                          settingsForm.enable_pre_order_button !== false ? 'bg-amber-400' : 'bg-[#222222]'
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-1 w-4 h-4 rounded-full transition-transform ${
+                            settingsForm.enable_pre_order_button !== false ? 'right-1 bg-black' : 'left-1 bg-[#888888]'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#1f1f1f]">
+                      <div>
+                        <label className="text-[10px] text-[#888888] uppercase tracking-wider block mb-1">
+                          Texto do Botão (PT)
+                        </label>
+                        <input
+                          type="text"
+                          value={settingsForm.pre_order_button_text_pt || ''}
+                          onChange={(e) => {
+                            setSettingsForm((prev) => ({
+                              ...prev,
+                              pre_order_button_text_pt: e.target.value,
+                            }));
+                            setIsSettingsDirty(true);
+                          }}
+                          placeholder="PRE-ORDER"
+                          className="w-full px-3 py-2 bg-[#0c0c0c] border border-[#262626] rounded text-white font-mono text-xs focus:border-amber-400 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[#888888] uppercase tracking-wider block mb-1">
+                          Texto do Botão (EN)
+                        </label>
+                        <input
+                          type="text"
+                          value={settingsForm.pre_order_button_text_en || ''}
+                          onChange={(e) => {
+                            setSettingsForm((prev) => ({
+                              ...prev,
+                              pre_order_button_text_en: e.target.value,
+                            }));
+                            setIsSettingsDirty(true);
+                          }}
+                          placeholder="PRE-ORDER"
+                          className="w-full px-3 py-2 bg-[#0c0c0c] border border-[#262626] rounded text-white font-mono text-xs focus:border-amber-400 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Button Live Preview */}
+                    <div className="pt-2 border-t border-[#1f1f1f]">
+                      <div className="text-[10px] text-[#666666] uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>Pré-visualização do Botão</span>
+                        <span className="font-mono text-[9px] text-amber-400">
+                          {settingsForm.enable_pre_order_button !== false ? 'ATIVO NA LOJA' : 'DESATIVADO'}
+                        </span>
+                      </div>
+                      <div
+                        className={`w-full py-2.5 px-4 rounded text-center text-xs font-sans font-bold tracking-[0.2em] uppercase flex items-center justify-center gap-2 border ${
+                          settingsForm.enable_pre_order_button !== false
+                            ? 'bg-white text-black border-white shadow'
+                            : 'bg-[#181818] text-[#555555] border-[#262626] opacity-60'
+                        }`}
+                      >
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{settingsForm.pre_order_button_text_pt || 'PRE-ORDER'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* RESTOCK REQUEST BUTTON CONFIG */}
+                  <div className="p-4 bg-[#141414] border border-[#222222] rounded space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <BellRing className="w-4 h-4 text-white" />
+                        <div>
+                          <span className="text-white font-medium block">Botão de Pedir Reposição</span>
+                          <span className="text-[11px] text-[#777777] block">
+                            Exibe botão de lista de espera quando a peça estiver esgotada.
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSettingsForm((prev) => ({
+                            ...prev,
+                            enable_request_restock_button: prev.enable_request_restock_button !== false ? false : true,
+                          }));
+                          setIsSettingsDirty(true);
+                        }}
+                        className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${
+                          settingsForm.enable_request_restock_button !== false ? 'bg-white' : 'bg-[#222222]'
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-1 w-4 h-4 rounded-full transition-transform ${
+                            settingsForm.enable_request_restock_button !== false ? 'right-1 bg-black' : 'left-1 bg-[#888888]'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#1f1f1f]">
+                      <div>
+                        <label className="text-[10px] text-[#888888] uppercase tracking-wider block mb-1">
+                          Texto do Botão (PT)
+                        </label>
+                        <input
+                          type="text"
+                          value={settingsForm.request_restock_button_text_pt || ''}
+                          onChange={(e) => {
+                            setSettingsForm((prev) => ({
+                              ...prev,
+                              request_restock_button_text_pt: e.target.value,
+                            }));
+                            setIsSettingsDirty(true);
+                          }}
+                          placeholder="REQUEST RESTOCK"
+                          className="w-full px-3 py-2 bg-[#0c0c0c] border border-[#262626] rounded text-white font-mono text-xs focus:border-white outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[#888888] uppercase tracking-wider block mb-1">
+                          Texto do Botão (EN)
+                        </label>
+                        <input
+                          type="text"
+                          value={settingsForm.request_restock_button_text_en || ''}
+                          onChange={(e) => {
+                            setSettingsForm((prev) => ({
+                              ...prev,
+                              request_restock_button_text_en: e.target.value,
+                            }));
+                            setIsSettingsDirty(true);
+                          }}
+                          placeholder="REQUEST RESTOCK"
+                          className="w-full px-3 py-2 bg-[#0c0c0c] border border-[#262626] rounded text-white font-mono text-xs focus:border-white outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Button Live Preview */}
+                    <div className="pt-2 border-t border-[#1f1f1f]">
+                      <div className="text-[10px] text-[#666666] uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>Pré-visualização do Botão</span>
+                        <span className="font-mono text-[9px] text-[#aaaaaa]">
+                          {settingsForm.enable_request_restock_button !== false ? 'ATIVO NA LOJA' : 'DESATIVADO'}
+                        </span>
+                      </div>
+                      <div
+                        className={`w-full py-2.5 px-4 rounded text-center text-xs font-sans font-medium tracking-[0.2em] uppercase flex items-center justify-center gap-2 border ${
+                          settingsForm.enable_request_restock_button !== false
+                            ? 'bg-[#181818] hover:bg-[#202020] text-white border-[#333333]'
+                            : 'bg-[#141414] text-[#555555] border-[#222222] opacity-60'
+                        }`}
+                      >
+                        <BellRing className="w-3.5 h-3.5 text-amber-400" />
+                        <span>{settingsForm.request_restock_button_text_pt || 'REQUEST RESTOCK'}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 

@@ -15,9 +15,10 @@ import { TrackOrderView } from './components/track-order-view';
 import { AdminPanel } from './components/admin/admin-panel';
 import { AdminLogin } from './components/admin/admin-login';
 import { SiteFooter } from './components/site-footer';
-import { Order } from './types';
+import { Order, Product } from './types';
 import { Wrench } from 'lucide-react';
 import { scrollToTop } from './lib/scroll';
+import { ScheduleDeliveryModal } from './components/schedule-delivery-modal';
 
 const MainContent: React.FC = () => {
   const {
@@ -32,12 +33,16 @@ const MainContent: React.FC = () => {
     setIsCartOpen,
     isSearchOpen,
     setIsSearchOpen,
+    orders,
+    addToCart,
+    getOrderByTrackingCode,
   } = useStore();
 
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
 
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
+  const [deliveryScheduleOrder, setDeliveryScheduleOrder] = useState<Order | null>(null);
   const [isSplashActive, setIsSplashActive] = useState<boolean>(() => {
     // Skip splash screen if already navigating directly to admin
     if (typeof window !== 'undefined') {
@@ -59,11 +64,26 @@ const MainContent: React.FC = () => {
     scrollToTop(true);
   }, [setActiveTab]);
 
-  // Check URL pathname or hash for /admin
+  // Check URL pathname or hash for /admin and pre-order schedule link
   useEffect(() => {
-    const handleUrlCheck = () => {
+    const handleUrlCheck = async () => {
       const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
       const hash = window.location.hash.toLowerCase();
+      const searchParams = new URLSearchParams(window.location.search);
+      const scheduleCode = searchParams.get('schedule_delivery') || searchParams.get('schedule');
+
+      if (scheduleCode) {
+        setIsSplashActive(false);
+        try {
+          const ord = await getOrderByTrackingCode(scheduleCode.toUpperCase());
+          if (ord) {
+            setDeliveryScheduleOrder(ord);
+          }
+        } catch (e) {
+          console.warn('Erro ao carregar pré-encomenda para agendamento:', e);
+        }
+      }
+
       if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
         setActiveTab('admin');
         setIsSplashActive(false);
@@ -78,7 +98,7 @@ const MainContent: React.FC = () => {
       window.removeEventListener('popstate', handleUrlCheck);
       window.removeEventListener('hashchange', handleUrlCheck);
     };
-  }, [activeTab, setActiveTab]);
+  }, [activeTab, setActiveTab, getOrderByTrackingCode]);
 
   // Garantia Universal: sempre que a aba ou o produto selecionado mudar,
   // reposiciona imediatamente a janela no topo absoluto (Y = 0),
@@ -208,6 +228,10 @@ const MainContent: React.FC = () => {
                   setActiveTab('store');
                 }
               }}
+              onOpenPreOrderCheckout={(item) => {
+                addToCart(item.product, item.size, item.color, item.quantity);
+                setIsCheckoutOpen(true);
+              }}
             />
           )}
 
@@ -256,6 +280,19 @@ const MainContent: React.FC = () => {
         onClose={() => setConfirmedOrder(null)}
         onViewTracking={handleViewTracking}
       />
+
+      {/* Direct Pre-Order Delivery Scheduling Modal (opened via WhatsApp direct link) */}
+      {deliveryScheduleOrder && (
+        <ScheduleDeliveryModal
+          isOpen={Boolean(deliveryScheduleOrder)}
+          onClose={() => setDeliveryScheduleOrder(null)}
+          order={deliveryScheduleOrder}
+          onScheduledSuccess={() => {
+            // After scheduling, redirect to track view
+            handleViewTracking(deliveryScheduleOrder.tracking_code);
+          }}
+        />
+      )}
     </div>
   );
 };

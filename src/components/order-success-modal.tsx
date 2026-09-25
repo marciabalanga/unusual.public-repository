@@ -26,13 +26,15 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const isPreOrder = order.is_pre_order || order.order_type === 'pre_order';
+
   const itemsSummary = order.items
     .map((it) => `${it.name} (${it.size} - ${it.color}) x${it.quantity}`)
     .join(', ');
 
   const whatsappTarget = (settings.whatsapp_number || '+244 937765130').replace(/\D/g, '') || '244937765130';
 
-  const whatsappMessage = encodeURIComponent(
+  const regularWhatsappMessage = encodeURIComponent(
     `Olá Wearing Unusual! Acabei de efetuar uma encomenda com o código de rastreio *${order.tracking_code}*.\n\n` +
     `*Itens:* ${itemsSummary}\n` +
     `*Total:* ${formatAOA(order.total_aoa)}\n` +
@@ -40,6 +42,17 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
     `*Morada em Luanda:* ${order.customer_city}\n\n` +
     `Envio o comprovativo de pagamento em anexo para validação.`
   );
+
+  const preOrderWhatsappMessage = encodeURIComponent(
+    `Olá Wearing Unusual! Acabei de confirmar uma PRE-ORDER com o código de rastreio *${order.tracking_code}*.\n\n` +
+    `*Peça em Pré-encomenda:* ${itemsSummary}\n` +
+    `*Total:* ${formatAOA(order.total_aoa)}\n` +
+    `*Cliente:* ${order.customer_name}\n` +
+    `*Endereço:* ${order.customer_city}\n\n` +
+    `Envio o comprovativo para validação da minha vaga no lote de produção.`
+  );
+
+  const whatsappMessage = isPreOrder ? preOrderWhatsappMessage : regularWhatsappMessage;
 
   return (
     <div
@@ -53,13 +66,15 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
 
         <div className="space-y-1.5">
           <span className="text-[10px] text-[#888888] font-sans tracking-[0.3em] uppercase block">
-            PEDIDO REGISTADO COM SUCESSO
+            {isPreOrder ? 'PRE-ORDER CONFIRMED ✓' : 'PEDIDO REGISTADO COM SUCESSO'}
           </span>
           <h2 className="font-display uppercase text-2xl sm:text-3xl text-white tracking-[0.15em]">
-            CÓDIGO DE RASTREIO ÚNICO
+            {isPreOrder ? 'YOU’RE IN.' : 'CÓDIGO DE RASTREIO ÚNICO'}
           </h2>
           <p className="text-xs text-[#777777] font-sans">
-            Guarde o seu código exclusivo para acompanhar o estado da sua encomenda em tempo real na nossa Linha do Tempo.
+            {isPreOrder
+              ? 'We’ll contact you on WhatsApp as soon as your piece is ready for delivery.'
+              : 'Guarde o seu código exclusivo para acompanhar o estado da sua encomenda em tempo real na nossa Linha do Tempo.'}
           </p>
         </div>
 

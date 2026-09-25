@@ -3,12 +3,14 @@ import {
   Product,
   Order,
   OrderStatus,
+  PreOrderStatus,
   CartItem,
   SiteBlock,
   DictionaryEntry,
   SiteSettings,
   Language,
-  OrderTimelineEvent
+  OrderTimelineEvent,
+  RestockRequest
 } from '../types';
 import {
   INITIAL_PRODUCTS,
@@ -54,6 +56,11 @@ interface StoreContextType {
   updateOrderStatus: (orderId: string, status: OrderStatus, timelineDesc?: string) => Promise<boolean>;
   deleteOrder: (orderId: string) => Promise<boolean>;
   getOrderByTrackingCode: (code: string) => Promise<Order | null>;
+  scheduleDeliveryDate: (orderId: string, date: string, timeWindow?: string) => Promise<boolean>;
+  requestRestock: (productId: string, productName: string, phone: string, customerName?: string, collectionName?: string, language?: string) => Promise<boolean>;
+  updateRestockStatus: (id: string, status: string, notes?: string) => Promise<boolean>;
+  deleteRestockRequest: (id: string) => Promise<boolean>;
+  restockRequests: RestockRequest[];
 
   // Cart
   cart: CartItem[];
@@ -118,6 +125,7 @@ const LOCAL_STORAGE_KEYS = {
   INSTAGRAM_HANDLE: 'wu_instagram_handle_v1',
   DELETED_PRODUCTS: 'wu_deleted_products_v1',
   DELETED_ORDERS: 'wu_deleted_orders_v1',
+  RESTOCK_REQUESTS: 'wu_restock_requests_v1',
 };
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -205,6 +213,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return parsed.filter((o) => !deletedSet.has(o.id) && !deletedSet.has(o.tracking_code));
       }
       return [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [restockRequests, setRestockRequests] = useState<RestockRequest[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.RESTOCK_REQUESTS);
+      return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
@@ -415,6 +432,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       is_visible: p.is_visible !== false,
       is_featured: Boolean(p.is_featured),
       order_index: typeof p.order_index === 'number' ? p.order_index : 0,
+      enable_pre_order: Boolean(p.enable_pre_order),
+      pre_order_price_aoa: p.pre_order_price_aoa !== undefined ? Number(p.pre_order_price_aoa) : null,
+      pre_order_estimated_delivery: p.pre_order_estimated_delivery || null,
+      pre_order_start_date: p.pre_order_start_date || null,
+      pre_order_end_date: p.pre_order_end_date || null,
+      pre_order_max_quantity: p.pre_order_max_quantity !== undefined ? Number(p.pre_order_max_quantity) : null,
+      pre_order_custom_notice: p.pre_order_custom_notice || null,
+      coming_soon_badge: Boolean(p.coming_soon_badge),
+      enable_request_restock: p.enable_request_restock !== false,
       created_at: p.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -424,12 +450,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const syncWithSupabase = useCallback(async () => {
     setIsSyncing(true);
     try {
-      const [prodRes, blockRes, dictRes, setRes, ordRes] = await Promise.all([
+      const [prodRes, blockRes, dictRes, setRes, ordRes, restockRes] = await Promise.all([
         supabase.from('products').select('*').order('order_index', { ascending: true }),
         supabase.from('site_blocks').select('*').order('order_index', { ascending: true }),
         supabase.from('site_dictionary').select('*'),
         supabase.from('site_settings').select('*').eq('id', 'global').maybeSingle(),
         supabase.from('orders').select('*').order('created_at', { ascending: false }),
+        supabase.from('restock_requests').select('*').order('created_at', { ascending: false }),
       ]);
 
       const missing: string[] = [];
@@ -455,6 +482,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       checkResult('site_dictionary', dictRes);
       checkResult('site_settings', setRes);
       checkResult('orders', ordRes);
+      checkResult('restock_requests', restockRes);
 
       setSupabaseStatus({
         connected: true,
@@ -688,6 +716,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             }
           });
           const combined = Array.from(orderMap.values());
+          combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          return combined;
+        });
+      }
+
+      // 5. Process Restock Requests
+      if (!restockRes.error && restockRes.data) {
+        const remoteReqs = restockRes.data as RestockRequest[];
+        setRestockRequests((prevLocal) => {
+          const reqMap = new Map<string, RestockRequest>();
+          prevLocal.forEach((r) => reqMap.set(r.id, r));
+          remoteReqs.forEach((r) => reqMap.set(r.id, r));
+          const combined = Array.from(reqMap.values());
           combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
           return combined;
         });
@@ -1146,6 +1187,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             'copyright_text',
             'contact_email',
             'delivery_fee_aoa',
+            'enable_pre_order_button',
+            'enable_request_restock_button',
+            'pre_order_button_text_pt',
+            'pre_order_button_text_en',
+            'request_restock_button_text_pt',
+            'request_restock_button_text_en',
             'updated_at',
             'site_logo_url',
             'logo_url',
@@ -1218,23 +1265,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Cart Management
   const addToCart = (product: Product, size: string, color: string, quantity = 1) => {
-    // Validação estrita de stock: impede adicionar ao saco itens ou tamanhos esgotados
-    const isSoldOut =
-      product.badge === 'ESGOTADO' ||
-      product.lifecycle === 'time_capsule' ||
-      !product.sizes ||
-      product.sizes.length === 0 ||
-      product.sizes.every((s) => !s.in_stock);
+    const isPreOrder = Boolean(product.enable_pre_order && settings.enable_pre_order_button !== false);
 
-    if (isSoldOut) {
-      console.warn(`[StoreContext] Tentativa bloqueada de adicionar produto esgotado ao saco: ${product.name}`);
-      return;
-    }
+    // Validação estrita de stock: impede adicionar ao saco itens normais esgotados (mas permite pre-orders)
+    if (!isPreOrder) {
+      const isSoldOut =
+        product.badge === 'ESGOTADO' ||
+        product.lifecycle === 'time_capsule' ||
+        !product.sizes ||
+        product.sizes.length === 0 ||
+        product.sizes.every((s) => !s.in_stock);
 
-    const matchedSize = product.sizes.find((s) => s.size === size);
-    if (matchedSize && !matchedSize.in_stock) {
-      console.warn(`[StoreContext] Tentativa bloqueada de adicionar tamanho esgotado (${size}) ao saco: ${product.name}`);
-      return;
+      if (isSoldOut) {
+        console.warn(`[StoreContext] Tentativa bloqueada de adicionar produto esgotado ao saco: ${product.name}`);
+        return;
+      }
+
+      const matchedSize = product.sizes?.find((s) => s.size === size);
+      if (matchedSize && !matchedSize.in_stock) {
+        console.warn(`[StoreContext] Tentativa bloqueada de adicionar tamanho esgotado (${size}) ao saco: ${product.name}`);
+        return;
+      }
     }
 
     setCart((prev) => {
@@ -1244,11 +1295,26 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (existing) {
         return prev.map((item) =>
           item.product.id === product.id && item.size === size && item.color === color
-            ? { ...item, quantity: item.quantity + quantity }
+            ? {
+                ...item,
+                quantity: item.quantity + quantity,
+                is_pre_order: isPreOrder || item.is_pre_order,
+                estimated_delivery: product.pre_order_estimated_delivery || item.estimated_delivery,
+              }
             : item
         );
       }
-      return [...prev, { product, size, color, quantity }];
+      return [
+        ...prev,
+        {
+          product,
+          size,
+          color,
+          quantity,
+          is_pre_order: isPreOrder,
+          estimated_delivery: product.pre_order_estimated_delivery,
+        },
+      ];
     });
     setIsCartOpen(true);
   };
@@ -1332,47 +1398,115 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           return v.toString(16);
         });
 
-    const initialTimeline: OrderTimelineEvent[] = [
-      {
-        step: 1,
-        title: 'Pendente de Verificação',
-        description: 'Comprovativo de pagamento submetido pelo cliente. A aguardar validação bancária.',
-        timestamp: now,
-        completed: true,
-        active: true,
-      },
-      {
-        step: 2,
-        title: 'A sua encomenda saiu do local de produção',
-        description: 'Peça embalada no atelier de Luanda e entregue à equipa de logística.',
-        timestamp: '',
-        completed: false,
-        active: false,
-      },
-      {
-        step: 3,
-        title: 'A sua encomenda está prestes a chegar',
-        description: 'O estafeta está a caminho do seu endereço. Certifique-se de se manter contactável.',
-        timestamp: '',
-        completed: false,
-        active: false,
-      },
-      {
-        step: 4,
-        title: 'Entregue',
-        description: 'Encomenda entregue com sucesso.',
-        timestamp: '',
-        completed: false,
-        active: false,
-      },
-    ];
+    const isPreOrder = Boolean(
+      (orderData as { is_pre_order?: boolean }).is_pre_order ||
+      (orderData.items && orderData.items.some((i) => i.is_pre_order))
+    );
 
-    const initialStatus = (orderData as { status?: OrderStatus }).status || 'Pendente de Verificação';
+    const initialTimeline: OrderTimelineEvent[] = isPreOrder
+      ? [
+          {
+            step: 1,
+            title: 'PRE-ORDER CONFIRMED',
+            description: 'Pré-encomenda registada no atelier. A sua peça será produzida especificamente para esta reposição.',
+            timestamp: now,
+            completed: true,
+            active: true,
+          },
+          {
+            step: 2,
+            title: 'PAYMENT VERIFIED',
+            description: 'Pagamento/comprovativo validado. Vaga no lote de produção assegurada.',
+            timestamp: '',
+            completed: false,
+            active: false,
+          },
+          {
+            step: 3,
+            title: 'IN PRODUCTION',
+            description: 'A produção da sua peça está em andamento no atelier.',
+            timestamp: '',
+            completed: false,
+            active: false,
+          },
+          {
+            step: 4,
+            title: 'PRODUCTION COMPLETED / READY FOR DELIVERY',
+            description: 'A produção terminou e a peça está pronta para entrega. Escolha a sua data preferida.',
+            timestamp: '',
+            completed: false,
+            active: false,
+          },
+          {
+            step: 5,
+            title: 'DELIVERY SCHEDULED',
+            description: 'Data de entrega agendada com o cliente.',
+            timestamp: '',
+            completed: false,
+            active: false,
+          },
+          {
+            step: 6,
+            title: 'OUT FOR DELIVERY',
+            description: 'A sua encomenda saiu para entrega.',
+            timestamp: '',
+            completed: false,
+            active: false,
+          },
+          {
+            step: 7,
+            title: 'DELIVERED',
+            description: 'Peça entregue em mãos com sucesso.',
+            timestamp: '',
+            completed: false,
+            active: false,
+          },
+        ]
+      : [
+          {
+            step: 1,
+            title: 'Pedido Confirmado',
+            description: 'Comprovativo de pagamento submetido pelo cliente. A aguardar validação bancária.',
+            timestamp: now,
+            completed: true,
+            active: true,
+          },
+          {
+            step: 2,
+            title: 'A sua encomenda saiu do local de produção',
+            description: 'Peça embalada no atelier de Luanda e entregue à equipa de logística.',
+            timestamp: '',
+            completed: false,
+            active: false,
+          },
+          {
+            step: 3,
+            title: 'A sua encomenda está prestes a chegar',
+            description: 'O estafeta está a caminho do seu endereço. Certifique-se de se manter contactável.',
+            timestamp: '',
+            completed: false,
+            active: false,
+          },
+          {
+            step: 4,
+            title: 'Entregue',
+            description: 'Encomenda entregue com sucesso.',
+            timestamp: '',
+            completed: false,
+            active: false,
+          },
+        ];
+
+    const initialStatus =
+      (orderData as { status?: OrderStatus }).status ||
+      (isPreOrder ? 'PRE-ORDER CONFIRMED' : 'Pendente de Verificação');
 
     const newOrder: Order = {
       ...orderData,
       id: orderId,
       tracking_code: code,
+      order_type: isPreOrder ? 'pre_order' : 'regular',
+      is_pre_order: isPreOrder,
       customer_address: orderData.customer_address || orderData.customer_city,
       customer_reference: orderData.customer_reference || orderData.customer_notes,
       status: initialStatus,
@@ -1389,9 +1523,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const remoteProofUrl = orderData.payment_proof_url || null;
 
       // Note: Only transmit columns that exist in the Supabase 'orders' schema to avoid PGRST204
-      const remotePayload = {
+      const remotePayload: Record<string, unknown> = {
         id: orderId,
         tracking_code: code,
+        order_type: isPreOrder ? 'pre_order' : 'regular',
         customer_name: orderData.customer_name,
         customer_phone: orderData.customer_phone,
         customer_city: orderData.customer_city || orderData.customer_address || 'Luanda',
@@ -1402,6 +1537,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         payment_proof_url: remoteProofUrl,
         status: initialStatus,
         status_timeline: initialTimeline,
+        is_pre_order: isPreOrder,
         created_at: now,
         updated_at: now,
       };
@@ -1440,7 +1576,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     let updatedOrderForRemote: Order | null = null;
 
-    const statusMap: Record<string, number> = {
+    const regularStatusMap: Record<string, number> = {
       'Pendente de Verificação': 1,
       Pendente: 1,
       Aprovado: 1,
@@ -1452,13 +1588,27 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       Cancelado: 0,
     };
 
-    const currentStep = statusMap[newStatus] ?? 1;
+    const preOrderStatusMap: Record<string, number> = {
+      'PRE-ORDER CONFIRMED': 1,
+      'PAYMENT VERIFIED': 2,
+      'IN PRODUCTION': 3,
+      'PRODUCTION COMPLETED / READY FOR DELIVERY': 4,
+      'DELIVERY SCHEDULED': 5,
+      'OUT FOR DELIVERY': 6,
+      'DELIVERED': 7,
+      Cancelado: 0,
+    };
 
     setOrders((prev) =>
       prev.map((order) => {
         if (order.id !== orderId) return order;
 
-        const defaultTimelineBase: OrderTimelineEvent[] = [
+        const isPreOrder = order.is_pre_order || order.order_type === 'pre_order';
+        const currentStep = isPreOrder
+          ? (preOrderStatusMap[newStatus] ?? 1)
+          : (regularStatusMap[newStatus] ?? 1);
+
+        const defaultRegularTimeline: OrderTimelineEvent[] = [
           {
             step: 1,
             title: 'Pedido Confirmado',
@@ -1493,10 +1643,70 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           },
         ];
 
+        const defaultPreOrderTimeline: OrderTimelineEvent[] = [
+          {
+            step: 1,
+            title: 'PRE-ORDER CONFIRMED',
+            description: 'Pré-encomenda registada no atelier.',
+            timestamp: order.created_at || now,
+            completed: currentStep >= 1,
+            active: currentStep === 1,
+          },
+          {
+            step: 2,
+            title: 'PAYMENT VERIFIED',
+            description: 'Pagamento/comprovativo validado com sucesso.',
+            timestamp: now,
+            completed: currentStep >= 2,
+            active: currentStep === 2,
+          },
+          {
+            step: 3,
+            title: 'IN PRODUCTION',
+            description: 'A produção da peça está em andamento no atelier.',
+            timestamp: now,
+            completed: currentStep >= 3,
+            active: currentStep === 3,
+          },
+          {
+            step: 4,
+            title: 'PRODUCTION COMPLETED / READY FOR DELIVERY',
+            description: 'A produção terminou e a peça está pronta para ser entregue.',
+            timestamp: now,
+            completed: currentStep >= 4,
+            active: currentStep === 4,
+          },
+          {
+            step: 5,
+            title: 'DELIVERY SCHEDULED',
+            description: order.scheduled_delivery_date ? `Entrega agendada para ${order.scheduled_delivery_date}.` : 'Data de entrega agendada.',
+            timestamp: now,
+            completed: currentStep >= 5,
+            active: currentStep === 5,
+          },
+          {
+            step: 6,
+            title: 'OUT FOR DELIVERY',
+            description: 'A sua encomenda saiu para entrega.',
+            timestamp: now,
+            completed: currentStep >= 6,
+            active: currentStep === 6,
+          },
+          {
+            step: 7,
+            title: 'DELIVERED',
+            description: 'Peça entregue em mãos.',
+            timestamp: now,
+            completed: currentStep >= 7,
+            active: currentStep === 7,
+          },
+        ];
+
+        const baseTimeline = isPreOrder ? defaultPreOrderTimeline : defaultRegularTimeline;
         const sourceTimeline =
-          order.status_timeline && order.status_timeline.length >= 4
+          order.status_timeline && order.status_timeline.length === baseTimeline.length
             ? order.status_timeline
-            : defaultTimelineBase;
+            : baseTimeline;
 
         const trimmedNote = customNote !== undefined ? customNote.trim() : undefined;
 
@@ -1658,6 +1868,161 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return local || null;
   };
 
+  const scheduleDeliveryDate = async (orderId: string, date: string, timeWindow?: string): Promise<boolean> => {
+    const now = new Date().toISOString();
+    let updatedOrderForRemote: Order | null = null;
+
+    setOrders((prev) =>
+      prev.map((order) => {
+        if (order.id !== orderId && order.tracking_code !== orderId) return order;
+
+        const currentStep = 5; // DELIVERY SCHEDULED
+        const preOrderTimeline: OrderTimelineEvent[] = order.status_timeline && order.status_timeline.length === 7
+          ? order.status_timeline.map((ev) => {
+              if (ev.step === 5) {
+                return {
+                  ...ev,
+                  active: true,
+                  completed: true,
+                  timestamp: now,
+                  description: `Entrega agendada para ${date}${timeWindow ? ` (${timeWindow})` : ''}.`,
+                };
+              }
+              if (ev.step < 5) {
+                return { ...ev, completed: true, active: false };
+              }
+              return { ...ev, active: false, completed: false };
+            })
+          : [
+              { step: 1, title: 'PRE-ORDER CONFIRMED', description: 'Pré-encomenda registada no atelier.', timestamp: order.created_at, completed: true, active: false },
+              { step: 2, title: 'PAYMENT VERIFIED', description: 'Pagamento/comprovativo validado.', timestamp: order.created_at, completed: true, active: false },
+              { step: 3, title: 'IN PRODUCTION', description: 'Produção concluída.', timestamp: now, completed: true, active: false },
+              { step: 4, title: 'PRODUCTION COMPLETED / READY FOR DELIVERY', description: 'Peça pronta para entrega.', timestamp: now, completed: true, active: false },
+              { step: 5, title: 'DELIVERY SCHEDULED', description: `Entrega agendada para ${date}.`, timestamp: now, completed: true, active: true },
+              { step: 6, title: 'OUT FOR DELIVERY', description: 'A sua encomenda sairá para entrega na data agendada.', timestamp: '', completed: false, active: false },
+              { step: 7, title: 'DELIVERED', description: 'Peça entregue em mãos.', timestamp: '', completed: false, active: false },
+            ];
+
+        const updated: Order = {
+          ...order,
+          status: 'DELIVERY SCHEDULED',
+          scheduled_delivery_date: date,
+          delivery_window: timeWindow,
+          status_timeline: preOrderTimeline,
+          updated_at: now,
+        };
+        updatedOrderForRemote = updated;
+        return updated;
+      })
+    );
+
+    const canSyncOrders = supabaseStatus.connected && !supabaseStatus.missingTables.includes('orders');
+    if (canSyncOrders && updatedOrderForRemote) {
+      try {
+        await supabase
+          .from('orders')
+          .update({
+            status: 'DELIVERY SCHEDULED',
+            scheduled_delivery_date: date,
+            delivery_window: timeWindow,
+            status_timeline: (updatedOrderForRemote as Order).status_timeline,
+            updated_at: now,
+          })
+          .eq('id', (updatedOrderForRemote as Order).id);
+      } catch (err) {
+        console.warn('[Supabase] Erro ao sincronizar agendamento da entrega:', err);
+      }
+    }
+
+    return true;
+  };
+
+  const requestRestock = async (
+    productId: string,
+    productName: string,
+    phone: string,
+    customerName?: string,
+    collectionName?: string,
+    reqLanguage?: string
+  ): Promise<boolean> => {
+    const now = new Date().toISOString();
+    const newReq: RestockRequest = {
+      id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `req_${Date.now()}`,
+      product_id: productId,
+      product_name: productName,
+      collection_name: collectionName || 'Cápsula do Tempo',
+      customer_name: customerName?.trim() || undefined,
+      customer_phone: phone.trim(),
+      language: reqLanguage || language || 'pt',
+      status: 'Interesse Registado',
+      created_at: now,
+      updated_at: now,
+    };
+
+    setRestockRequests((prev) => {
+      const updated = [newReq, ...prev];
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEYS.RESTOCK_REQUESTS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    if (supabaseStatus.connected && !supabaseStatus.missingTables.includes('restock_requests')) {
+      try {
+        await supabase.from('restock_requests').insert([newReq]);
+      } catch (err) {
+        console.warn('[Supabase] Aviso ao gravar restock request:', err);
+      }
+    }
+
+    return true;
+  };
+
+  const updateRestockStatus = async (id: string, status: string, notes?: string): Promise<boolean> => {
+    const now = new Date().toISOString();
+    setRestockRequests((prev) => {
+      const updated = prev.map((r) =>
+        r.id === id ? { ...r, status, ...(notes !== undefined ? { notes } : {}), updated_at: now } : r
+      );
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEYS.RESTOCK_REQUESTS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    if (supabaseStatus.connected && !supabaseStatus.missingTables.includes('restock_requests')) {
+      try {
+        const payload: Record<string, any> = { status, updated_at: now };
+        if (notes !== undefined) payload.notes = notes;
+        await supabase.from('restock_requests').update(payload).eq('id', id);
+      } catch (err) {
+        console.warn('[Supabase] Erro ao atualizar status de restock:', err);
+      }
+    }
+
+    return true;
+  };
+
+  const deleteRestockRequest = async (id: string): Promise<boolean> => {
+    setRestockRequests((prev) => {
+      const updated = prev.filter((r) => r.id !== id);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEYS.RESTOCK_REQUESTS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    if (supabaseStatus.connected && !supabaseStatus.missingTables.includes('restock_requests')) {
+      try {
+        await supabase.from('restock_requests').delete().eq('id', id);
+      } catch (err) {
+        console.warn('[Supabase] Erro ao eliminar pedido de restock:', err);
+      }
+    }
+
+    return true;
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -1685,6 +2050,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateOrderStatus,
         deleteOrder,
         getOrderByTrackingCode,
+        scheduleDeliveryDate,
+        requestRestock,
+        updateRestockStatus,
+        deleteRestockRequest,
+        restockRequests,
         cart,
         addToCart,
         removeFromCart,
