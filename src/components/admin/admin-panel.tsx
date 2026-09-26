@@ -109,9 +109,10 @@ export const AdminPanel: React.FC = () => {
   const [isSettingsDirty, setIsSettingsDirty] = useState(false);
 
   useEffect(() => {
-    setSettingsForm(settings);
-    setIsSettingsDirty(false);
-  }, [settings]);
+    if (!isSettingsDirty) {
+      setSettingsForm(settings);
+    }
+  }, [settings, isSettingsDirty]);
 
   const handleSaveSettingsForm = async () => {
     setIsSavingSettings(true);

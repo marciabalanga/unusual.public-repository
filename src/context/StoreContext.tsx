@@ -415,6 +415,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const toSupabaseProduct = useCallback((p: Product) => {
+    const extraMeta = {
+      enable_pre_order: Boolean(p.enable_pre_order),
+      pre_order_price_aoa: p.pre_order_price_aoa !== undefined ? p.pre_order_price_aoa : null,
+      pre_order_estimated_delivery: p.pre_order_estimated_delivery || null,
+      pre_order_start_date: p.pre_order_start_date || null,
+      pre_order_end_date: p.pre_order_end_date || null,
+      pre_order_max_quantity: p.pre_order_max_quantity !== undefined ? p.pre_order_max_quantity : null,
+      pre_order_custom_notice: p.pre_order_custom_notice || null,
+      coming_soon_badge: Boolean(p.coming_soon_badge),
+      enable_request_restock: p.enable_request_restock !== false,
+      user_details: p.details || '',
+      fit_guide: p.fit_guide || '',
+    };
+
     return {
       id: p.id,
       slug: p.slug,
@@ -422,7 +436,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       category: p.category,
       price_aoa: Number(p.price_aoa) || 0,
       description: p.description || '',
-      details: p.details || '',
+      details: JSON.stringify(extraMeta),
       size_guide: p.size_guide || p.fit_guide || '',
       images: Array.isArray(p.images) ? p.images : [],
       sizes: Array.isArray(p.sizes) ? p.sizes : [],
@@ -432,23 +446,88 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       is_visible: p.is_visible !== false,
       is_featured: Boolean(p.is_featured),
       order_index: typeof p.order_index === 'number' ? p.order_index : 0,
-      enable_pre_order: Boolean(p.enable_pre_order),
-      pre_order_price_aoa: p.pre_order_price_aoa !== undefined ? Number(p.pre_order_price_aoa) : null,
-      pre_order_estimated_delivery: p.pre_order_estimated_delivery || null,
-      pre_order_start_date: p.pre_order_start_date || null,
-      pre_order_end_date: p.pre_order_end_date || null,
-      pre_order_max_quantity: p.pre_order_max_quantity !== undefined ? Number(p.pre_order_max_quantity) : null,
-      pre_order_custom_notice: p.pre_order_custom_notice || null,
-      coming_soon_badge: Boolean(p.coming_soon_badge),
-      enable_request_restock: p.enable_request_restock !== false,
       created_at: p.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
   }, []);
 
-  // High-performance parallel sync with Supabase on mount
+  const fromSupabaseProduct = useCallback((p: any): Product => {
+    let meta: any = {};
+    let userDetails = p.details || '';
+    if (typeof p.details === 'string' && p.details.trim().startsWith('{')) {
+      try {
+        meta = JSON.parse(p.details);
+        if (meta && typeof meta === 'object') {
+          userDetails = meta.user_details !== undefined ? meta.user_details : userDetails;
+        }
+      } catch {}
+    }
+
+    return {
+      ...p,
+      details: userDetails,
+      enable_pre_order: meta.enable_pre_order !== undefined ? meta.enable_pre_order : Boolean(p.enable_pre_order),
+      pre_order_price_aoa: meta.pre_order_price_aoa !== undefined ? meta.pre_order_price_aoa : p.pre_order_price_aoa,
+      pre_order_estimated_delivery: meta.pre_order_estimated_delivery !== undefined ? meta.pre_order_estimated_delivery : p.pre_order_estimated_delivery,
+      pre_order_start_date: meta.pre_order_start_date !== undefined ? meta.pre_order_start_date : p.pre_order_start_date,
+      pre_order_end_date: meta.pre_order_end_date !== undefined ? meta.pre_order_end_date : p.pre_order_end_date,
+      pre_order_max_quantity: meta.pre_order_max_quantity !== undefined ? meta.pre_order_max_quantity : p.pre_order_max_quantity,
+      pre_order_custom_notice: meta.pre_order_custom_notice !== undefined ? meta.pre_order_custom_notice : p.pre_order_custom_notice,
+      coming_soon_badge: meta.coming_soon_badge !== undefined ? meta.coming_soon_badge : Boolean(p.coming_soon_badge),
+      enable_request_restock: meta.enable_request_restock !== undefined ? meta.enable_request_restock : (p.enable_request_restock !== false),
+      fit_guide: meta.fit_guide || p.fit_guide || p.size_guide,
+    };
+  }, []);
+
+  // High-performance parallel sync with Supabase and server state on mount
   const syncWithSupabase = useCallback(async () => {
     setIsSyncing(true);
+
+    // 0. Instant synchronization with persistent server state (cross-browser / cross-device)
+    try {
+      const serverRes = await fetch('/api/store-state');
+      if (serverRes.ok) {
+        const serverData = await serverRes.json();
+        if (serverData && serverData.settings) {
+          setSettings((prev) => {
+            const localTime = new Date(prev.updated_at || 0).getTime();
+            const serverTime = new Date(serverData.settings.updated_at || 0).getTime();
+            if (serverTime >= localTime) {
+              const merged = { ...prev, ...serverData.settings };
+              try {
+                localStorage.setItem(LOCAL_STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
+              } catch {}
+              return merged;
+            }
+            return prev;
+          });
+        }
+        if (serverData && Array.isArray(serverData.products) && serverData.products.length > 0) {
+          setProducts((prev) => {
+            const serverMap = new Map<string, Product>(serverData.products.map((p: Product) => [p.id, p]));
+            const nextList = prev.map((localP) => {
+              const sP = serverMap.get(localP.id);
+              if (sP) {
+                const localT = new Date(localP.updated_at || localP.created_at || 0).getTime();
+                const serverT = new Date(sP.updated_at || sP.created_at || 0).getTime();
+                return serverT >= localT ? sP : localP;
+              }
+              return localP;
+            });
+            for (const sp of serverData.products) {
+              if (!nextList.some((p) => p.id === sp.id)) {
+                nextList.push(sp);
+              }
+            }
+            try {
+              localStorage.setItem(LOCAL_STORAGE_KEYS.PRODUCTS, JSON.stringify(nextList));
+            } catch {}
+            return nextList;
+          });
+        }
+      }
+    } catch {}
+
     try {
       const [prodRes, blockRes, dictRes, setRes, ordRes, restockRes] = await Promise.all([
         supabase.from('products').select('*').order('order_index', { ascending: true }),
@@ -520,15 +599,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             } else {
               const localTime = new Date(localProd.updated_at || localProd.created_at || 0).getTime();
               const remoteTime = new Date(remoteProd.updated_at || remoteProd.created_at || 0).getTime();
-              if (localTime > remoteTime) {
-                // Local edit is newer than remote: KEEP IT and queue push
+              if (localTime >= remoteTime) {
+                // Local edit is newer or equal: KEEP IT and queue push
                 merged.push(localProd);
                 localToPush.push(localProd);
               } else {
-                // Remote is current: adopt remote, preserving local fit_guide if absent remotely
+                // Remote is strictly newer: adopt remote with decoded meta
+                const hydratedRemote = fromSupabaseProduct(remoteProd);
                 merged.push({
-                  ...remoteProd,
-                  fit_guide: remoteProd.fit_guide || localProd.fit_guide || remoteProd.size_guide,
+                  ...hydratedRemote,
+                  fit_guide: hydratedRemote.fit_guide || localProd.fit_guide || remoteProd.size_guide,
                 });
               }
               remoteMap.delete(localProd.id);
@@ -538,7 +618,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           // Add any remaining remote products that did not exist locally
           for (const remainingRemote of remoteMap.values()) {
             if (!deletedIds.has(remainingRemote.id)) {
-              merged.push(remainingRemote);
+              merged.push(fromSupabaseProduct(remainingRemote));
             }
           }
 
@@ -657,6 +737,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             (r.instagram_handle && typeof r.instagram_handle === 'string' && r.instagram_handle.trim())
               ? (r.instagram_handle as string).trim()
               : remoteInstagramHandle || cachedInsta || prev.instagram_handle || INITIAL_SETTINGS.instagram_handle;
+
+          const localTime = new Date(prev.updated_at || 0).getTime();
+          const remoteTime = new Date((setRes.data as SiteSettings).updated_at || 0).getTime();
+
+          // CRITICAL: If local/saved settings are newer than remote, never overwrite!
+          if (localTime > remoteTime) {
+            return {
+              ...prev,
+              site_logo_url: finalLogo,
+              logo_url: finalLogo,
+            };
+          }
 
           return {
             ...INITIAL_SETTINGS,
@@ -852,6 +944,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         localStorage.setItem(LOCAL_STORAGE_KEYS.PRODUCTS, JSON.stringify(nextList));
       } catch {}
       setStoredItem(LOCAL_STORAGE_KEYS.PRODUCTS, nextList).catch(() => {});
+
+      // Persist to server state immediately
+      try {
+        fetch('/api/store-state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ products: nextList }),
+        }).catch(() => {});
+      } catch {}
+
       return nextList;
     });
 
@@ -868,7 +970,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (canSync) {
       try {
         const payload = toSupabaseProduct(resolvedProduct);
-        let { error } = await supabase.from('products').upsert(payload);
+        let { error } = await supabase.from('products').update(payload).eq('id', resolvedProduct.id);
+        if (error) {
+          const upsertRes = await supabase.from('products').upsert(payload);
+          error = upsertRes.error;
+        }
 
         // Auto-handle duplicate key value violates unique constraint "products_slug_key" (Postgres 23505)
         if (
@@ -911,7 +1017,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const deleteProduct = async (id: string): Promise<boolean> => {
     // 1. Atualiza imediatamente o estado local de produtos para filtrar sem recarregar
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+    setProducts((prev) => {
+      const remaining = prev.filter((p) => p.id !== id);
+      try {
+        fetch('/api/store-state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ products: remaining }),
+        }).catch(() => {});
+      } catch {}
+      return remaining;
+    });
     setCart((prev) => prev.filter((item) => item.product.id !== id));
     setWishlist((prev) => prev.filter((pid) => pid !== id));
 
@@ -1090,6 +1206,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } catch {}
     setStoredItem(LOCAL_STORAGE_KEYS.SETTINGS, merged).catch(() => {});
 
+    // Instantly persist settings to server state (cross-browser / cross-device)
+    try {
+      await fetch('/api/store-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: merged }),
+      });
+    } catch (e) {
+      console.warn('[ServerState] Falha ao persistir definições no servidor:', e);
+    }
+
     // Keep marquee block is_active in sync with settings.marquee_enabled
     if (newSettings.marquee_enabled !== undefined) {
       setBlocks((prev) => {
@@ -1195,7 +1322,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // 2b. Persist to site_settings
       if (!supabaseStatus.missingTables.includes('site_settings')) {
         try {
-          const allSettingsColumns = [
+          const validDbColumns = [
             'id',
             'store_name',
             'maintenance_mode',
@@ -1214,21 +1341,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             'marquee_enabled',
             'marquee_messages',
             'footer_categories',
-            'brand_bio',
-            'location_text',
-            'instagram_handle',
-            'copyright_text',
-            'contact_email',
-            'delivery_fee_aoa',
-            'enable_pre_order_button',
-            'enable_request_restock_button',
-            'pre_order_button_text_pt',
-            'pre_order_button_text_en',
-            'request_restock_button_text_pt',
-            'request_restock_button_text_en',
-            'updated_at',
             'site_logo_url',
-            'logo_url',
+            'updated_at',
           ];
 
           const payload: Record<string, unknown> = {
@@ -1237,7 +1351,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           };
 
           const sourceRecord = merged as unknown as Record<string, unknown>;
-          allSettingsColumns.forEach((col) => {
+          validDbColumns.forEach((col) => {
             if (sourceRecord[col] !== undefined) {
               payload[col] = sourceRecord[col];
             }
@@ -1245,47 +1359,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
           if (logoToUpdate) {
             payload.site_logo_url = logoToUpdate;
-            payload.logo_url = logoToUpdate;
           }
 
-          const { error } = await supabase.from('site_settings').upsert(payload);
+          let { error } = await supabase.from('site_settings').update(payload).eq('id', 'global');
           if (error) {
-            // If error is due to an unmigrated column, fallback to base columns
-            if (error.message?.includes('column') || error.code === 'PGRST204') {
-              const minimalCols = [
-                'id',
-                'store_name',
-                'maintenance_mode',
-                'maintenance_message',
-                'next_drop_mode',
-                'next_drop_date',
-                'next_drop_title',
-                'checkout_locked',
-                'checkout_lock_message',
-                'require_payment_proof',
-                'iban',
-                'account_holder',
-                'account_number',
-                'multicaixa_express_phone',
-                'whatsapp_number',
-                'marquee_enabled',
-                'marquee_messages',
-                'footer_categories',
-                'updated_at',
-                'site_logo_url',
-                'logo_url',
-              ];
-              const minimalPayload: Record<string, unknown> = { id: 'global', updated_at: new Date().toISOString() };
-              minimalCols.forEach((col) => {
-                if (sourceRecord[col] !== undefined) minimalPayload[col] = sourceRecord[col];
-              });
-              if (logoToUpdate) {
-                minimalPayload.site_logo_url = logoToUpdate;
-                minimalPayload.logo_url = logoToUpdate;
-              }
-              await supabase.from('site_settings').upsert(minimalPayload);
-            } else if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
+            const upsertRes = await supabase.from('site_settings').upsert(payload);
+            error = upsertRes.error;
+          }
+          if (error) {
+            if (error.code === 'PGRST205' || error.message?.includes('schema cache')) {
               markTableMissing('site_settings');
+            } else {
+              console.warn('[Supabase] Aviso ao atualizar site_settings (estado salvo no servidor/local):', error);
             }
           }
         } catch (err) {

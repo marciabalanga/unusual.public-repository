@@ -299,7 +299,8 @@ export const INITIAL_SETTINGS: SiteSettings = {
   restock_error_message_pt: 'Ocorreu um erro ao registar o seu interesse. Por favor tente novamente.',
   restock_error_message_en: 'An error occurred while registering your interest. Please try again.',
   restock_phone_required_error_pt: 'Por favor introduza o seu número de WhatsApp / Telefone.',
-  restock_phone_required_error_en: 'Please enter your WhatsApp / Phone number.'
+  restock_phone_required_error_en: 'Please enter your WhatsApp / Phone number.',
+  updated_at: '2020-01-01T00:00:00.000Z',
 };
 
 export const SUPABASE_SCHEMA_SQL = `-- ==============================================================================
