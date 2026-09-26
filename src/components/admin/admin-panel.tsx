@@ -3229,65 +3229,153 @@ export const AdminPanel: React.FC = () => {
                 </h3>
 
                 {/* Checkout Lock */}
-                <div className="flex items-center justify-between p-3 bg-[#141414] rounded border border-[#222222]">
-                  <div>
-                    <span className="text-white font-medium block">Bloqueio Temporário de Checkout</span>
-                    <span className="text-[11px] text-[#666666] block">
-                      Desativa temporariamente novas compras na loja.
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSettingsForm((prev) => ({
-                        ...prev,
-                        checkout_locked: !prev.checkout_locked,
-                      }));
-                      setIsSettingsDirty(true);
-                    }}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${
-                      settingsForm.checkout_locked ? 'bg-red-500' : 'bg-[#222222]'
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-1 w-4 h-4 rounded-full transition-transform ${
-                        settingsForm.checkout_locked ? 'right-1 bg-white' : 'left-1 bg-[#888888]'
+                <div className={`p-4 rounded-lg border transition-all space-y-3 ${
+                  settingsForm.checkout_locked ? 'bg-red-950/20 border-red-800/80' : 'bg-[#141414] border-[#222222]'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${settingsForm.checkout_locked ? 'bg-red-400 animate-pulse' : 'bg-[#555555]'}`} />
+                        <span className="text-white font-medium block">Bloqueio Temporário de Checkout</span>
+                      </div>
+                      <span className="text-[11px] text-[#777777] block mt-0.5">
+                        {settingsForm.checkout_locked
+                          ? 'CHECKOUT SUSPENSO: Nenhuma compra ou pre-order pode ser finalizada.'
+                          : 'CHECKOUT ATIVO: Clientes podem finalizar compras e pre-orders normalmente.'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const nextVal = !settingsForm.checkout_locked;
+                        const updated = { ...settingsForm, checkout_locked: nextVal };
+                        setSettingsForm(updated);
+                        setIsSettingsDirty(true);
+                        try {
+                          await saveSettings(updated);
+                          showToast(
+                            nextVal
+                              ? 'Bloqueio de Checkout ATIVADO (compras suspensas na loja pública)'
+                              : 'Checkout LIBERADO para compras!'
+                          );
+                        } catch {
+                          showToast('Erro ao atualizar bloqueio de checkout');
+                        }
+                      }}
+                      className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
+                        settingsForm.checkout_locked ? 'bg-red-500' : 'bg-[#222222]'
                       }`}
-                    />
-                  </button>
+                    >
+                      <span
+                        className={`absolute top-1 w-4 h-4 rounded-full transition-transform ${
+                          settingsForm.checkout_locked ? 'right-1 bg-white' : 'left-1 bg-[#888888]'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {settingsForm.checkout_locked && (
+                    <div className="pt-2 border-t border-red-900/40 space-y-1.5 animate-in fade-in">
+                      <label className="text-[10px] text-red-300 uppercase tracking-wider block font-mono">
+                        Mensagem de Bloqueio Exibida no Frontend
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={settingsForm.checkout_lock_message || ''}
+                        onChange={(e) => {
+                          setSettingsForm((prev) => ({ ...prev, checkout_lock_message: e.target.value }));
+                          setIsSettingsDirty(true);
+                        }}
+                        placeholder="O CHECKOUT ENCONTRA-SE TEMPORARIAMENTE SUSPENSO PARA CONTAGEM DE STOCK."
+                        className="w-full px-3 py-2 bg-[#0c0c0c] border border-red-900/60 rounded text-xs text-white placeholder-red-400/50 outline-none focus:border-red-400 font-sans"
+                      />
+                      <span className="text-[10px] text-[#888888] block">
+                        Esta mensagem aparece no topo da loja, no saco de compras e no modal de checkout.
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Maintenance Mode */}
-                <div className="flex items-center justify-between p-3 bg-[#141414] rounded border border-[#222222]">
-                  <div>
-                    <span className="text-white font-medium block">Modo Manutenção</span>
-                    <span className="text-[11px] text-[#666666] block">
-                      Exibe aviso editorial de atualização na loja pública.
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSettingsForm((prev) => ({
-                        ...prev,
-                        maintenance_mode: !prev.maintenance_mode,
-                      }));
-                      setIsSettingsDirty(true);
-                    }}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${
-                      settingsForm.maintenance_mode ? 'bg-amber-500' : 'bg-[#222222]'
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-1 w-4 h-4 rounded-full transition-transform ${
-                        settingsForm.maintenance_mode ? 'right-1 bg-black' : 'left-1 bg-[#888888]'
+                <div className={`p-4 rounded-lg border transition-all space-y-3 ${
+                  settingsForm.maintenance_mode ? 'bg-amber-950/25 border-amber-500/80 shadow-lg' : 'bg-[#141414] border-[#222222]'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${settingsForm.maintenance_mode ? 'bg-amber-400 animate-pulse' : 'bg-[#555555]'}`} />
+                        <span className="text-white font-medium block">Modo Manutenção (Loja Pública)</span>
+                      </div>
+                      <span className="text-[11px] text-[#777777] block mt-0.5">
+                        {settingsForm.maintenance_mode
+                          ? 'MANUTENÇÃO ATIVA: A loja pública exibe a tela oficial de manutenção Wearing Unusual.'
+                          : 'LOJA ONLINE: Catálogo público 100% acessível aos clientes.'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const nextVal = !settingsForm.maintenance_mode;
+                        const updated = { ...settingsForm, maintenance_mode: nextVal };
+                        setSettingsForm(updated);
+                        setIsSettingsDirty(true);
+                        try {
+                          await saveSettings(updated);
+                          showToast(
+                            nextVal
+                              ? 'Modo de Manutenção ATIVADO na loja pública!'
+                              : 'Modo de Manutenção DESATIVADO. Loja online!'
+                          );
+                        } catch {
+                          showToast('Erro ao atualizar modo de manutenção');
+                        }
+                      }}
+                      className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
+                        settingsForm.maintenance_mode ? 'bg-amber-500 shadow-md' : 'bg-[#222222]'
                       }`}
-                    />
-                  </button>
+                    >
+                      <span
+                        className={`absolute top-1 w-4 h-4 rounded-full transition-transform ${
+                          settingsForm.maintenance_mode ? 'right-1 bg-black' : 'left-1 bg-[#888888]'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {settingsForm.maintenance_mode && (
+                    <div className="pt-2 border-t border-amber-500/30 space-y-2 animate-in fade-in">
+                      <div>
+                        <label className="text-[10px] text-amber-300 uppercase tracking-wider block font-mono mb-1">
+                          Mensagem Editorial de Manutenção
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={settingsForm.maintenance_message || ''}
+                          onChange={(e) => {
+                            setSettingsForm((prev) => ({ ...prev, maintenance_message: e.target.value }));
+                            setIsSettingsDirty(true);
+                          }}
+                          placeholder="ESTAMOS A ATUALIZAR O NOSSO ESPAÇO PARA O PRÓXIMO LANÇAMENTO. RETORNAREMOS EM BREVE."
+                          className="w-full px-3 py-2 bg-[#0c0c0c] border border-amber-500/40 rounded text-xs text-white placeholder-[#777777] outline-none focus:border-amber-400 font-sans"
+                        />
+                      </div>
+                      <div className="p-2.5 rounded bg-black/50 border border-[#2a2a2a] text-[11px] text-[#aaaaaa] flex items-center justify-between">
+                        <span>A tela de manutenção mantém suporte via WhatsApp e rastreio de encomendas ativos.</span>
+                        <a
+                          href="/"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-amber-400 hover:underline uppercase font-mono text-[10px] shrink-0 ml-2"
+                        >
+                          Ver Loja &rarr;
+                        </a>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Top Marquee Toggle */}
-                <div className="flex items-center justify-between p-3 bg-[#141414] rounded border border-[#222222]">
+                <div className="flex items-center justify-between p-3.5 bg-[#141414] rounded-lg border border-[#222222]">
                   <div>
                     <span className="text-white font-medium block">Barra de Notificações no Topo</span>
                     <span className="text-[11px] text-[#666666] block">
@@ -3296,14 +3384,17 @@ export const AdminPanel: React.FC = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => {
-                      setSettingsForm((prev) => ({
-                        ...prev,
-                        marquee_enabled: !prev.marquee_enabled,
-                      }));
+                    onClick={async () => {
+                      const nextVal = !settingsForm.marquee_enabled;
+                      const updated = { ...settingsForm, marquee_enabled: nextVal };
+                      setSettingsForm(updated);
                       setIsSettingsDirty(true);
+                      try {
+                        await saveSettings(updated);
+                        showToast(nextVal ? 'Barra de Notificações ATIVADA' : 'Barra de Notificações DESATIVADA');
+                      } catch {}
                     }}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${
+                    className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
                       settingsForm.marquee_enabled ? 'bg-white' : 'bg-[#222222]'
                     }`}
                   >
@@ -3518,6 +3609,314 @@ export const AdminPanel: React.FC = () => {
                         <span>{settingsForm.request_restock_button_text_pt || 'REQUEST RESTOCK'}</span>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SETTINGS → REQUEST RESTOCK CONTENT (CÁPSULA DO TEMPO) */}
+              <div className="bg-[#0e0e0e] border border-amber-500/30 rounded-lg p-6 space-y-5 font-sans text-xs md:col-span-2 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#1c1c1c]">
+                  <div>
+                    <h3 className="font-display uppercase text-sm text-white tracking-wider flex items-center gap-2">
+                      <BellRing className="w-4 h-4 text-amber-400" />
+                      <span>SETTINGS → REQUEST RESTOCK CONTENT (CÁPSULA DO TEMPO)</span>
+                    </h3>
+                    <p className="text-[11px] text-[#777777] mt-0.5">
+                      Personalize todos os textos, títulos, descrições, labels, placeholders e mensagens do fluxo de medição de interesse da Cápsula do Tempo.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono text-amber-300 bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800/80 shrink-0">
+                    SEM TEXTOS HARDCODED
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Título Principal */}
+                  <div>
+                    <label className="text-[10px] text-amber-300 uppercase tracking-wider block mb-1 font-mono">
+                      Título do Apelo (PT)
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsForm.restock_title_pt || ''}
+                      onChange={(e) => {
+                        setSettingsForm((prev) => ({ ...prev, restock_title_pt: e.target.value }));
+                        setIsSettingsDirty(true);
+                      }}
+                      placeholder="GOSTARIAS QUE ESTA COLEÇÃO VOLTASSE?"
+                      className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded text-white font-mono text-xs focus:border-amber-400 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-amber-300 uppercase tracking-wider block mb-1 font-mono">
+                      Título do Apelo (EN)
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsForm.restock_title_en || ''}
+                      onChange={(e) => {
+                        setSettingsForm((prev) => ({ ...prev, restock_title_en: e.target.value }));
+                        setIsSettingsDirty(true);
+                      }}
+                      placeholder="WOULD YOU LIKE THIS COLLECTION TO RETURN?"
+                      className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded text-white font-mono text-xs focus:border-amber-400 outline-none"
+                    />
+                  </div>
+
+                  {/* Descrição / Comunicação Natural */}
+                  <div>
+                    <label className="text-[10px] text-[#aaaaaa] uppercase tracking-wider block mb-1 font-mono">
+                      Descrição / Subtítulo (PT)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={settingsForm.restock_description_pt || ''}
+                      onChange={(e) => {
+                        setSettingsForm((prev) => ({ ...prev, restock_description_pt: e.target.value }));
+                        setIsSettingsDirty(true);
+                      }}
+                      placeholder="Deixa-nos saber. O teu interesse ajuda-nos a decidir quais peças podem voltar."
+                      className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded text-white text-xs focus:border-amber-400 outline-none font-sans"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[#aaaaaa] uppercase tracking-wider block mb-1 font-mono">
+                      Descrição / Subtítulo (EN)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={settingsForm.restock_description_en || ''}
+                      onChange={(e) => {
+                        setSettingsForm((prev) => ({ ...prev, restock_description_en: e.target.value }));
+                        setIsSettingsDirty(true);
+                      }}
+                      placeholder="Let us know. Your interest helps us decide which pieces may return."
+                      className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded text-white text-xs focus:border-amber-400 outline-none font-sans"
+                    />
+                  </div>
+
+                  {/* Nome do Botão de Ação */}
+                  <div>
+                    <label className="text-[10px] text-[#aaaaaa] uppercase tracking-wider block mb-1 font-mono">
+                      Texto do Botão no Produto (PT)
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsForm.request_restock_button_text_pt || ''}
+                      onChange={(e) => {
+                        setSettingsForm((prev) => ({ ...prev, request_restock_button_text_pt: e.target.value }));
+                        setIsSettingsDirty(true);
+                      }}
+                      placeholder="REQUEST RESTOCK"
+                      className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded text-white font-mono text-xs focus:border-amber-400 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[#aaaaaa] uppercase tracking-wider block mb-1 font-mono">
+                      Texto do Botão no Produto (EN)
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsForm.request_restock_button_text_en || ''}
+                      onChange={(e) => {
+                        setSettingsForm((prev) => ({ ...prev, request_restock_button_text_en: e.target.value }));
+                        setIsSettingsDirty(true);
+                      }}
+                      placeholder="REQUEST RESTOCK"
+                      className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded text-white font-mono text-xs focus:border-amber-400 outline-none"
+                    />
+                  </div>
+
+                  {/* Botão de Submissão do Formulário */}
+                  <div>
+                    <label className="text-[10px] text-[#aaaaaa] uppercase tracking-wider block mb-1 font-mono">
+                      Texto Botão do Modal (PT)
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsForm.restock_submit_btn_pt || ''}
+                      onChange={(e) => {
+                        setSettingsForm((prev) => ({ ...prev, restock_submit_btn_pt: e.target.value }));
+                        setIsSettingsDirty(true);
+                      }}
+                      placeholder="REGISTAR INTERESSE • REQUEST RESTOCK"
+                      className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded text-white font-mono text-xs focus:border-amber-400 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[#aaaaaa] uppercase tracking-wider block mb-1 font-mono">
+                      Texto Botão do Modal (EN)
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsForm.restock_submit_btn_en || ''}
+                      onChange={(e) => {
+                        setSettingsForm((prev) => ({ ...prev, restock_submit_btn_en: e.target.value }));
+                        setIsSettingsDirty(true);
+                      }}
+                      placeholder="SUBMIT INTEREST • REQUEST RESTOCK"
+                      className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded text-white font-mono text-xs focus:border-amber-400 outline-none"
+                    />
+                  </div>
+
+                  {/* Mensagem de Sucesso */}
+                  <div>
+                    <label className="text-[10px] text-emerald-400 uppercase tracking-wider block mb-1 font-mono">
+                      Mensagem de Sucesso (PT)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={settingsForm.restock_success_message_pt || ''}
+                      onChange={(e) => {
+                        setSettingsForm((prev) => ({ ...prev, restock_success_message_pt: e.target.value }));
+                        setIsSettingsDirty(true);
+                      }}
+                      placeholder="Interesse registado! Iremos avaliar a procura desta peça no atelier e avisar-te por WhatsApp assim que decidirmos reabrir produção."
+                      className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded text-white text-xs focus:border-emerald-400 outline-none font-sans"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-emerald-400 uppercase tracking-wider block mb-1 font-mono">
+                      Mensagem de Sucesso (EN)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={settingsForm.restock_success_message_en || ''}
+                      onChange={(e) => {
+                        setSettingsForm((prev) => ({ ...prev, restock_success_message_en: e.target.value }));
+                        setIsSettingsDirty(true);
+                      }}
+                      placeholder="Interest recorded! We will assess demand for this piece and inform you via WhatsApp as soon as production reopens."
+                      className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded text-white text-xs focus:border-emerald-400 outline-none font-sans"
+                    />
+                  </div>
+
+                  {/* Labels e Placeholders dos Campos */}
+                  <div>
+                    <label className="text-[10px] text-[#888888] uppercase tracking-wider block mb-1 font-mono">
+                      Label / Placeholder Nome (PT)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={settingsForm.restock_name_label_pt || ''}
+                        onChange={(e) => {
+                          setSettingsForm((prev) => ({ ...prev, restock_name_label_pt: e.target.value }));
+                          setIsSettingsDirty(true);
+                        }}
+                        placeholder="O teu nome (opcional)"
+                        className="w-full px-2.5 py-1.5 bg-[#141414] border border-[#262626] rounded text-white text-xs"
+                      />
+                      <input
+                        type="text"
+                        value={settingsForm.restock_name_placeholder_pt || ''}
+                        onChange={(e) => {
+                          setSettingsForm((prev) => ({ ...prev, restock_name_placeholder_pt: e.target.value }));
+                          setIsSettingsDirty(true);
+                        }}
+                        placeholder="Ex: Aldemir Santos"
+                        className="w-full px-2.5 py-1.5 bg-[#141414] border border-[#262626] rounded text-white text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[#888888] uppercase tracking-wider block mb-1 font-mono">
+                      Label / Placeholder Nome (EN)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={settingsForm.restock_name_label_en || ''}
+                        onChange={(e) => {
+                          setSettingsForm((prev) => ({ ...prev, restock_name_label_en: e.target.value }));
+                          setIsSettingsDirty(true);
+                        }}
+                        placeholder="Your name (optional)"
+                        className="w-full px-2.5 py-1.5 bg-[#141414] border border-[#262626] rounded text-white text-xs"
+                      />
+                      <input
+                        type="text"
+                        value={settingsForm.restock_name_placeholder_en || ''}
+                        onChange={(e) => {
+                          setSettingsForm((prev) => ({ ...prev, restock_name_placeholder_en: e.target.value }));
+                          setIsSettingsDirty(true);
+                        }}
+                        placeholder="e.g. John Doe"
+                        className="w-full px-2.5 py-1.5 bg-[#141414] border border-[#262626] rounded text-white text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-[#888888] uppercase tracking-wider block mb-1 font-mono">
+                      Label / Placeholder WhatsApp (PT)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={settingsForm.restock_phone_label_pt || ''}
+                        onChange={(e) => {
+                          setSettingsForm((prev) => ({ ...prev, restock_phone_label_pt: e.target.value }));
+                          setIsSettingsDirty(true);
+                        }}
+                        placeholder="WhatsApp / Telefone *"
+                        className="w-full px-2.5 py-1.5 bg-[#141414] border border-[#262626] rounded text-white text-xs"
+                      />
+                      <input
+                        type="text"
+                        value={settingsForm.restock_phone_placeholder_pt || ''}
+                        onChange={(e) => {
+                          setSettingsForm((prev) => ({ ...prev, restock_phone_placeholder_pt: e.target.value }));
+                          setIsSettingsDirty(true);
+                        }}
+                        placeholder="+244 923 000 000"
+                        className="w-full px-2.5 py-1.5 bg-[#141414] border border-[#262626] rounded text-white text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[#888888] uppercase tracking-wider block mb-1 font-mono">
+                      Label / Placeholder WhatsApp (EN)
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={settingsForm.restock_phone_label_en || ''}
+                        onChange={(e) => {
+                          setSettingsForm((prev) => ({ ...prev, restock_phone_label_en: e.target.value }));
+                          setIsSettingsDirty(true);
+                        }}
+                        placeholder="WhatsApp / Phone *"
+                        className="w-full px-2.5 py-1.5 bg-[#141414] border border-[#262626] rounded text-white text-xs"
+                      />
+                      <input
+                        type="text"
+                        value={settingsForm.restock_phone_placeholder_en || ''}
+                        onChange={(e) => {
+                          setSettingsForm((prev) => ({ ...prev, restock_phone_placeholder_en: e.target.value }));
+                          setIsSettingsDirty(true);
+                        }}
+                        placeholder="+244 923 000 000"
+                        className="w-full px-2.5 py-1.5 bg-[#141414] border border-[#262626] rounded text-white text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Mensagem de Erro */}
+                  <div className="sm:col-span-2">
+                    <label className="text-[10px] text-red-300 uppercase tracking-wider block mb-1 font-mono">
+                      Mensagem de Erro de Validação de Telefone (PT)
+                    </label>
+                    <input
+                      type="text"
+                      value={settingsForm.restock_phone_required_error_pt || ''}
+                      onChange={(e) => {
+                        setSettingsForm((prev) => ({ ...prev, restock_phone_required_error_pt: e.target.value }));
+                        setIsSettingsDirty(true);
+                      }}
+                      placeholder="Por favor, insere o teu número de WhatsApp ou telefone."
+                      className="w-full px-3 py-2 bg-[#141414] border border-[#262626] rounded text-white text-xs focus:border-red-400 outline-none"
+                    />
                   </div>
                 </div>
               </div>

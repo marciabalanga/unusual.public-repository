@@ -43,6 +43,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   };
 
   const handleProceed = () => {
+    if (settings.checkout_locked) {
+      return;
+    }
     handleClose();
     if (typeof onProceedToCheckout === 'function') {
       onProceedToCheckout();

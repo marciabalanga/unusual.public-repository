@@ -11,7 +11,8 @@ import {
   FileText,
   Phone,
   PackageCheck,
-  Truck
+  Truck,
+  Lock
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { formatAOA, generateTrackingCode } from '../lib/format';
@@ -107,6 +108,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     if (!customerCity.trim()) {
       setErrorMessage('Por favor, introduza o seu Endereço de Entrega em Luanda.');
       document.getElementById('customer-city-input')?.focus();
+      return;
+    }
+
+    // Verificação estrita de bloqueio de checkout
+    if (settings.checkout_locked) {
+      setErrorMessage(
+        settings.checkout_lock_message ||
+          'O checkout encontra-se temporariamente suspenso para contagem de stock. Novas encomendas não podem ser processadas de momento.'
+      );
       return;
     }
 
@@ -595,24 +605,37 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              id="confirm-and-generate-tracking-btn"
-              className="w-full py-4 min-h-[48px] bg-white hover:bg-[#eaeaea] active:scale-[0.99] text-black font-sans font-bold text-xs sm:text-sm tracking-[0.2em] sm:tracking-[0.25em] uppercase rounded transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-xl"
-            >
-              {isSubmitting ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  <span>{submittingStep || 'A GERAR CÓDIGO DE RASTREIO ÚNICO...'}</span>
+            {settings.checkout_locked ? (
+              <div className="p-4 bg-red-950/80 border border-red-800 rounded-lg text-center text-xs text-red-200 space-y-1.5 animate-in fade-in">
+                <div className="font-bold uppercase tracking-wider text-red-300 flex items-center justify-center gap-1.5 font-mono text-xs">
+                  <Lock className="w-4 h-4 text-red-400" />
+                  <span>CHECKOUT TEMPORARIAMENTE SUSPENSO</span>
                 </div>
-              ) : (
-                <>
-                  <span>CONFIRMAR E GERAR CÓDIGO DE RASTREIO</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
+                <p className="text-[11px] text-red-200/90 font-sans leading-relaxed">
+                  {settings.checkout_lock_message ||
+                    'O checkout encontra-se temporariamente suspenso para contagem de stock e inventário. Não é possível concluir novas encomendas neste momento.'}
+                </p>
+              </div>
+            ) : (
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                id="confirm-and-generate-tracking-btn"
+                className="w-full py-4 min-h-[48px] bg-white hover:bg-[#eaeaea] active:scale-[0.99] text-black font-sans font-bold text-xs sm:text-sm tracking-[0.2em] sm:tracking-[0.25em] uppercase rounded transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer shadow-xl"
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    <span>{submittingStep || 'A GERAR CÓDIGO DE RASTREIO ÚNICO...'}</span>
+                  </div>
+                ) : (
+                  <>
+                    <span>CONFIRMAR E GERAR CÓDIGO DE RASTREIO</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </form>
       </div>

@@ -1085,6 +1085,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updated_at: new Date().toISOString(),
     };
     setSettings(merged);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
+    } catch {}
     setStoredItem(LOCAL_STORAGE_KEYS.SETTINGS, merged).catch(() => {});
 
     // Keep marquee block is_active in sync with settings.marquee_enabled
@@ -1150,6 +1153,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             updated_at: new Date().toISOString(),
           });
         }
+        dictEntries.push(
+          {
+            key: 'maintenance_mode',
+            pt: merged.maintenance_mode ? 'true' : 'false',
+            en: merged.maintenance_mode ? 'true' : 'false',
+            category: 'system',
+            updated_at: new Date().toISOString(),
+          },
+          {
+            key: 'maintenance_message',
+            pt: merged.maintenance_message || '',
+            en: merged.maintenance_message || '',
+            category: 'system',
+            updated_at: new Date().toISOString(),
+          },
+          {
+            key: 'checkout_locked',
+            pt: merged.checkout_locked ? 'true' : 'false',
+            en: merged.checkout_locked ? 'true' : 'false',
+            category: 'system',
+            updated_at: new Date().toISOString(),
+          },
+          {
+            key: 'checkout_lock_message',
+            pt: merged.checkout_lock_message || '',
+            en: merged.checkout_lock_message || '',
+            category: 'system',
+            updated_at: new Date().toISOString(),
+          }
+        );
         if (dictEntries.length > 0) {
           try {
             await supabase.from('site_dictionary').upsert(dictEntries);

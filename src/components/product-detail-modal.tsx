@@ -10,6 +10,7 @@ import {
   X,
   Clock,
   BellRing,
+  Lock,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { formatAOA } from '../lib/format';
@@ -404,18 +405,25 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
                 </div>
 
                 {/* Pre-Order Action Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowPreOrderModal(true)}
-                  className="w-full py-4 bg-white hover:bg-[#eaeaea] text-black font-sans font-bold text-xs tracking-[0.25em] uppercase rounded transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-                >
-                  <Clock className="w-4 h-4 text-black" />
-                  <span>
-                    {language === 'en'
-                      ? settings.pre_order_button_text_en || t('preorder_btn_action', 'PRE-ORDER')
-                      : settings.pre_order_button_text_pt || t('preorder_btn_action', 'PRE-ORDER')}
-                  </span>
-                </button>
+                {settings.checkout_locked ? (
+                  <div className="p-3.5 bg-red-950/60 border border-red-800 rounded-lg text-center text-xs text-red-200 flex items-center justify-center gap-2 font-sans">
+                    <Lock className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                    <span>{settings.checkout_lock_message || 'Checkout temporariamente suspenso para inventário.'}</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowPreOrderModal(true)}
+                    className="w-full py-4 bg-white hover:bg-[#eaeaea] text-black font-sans font-bold text-xs tracking-[0.25em] uppercase rounded transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                  >
+                    <Clock className="w-4 h-4 text-black" />
+                    <span>
+                      {language === 'en'
+                        ? settings.pre_order_button_text_en || t('preorder_btn_action', 'PRE-ORDER')
+                        : settings.pre_order_button_text_pt || t('preorder_btn_action', 'PRE-ORDER')}
+                    </span>
+                  </button>
+                )}
               </div>
             ) : isTimeCapsuleProduct ? (
               /* 2. CÁPSULA DO TEMPO: Produto arquivado/esgotado - medição de interesse sem Pre-Order ativo */
@@ -471,6 +479,12 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
                 >
                   {t('badge_sold_out', 'SOLD OUT')} • PEÇA ESGOTADA
                 </button>
+              </div>
+            ) : settings.checkout_locked ? (
+              /* 4. CHECKOUT BLOQUEADO: Compras suspensas temporariamente */
+              <div className="p-4 bg-red-950/60 border border-red-800 rounded-lg text-center text-xs text-red-200 flex items-center justify-center gap-2 font-sans">
+                <Lock className="w-4 h-4 text-red-400 shrink-0" />
+                <span>{settings.checkout_lock_message || 'Checkout temporariamente suspenso para contagem de stock.'}</span>
               </div>
             ) : (
               /* 4. DROP ATIVO DISPONÍVEL: Compra normal imediata */

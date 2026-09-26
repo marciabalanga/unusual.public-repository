@@ -16,9 +16,10 @@ import { AdminPanel } from './components/admin/admin-panel';
 import { AdminLogin } from './components/admin/admin-login';
 import { SiteFooter } from './components/site-footer';
 import { Order, Product } from './types';
-import { Wrench } from 'lucide-react';
+import { Wrench, Lock } from 'lucide-react';
 import { scrollToTop } from './lib/scroll';
 import { ScheduleDeliveryModal } from './components/schedule-delivery-modal';
+import { MaintenanceView } from './components/maintenance-view';
 
 const MainContent: React.FC = () => {
   const {
@@ -36,6 +37,7 @@ const MainContent: React.FC = () => {
     orders,
     addToCart,
     getOrderByTrackingCode,
+    saveSettings,
   } = useStore();
 
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -186,6 +188,21 @@ const MainContent: React.FC = () => {
     return <AdminPanel />;
   }
 
+  // 4. MODO MANUTENÇÃO: Se ativado e utilizador não for admin autenticado
+  if (settings.maintenance_mode && !isAuthenticated && activeTab !== 'track') {
+    return (
+      <MaintenanceView
+        onOpenTrack={() => {
+          scrollToTop(true);
+          setActiveTab('track');
+        }}
+        onOpenAdmin={() => {
+          if (typeof window !== 'undefined') window.location.hash = '#admin';
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-black text-[#f2f2f2] flex flex-col selection:bg-white selection:text-black">
       {/* 01 — TELA DE ENTRADA (SPLASH SCREEN) */}
@@ -200,12 +217,46 @@ const MainContent: React.FC = () => {
           isSplashActive ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'
         }`}
       >
-        {/* Maintenance Mode Banner if active */}
+        {/* Maintenance Mode Banner if active (visível para o admin na loja pública) */}
         {settings.maintenance_mode && (
-          <div className="bg-amber-950/80 border-b border-amber-800/80 px-4 py-2 text-center text-xs font-sans text-amber-200 flex items-center justify-center gap-2">
-            <Wrench className="w-3.5 h-3.5 text-amber-400" />
-            <span>
-              A plataforma está em processo de atualização de inventário. Novas encomendas podem sofrer ligeiros atrasos.
+          <div className="bg-amber-950/90 border-b border-amber-600 px-4 py-2.5 text-center text-xs font-sans text-amber-200 flex flex-wrap items-center justify-between gap-2 z-50">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <Wrench className="w-3.5 h-3.5 text-amber-400" />
+              <span className="font-mono uppercase font-bold text-[11px] text-amber-300">
+                MODO MANUTENÇÃO ATIVO — Os visitantes comuns vêem a tela oficial de manutenção.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await saveSettings({ ...settings, maintenance_mode: false });
+                }}
+                className="px-2.5 py-1 rounded bg-amber-400 hover:bg-amber-300 text-black text-[10px] font-bold uppercase transition-colors"
+              >
+                Desativar Manutenção
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== 'undefined') window.location.hash = '#admin';
+                }}
+                className="px-2.5 py-1 rounded bg-[#181818] hover:bg-white hover:text-black text-white text-[10px] font-bold uppercase border border-[#333333] transition-colors"
+              >
+                Voltar ao Admin
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Checkout Locked Banner (quando o checkout foi temporariamente suspenso) */}
+        {settings.checkout_locked && (
+          <div className="bg-red-950/90 border-b border-red-800 px-4 py-2 text-center text-xs font-sans text-red-200 flex items-center justify-center gap-2 z-40">
+            <Lock className="w-3.5 h-3.5 text-red-400 shrink-0" />
+            <span className="font-semibold uppercase tracking-wider text-[11px]">
+              {settings.checkout_lock_message ||
+                'AVISO: O CHECKOUT ENCONTRA-SE TEMPORARIAMENTE SUSPENSO PARA CONTAGEM DE STOCK.'}
             </span>
           </div>
         )}
