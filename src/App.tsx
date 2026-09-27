@@ -20,6 +20,7 @@ import { Wrench, Lock } from 'lucide-react';
 import { scrollToTop } from './lib/scroll';
 import { ScheduleDeliveryModal } from './components/schedule-delivery-modal';
 import { MaintenanceView } from './components/maintenance-view';
+import { ChooseDeliveryDateView } from './components/choose-delivery-date-view';
 
 const MainContent: React.FC = () => {
   const {
@@ -38,6 +39,8 @@ const MainContent: React.FC = () => {
     addToCart,
     getOrderByTrackingCode,
     saveSettings,
+    deliveryDateOrderCode,
+    setDeliveryDateOrderCode,
   } = useStore();
 
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -46,11 +49,17 @@ const MainContent: React.FC = () => {
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
   const [deliveryScheduleOrder, setDeliveryScheduleOrder] = useState<Order | null>(null);
   const [isSplashActive, setIsSplashActive] = useState<boolean>(() => {
-    // Skip splash screen if already navigating directly to admin
+    // Skip splash screen if already navigating directly to admin or delivery choice
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.toLowerCase();
       const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
-      if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
+      if (
+        path === '/admin' ||
+        hash === '#admin' ||
+        hash === '#/admin' ||
+        path.startsWith('/choose-delivery-date') ||
+        hash.includes('choose-delivery-date')
+      ) {
         return false;
       }
     }
@@ -66,13 +75,26 @@ const MainContent: React.FC = () => {
     scrollToTop(true);
   }, [setActiveTab]);
 
-  // Check URL pathname or hash for /admin and pre-order schedule link
+  // Check URL pathname or hash for /admin, /choose-delivery-date/:code, and pre-order schedule link
   useEffect(() => {
     const handleUrlCheck = async () => {
       const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
       const hash = window.location.hash.toLowerCase();
       const searchParams = new URLSearchParams(window.location.search);
       const scheduleCode = searchParams.get('schedule_delivery') || searchParams.get('schedule');
+
+      // Check /choose-delivery-date/:code
+      const chooseMatch =
+        window.location.pathname.match(/\/choose-delivery-date\/([^\/?#]+)/i) ||
+        window.location.hash.match(/#\/?choose-delivery-date\/([^\/?#]+)/i);
+
+      if (chooseMatch) {
+        const extractedCode = decodeURIComponent(chooseMatch[1]).trim().toUpperCase();
+        setDeliveryDateOrderCode(extractedCode);
+        setActiveTab('choose_delivery_date');
+        setIsSplashActive(false);
+        return;
+      }
 
       if (scheduleCode) {
         setIsSplashActive(false);
@@ -100,7 +122,7 @@ const MainContent: React.FC = () => {
       window.removeEventListener('popstate', handleUrlCheck);
       window.removeEventListener('hashchange', handleUrlCheck);
     };
-  }, [activeTab, setActiveTab, getOrderByTrackingCode]);
+  }, [activeTab, setActiveTab, getOrderByTrackingCode, setDeliveryDateOrderCode]);
 
   // Garantia Universal: sempre que a aba ou o produto selecionado mudar,
   // reposiciona imediatamente a janela no topo absoluto (Y = 0),
@@ -189,15 +211,36 @@ const MainContent: React.FC = () => {
   }
 
   // 4. MODO MANUTENÇÃO: Se ativado e utilizador não for admin autenticado
-  if (settings.maintenance_mode && !isAuthenticated && activeTab !== 'track') {
+  if (
+    settings.maintenance_mode &&
+    !isAuthenticated &&
+    activeTab !== 'track' &&
+    activeTab !== 'choose_delivery_date'
+  ) {
     return (
       <MaintenanceView
         onOpenTrack={() => {
           scrollToTop(true);
           setActiveTab('track');
         }}
-        onOpenAdmin={() => {
-          if (typeof window !== 'undefined') window.location.hash = '#admin';
+      />
+    );
+  }
+
+  // 5. ROTA DIRETA DE ESCOLHA DA DATA DE ENTREGA (/choose-delivery-date/:orderCode)
+  if (activeTab === 'choose_delivery_date') {
+    return (
+      <ChooseDeliveryDateView
+        orderCode={deliveryDateOrderCode || 'WU-244950'}
+        onBackToStore={() => {
+          if (typeof window !== 'undefined') {
+            window.history.pushState(null, '', '/');
+          }
+          setActiveTab('store');
+        }}
+        onOpenTrack={(code) => {
+          setTrackingInput(code);
+          setActiveTab('track');
         }}
       />
     );
@@ -217,8 +260,8 @@ const MainContent: React.FC = () => {
           isSplashActive ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'
         }`}
       >
-        {/* Maintenance Mode Banner if active (visível para o admin na loja pública) */}
-        {settings.maintenance_mode && (
+        {/* Maintenance Mode Banner if active (apenas visível para administradores autenticados) */}
+        {settings.maintenance_mode && isAuthenticated && (
           <div className="bg-amber-950/90 border-b border-amber-600 px-4 py-2.5 text-center text-xs font-sans text-amber-200 flex flex-wrap items-center justify-between gap-2 z-50">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
@@ -230,21 +273,12 @@ const MainContent: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={async () => {
-                  await saveSettings({ ...settings, maintenance_mode: false });
-                }}
-                className="px-2.5 py-1 rounded bg-amber-400 hover:bg-amber-300 text-black text-[10px] font-bold uppercase transition-colors"
-              >
-                Desativar Manutenção
-              </button>
-              <button
-                type="button"
                 onClick={() => {
-                  if (typeof window !== 'undefined') window.location.hash = '#admin';
+                  setActiveTab('admin');
                 }}
-                className="px-2.5 py-1 rounded bg-[#181818] hover:bg-white hover:text-black text-white text-[10px] font-bold uppercase border border-[#333333] transition-colors"
+                className="px-2.5 py-1 rounded bg-[#181818] hover:bg-white hover:text-black text-white text-[10px] font-bold uppercase border border-[#333333] transition-colors cursor-pointer"
               >
-                Voltar ao Admin
+                Ir para o Admin
               </button>
             </div>
           </div>

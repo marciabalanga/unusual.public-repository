@@ -74,6 +74,7 @@ export const TrackOrderView: React.FC = () => {
   const getStageState = (orderStatus: OrderStatus) => {
     if (isPreOrder) {
       const preOrderMap: Record<string, number> = {
+        'ORDER CONFIRMED': 1,
         'PRE-ORDER CONFIRMED': 1,
         'PAYMENT VERIFIED': 2,
         'IN PRODUCTION': 3,
@@ -81,22 +82,39 @@ export const TrackOrderView: React.FC = () => {
         'DELIVERY SCHEDULED': 5,
         'OUT FOR DELIVERY': 6,
         'DELIVERED': 7,
+        'Pendente de Verificação': 1,
+        Pendente: 1,
+        Aprovado: 2,
+        'Pedido Confirmado': 1,
+        'Em Produção/Trânsito': 3,
+        'Em Trânsito': 6,
+        'Prestes a Chegar': 6,
+        Entregue: 7,
+        CANCELLED: 0,
+        Cancelado: 0,
       };
       return preOrderMap[orderStatus] || 1;
     }
 
-    const map: Record<string, number> = {
+    const regularMap: Record<string, number> = {
+      'ORDER CONFIRMED': 1,
+      'PAYMENT VERIFIED': 2,
+      'READY FOR DELIVERY': 3,
+      'DELIVERY SCHEDULED': 4,
+      'OUT FOR DELIVERY': 5,
+      'DELIVERED': 6,
       'Pendente de Verificação': 1,
       Pendente: 1,
-      Aprovado: 1,
+      Aprovado: 2,
       'Pedido Confirmado': 1,
-      'Em Trânsito': 2,
-      'Em Produção/Trânsito': 2,
-      'Prestes a Chegar': 3,
-      Entregue: 4,
+      'Em Trânsito': 5,
+      'Em Produção/Trânsito': 5,
+      'Prestes a Chegar': 5,
+      Entregue: 6,
+      CANCELLED: 0,
       Cancelado: 0,
     };
-    return map[orderStatus] || 1;
+    return regularMap[orderStatus] || 1;
   };
 
   const activeStage = currentOrder ? getStageState(currentOrder.status) : 1;
@@ -104,30 +122,46 @@ export const TrackOrderView: React.FC = () => {
   const regularSteps = [
     {
       step: 1,
-      title: 'Pedido Confirmado',
-      subtitle: 'Comprovativo validado e vaga reservada no atelier.',
+      title: 'ORDER CONFIRMED',
+      subtitle: t('track_step_1_desc', 'Pedido confirmado e vaga reservada no atelier.'),
       icon: Check,
       isAlert: false,
     },
     {
       step: 2,
-      title: 'A sua encomenda saiu do local de produção',
-      subtitle: 'Peça embalada sob padrão estrito e entregue à logística.',
-      icon: Package,
+      title: 'PAYMENT VERIFIED',
+      subtitle: t('track_step_2_desc', 'Pagamento e comprovativo de transferência validados com sucesso.'),
+      icon: FileCheck,
       isAlert: false,
     },
     {
       step: 3,
-      title: 'A sua encomenda está prestes a chegar',
-      subtitle: 'O estafeta está a caminho do seu endereço em Luanda.',
-      alertText: 'Certifique-se de se manter contactável.',
-      icon: MapPin,
-      isAlert: true,
+      title: 'READY FOR DELIVERY',
+      subtitle: t('track_step_3_desc', 'Peça inspecionada, embalada sob padrão estrito e pronta para entrega.'),
+      icon: Package,
+      isAlert: false,
     },
     {
       step: 4,
-      title: 'Entregue',
-      subtitle: 'Encomenda entregue em mãos com sucesso.',
+      title: 'DELIVERY SCHEDULED',
+      subtitle: currentOrder?.scheduled_delivery_date
+        ? `Entrega agendada para ${currentOrder.scheduled_delivery_date}${currentOrder.delivery_window ? ` (${currentOrder.delivery_window})` : ''}.`
+        : 'Data de entrega agendada com a equipa de logística.',
+      icon: Calendar,
+      isAlert: false,
+    },
+    {
+      step: 5,
+      title: 'OUT FOR DELIVERY',
+      subtitle: t('track_step_5_desc', 'A sua encomenda saiu para entrega em Luanda. O estafeta está a caminho.'),
+      alertText: t('track_step_5_alert', 'Certifique-se de se manter contactável no seu telefone.'),
+      icon: Truck,
+      isAlert: true,
+    },
+    {
+      step: 6,
+      title: 'DELIVERED',
+      subtitle: t('track_step_6_desc', 'Encomenda entregue em mãos com sucesso.'),
       icon: CheckCircle2,
       isAlert: false,
     },
@@ -136,32 +170,32 @@ export const TrackOrderView: React.FC = () => {
   const preOrderSteps = [
     {
       step: 1,
-      title: 'PRE-ORDER CONFIRMED',
-      subtitle: 'Pré-encomenda registada no atelier. A sua peça será produzida especificamente para esta reposição.',
+      title: 'ORDER CONFIRMED',
+      subtitle: t('preorder_step_1_desc', 'Pré-encomenda registada no atelier. A sua peça será produzida sob demanda com prioridade.'),
       icon: Clock,
       isAlert: false,
     },
     {
       step: 2,
       title: 'PAYMENT VERIFIED',
-      subtitle: 'Pagamento/comprovativo validado. Vaga no lote de produção assegurada.',
-      icon: Check,
+      subtitle: t('preorder_step_2_desc', 'Pagamento/comprovativo validado. Vaga no lote de produção assegurada.'),
+      icon: FileCheck,
       isAlert: false,
     },
     {
       step: 3,
       title: 'IN PRODUCTION',
-      subtitle: 'A produção da sua peça está em andamento no atelier.',
+      subtitle: t('preorder_step_3_desc', 'A produção da sua peça está em andamento no atelier.'),
       icon: Package,
       isAlert: false,
     },
     {
       step: 4,
       title: 'PRODUCTION COMPLETED / READY FOR DELIVERY',
-      subtitle: 'A produção terminou e a sua peça está pronta para entrega. Escolha a sua data preferida.',
+      subtitle: t('preorder_step_4_desc', 'A produção terminou e a sua peça está pronta para entrega. Escolha a sua data preferida.'),
       icon: Sparkles,
       isAlert: true,
-      alertText: 'Peça pronta para entrega! Clique no botão abaixo para agendar a data de entrega.',
+      alertText: t('preorder_step_4_alert', 'Peça pronta para entrega! Clique no botão abaixo para agendar a data de entrega.'),
     },
     {
       step: 5,
@@ -175,7 +209,7 @@ export const TrackOrderView: React.FC = () => {
     {
       step: 6,
       title: 'OUT FOR DELIVERY',
-      subtitle: 'A sua encomenda está a caminho. Mantenha o telefone por perto no dia agendado.',
+      subtitle: t('preorder_step_6_desc', 'A sua encomenda está a caminho. Mantenha o telefone por perto no dia agendado.'),
       icon: Truck,
       isAlert: true,
       alertText: t('out_for_delivery_notice', 'YOUR ORDER IS ON ITS WAY 🖤 Please stay available and keep your phone nearby. Your order will arrive shortly.'),
@@ -183,7 +217,7 @@ export const TrackOrderView: React.FC = () => {
     {
       step: 7,
       title: 'DELIVERED',
-      subtitle: 'Encomenda entregue em mãos com sucesso.',
+      subtitle: t('preorder_step_7_desc', 'Encomenda entregue em mãos com sucesso.'),
       icon: CheckCircle2,
       isAlert: false,
     },

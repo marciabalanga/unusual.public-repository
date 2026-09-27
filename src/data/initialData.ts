@@ -300,6 +300,45 @@ export const INITIAL_SETTINGS: SiteSettings = {
   restock_error_message_en: 'An error occurred while registering your interest. Please try again.',
   restock_phone_required_error_pt: 'Por favor introduza o seu número de WhatsApp / Telefone.',
   restock_phone_required_error_en: 'Please enter your WhatsApp / Phone number.',
+
+  // Settings -> Pre-Order Content -> WhatsApp & Delivery Dates
+  pre_order_whatsapp_template_pt: `UNUSUAL —  ENCOMENDA PRONTA
+
+A tua encomenda está pronta para entrega!
+
+As entregas começam no dia [DATA].
+
+Por favor, escolhe a data da tua entrega através do link abaixo:
+
+[ ESCOLHER DATA DE ENTREGA ]`,
+  pre_order_whatsapp_template_en: `UNUSUAL —  ORDER READY
+
+Your order is ready for delivery!
+
+Deliveries start on [DATA].
+
+Please choose your delivery date using the link below:
+
+[ CHOOSE DELIVERY DATE ]`,
+  pre_order_deliveries_start_date: '2026-10-18',
+  pre_order_available_delivery_dates: [
+    '2026-10-18',
+    '2026-10-19',
+    '2026-10-20',
+    '2026-10-21',
+    '2026-10-22',
+    '2026-10-23',
+    '2026-10-24'
+  ],
+  pre_order_choose_date_title_pt: 'ESCOLHER DATA DE ENTREGA',
+  pre_order_choose_date_title_en: 'CHOOSE DELIVERY DATE',
+  pre_order_choose_date_desc_pt: 'A tua encomenda de pre-order está concluída pelo atelier e pronta para envio. Por favor, seleciona a tua data preferida de entrega.',
+  pre_order_choose_date_desc_en: 'Your pre-order piece has been completed by the atelier and is ready for dispatch. Please select your preferred delivery date.',
+  pre_order_choose_date_btn_pt: 'CONFIRMAR DATA DE ENTREGA',
+  pre_order_choose_date_btn_en: 'CONFIRM DELIVERY DATE',
+  pre_order_delivery_scheduled_msg_pt: 'A tua entrega foi agendada com sucesso. Entraremos em contacto no dia da entrega.',
+  pre_order_delivery_scheduled_msg_en: 'Your delivery has been scheduled successfully. We will contact you on delivery day.',
+
   updated_at: '2020-01-01T00:00:00.000Z',
 };
 

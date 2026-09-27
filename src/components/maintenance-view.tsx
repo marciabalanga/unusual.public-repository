@@ -1,44 +1,20 @@
 import React from 'react';
 import { useStore } from '../context/StoreContext';
-import { useAuth } from '../context/AuthContext';
 import { WULogo } from './wu-logo';
-import { Wrench, MessageSquare, Instagram, Search, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
+import { Wrench, MessageSquare, Instagram, Search, ShieldCheck, ArrowRight } from 'lucide-react';
 
 interface MaintenanceViewProps {
   onOpenTrack?: () => void;
-  onOpenAdmin?: () => void;
 }
 
-export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ onOpenTrack, onOpenAdmin }) => {
-  const { settings, saveSettings, setActiveTab } = useStore();
-  const { isAuthenticated } = useAuth();
-  const [disabledSuccess, setDisabledSuccess] = React.useState(false);
-
-  const handleDisableMaintenance = async () => {
-    try {
-      await saveSettings({ ...settings, maintenance_mode: false });
-      setDisabledSuccess(true);
-      if (typeof window !== 'undefined') {
-        window.location.reload();
-      }
-    } catch {
-      // silent
-    }
-  };
+export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ onOpenTrack }) => {
+  const { settings, setActiveTab } = useStore();
 
   const handleTrackClick = () => {
     if (onOpenTrack) {
       onOpenTrack();
     } else {
       setActiveTab('track');
-    }
-  };
-
-  const handleAdminClick = () => {
-    if (onOpenAdmin) {
-      onOpenAdmin();
-    } else if (typeof window !== 'undefined') {
-      window.location.hash = '#admin';
     }
   };
 
@@ -49,32 +25,6 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ onOpenTrack, o
     <div className="min-h-screen bg-black text-[#f2f2f2] flex flex-col justify-between selection:bg-white selection:text-black relative overflow-hidden font-sans">
       {/* Background ambient aesthetic grid lines */}
       <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(#333_1px,transparent_1px)] [background-size:24px_24px]" />
-
-      {/* Top Banner if authenticated as Admin */}
-      {isAuthenticated && (
-        <div className="relative z-30 bg-amber-500/15 border-b border-amber-500/30 px-4 py-2.5 text-xs flex flex-col sm:flex-row items-center justify-between gap-2 text-amber-200">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-            <span className="font-mono uppercase tracking-wider font-bold">
-              MODO MANUTENÇÃO ATIVO — AVISO EXIBIDO AO PÚBLICO
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleDisableMaintenance}
-              className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-black font-bold uppercase text-[10px] tracking-wider rounded transition-colors"
-            >
-              Desativar Agora
-            </button>
-            <button
-              onClick={handleAdminClick}
-              className="px-3 py-1 bg-[#1a1a1a] hover:bg-white hover:text-black text-white border border-[#333333] font-bold uppercase text-[10px] tracking-wider rounded transition-colors"
-            >
-              Painel Admin
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Top Header Bar */}
       <header className="relative z-20 px-6 py-6 border-b border-[#161616] flex items-center justify-between">
@@ -173,21 +123,18 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ onOpenTrack, o
 
       {/* Footer */}
       <footer className="relative z-20 px-6 py-6 border-t border-[#141414] text-center text-xs text-[#555555] font-mono space-y-2">
-        <div className="flex flex-wrap items-center justify-center gap-4 text-[11px]">
+        <div className="flex flex-wrap items-center justify-center gap-2.5 text-[11px]">
           <span className="flex items-center gap-1 text-[#777777]">
             <ShieldCheck className="w-3.5 h-3.5 text-[#888888]" />
             LUANDA, ANGOLA
           </span>
           <span>•</span>
-          <button
-            onClick={handleAdminClick}
-            className="text-[#666666] hover:text-white transition-colors underline cursor-pointer"
-          >
-            Acesso de Gestão / Admin
-          </button>
+          <span className="text-[#888888] uppercase tracking-wider font-sans font-medium">
+            wearing unusual ©
+          </span>
         </div>
         <p className="text-[10px] text-[#444444]">
-          {settings.copyright_text || '© WEARING UNUSUAL. TODOS OS DIREITOS RESERVADOS.'}
+          {settings.copyright_text || 'TODOS OS DIREITOS RESERVADOS. LUANDA, ANGOLA.'}
         </p>
       </footer>
     </div>

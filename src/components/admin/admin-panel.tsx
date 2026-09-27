@@ -70,6 +70,7 @@ export const AdminPanel: React.FC = () => {
     updateOrderStatus,
     deleteOrder,
     scheduleDeliveryDate,
+    markWhatsAppNotificationSent,
     restockRequests,
     updateRestockStatus,
     deleteRestockRequest,
@@ -133,7 +134,7 @@ export const AdminPanel: React.FC = () => {
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [statusUpdateNote, setStatusUpdateNote] = useState('');
-  const [selectedStatusForInspector, setSelectedStatusForInspector] = useState<OrderStatus>('Pendente');
+  const [selectedStatusForInspector, setSelectedStatusForInspector] = useState<OrderStatus>('ORDER CONFIRMED');
   const [isSavingOrderStatus, setIsSavingOrderStatus] = useState(false);
   const [viewingProofUrl, setViewingProofUrl] = useState<string | null>(null);
   const [viewingProofTitle, setViewingProofTitle] = useState<string>('');
@@ -206,6 +207,70 @@ export const AdminPanel: React.FC = () => {
     } catch {
       showToast('Erro ao transferir comprovativo');
     }
+  };
+
+  const PRE_ORDER_STATUSES: OrderStatus[] = [
+    'ORDER CONFIRMED',
+    'PAYMENT VERIFIED',
+    'IN PRODUCTION',
+    'PRODUCTION COMPLETED / READY FOR DELIVERY',
+    'DELIVERY SCHEDULED',
+    'OUT FOR DELIVERY',
+    'DELIVERED',
+    'CANCELLED',
+  ];
+
+  const REGULAR_ORDER_STATUSES: OrderStatus[] = [
+    'ORDER CONFIRMED',
+    'PAYMENT VERIFIED',
+    'READY FOR DELIVERY',
+    'DELIVERY SCHEDULED',
+    'OUT FOR DELIVERY',
+    'DELIVERED',
+    'CANCELLED',
+  ];
+
+  const handleSendWhatsAppNotification = async (order: Order) => {
+    if (order.whatsapp_notification_sent) {
+      const confirmResend = window.confirm(
+        `A notificação WhatsApp já foi enviada em ${formatDate(order.whatsapp_notification_sent_at || '')}. Deseja reenviar a notificação para o cliente?`
+      );
+      if (!confirmResend) return;
+    }
+
+    const template =
+      settings.pre_order_whatsapp_template_pt ||
+      `UNUSUAL —  ENCOMENDA PRONTA\n\nA tua encomenda está pronta para entrega!\n\nAs entregas começam no dia [DATA].\n\nPor favor, escolhe a data da tua entrega através do link abaixo:\n\n[ ESCOLHER DATA DE ENTREGA ]`;
+
+    const deliveriesStartDate =
+      settings.pre_order_deliveries_start_date ||
+      new Date().toLocaleDateString('pt-PT');
+
+    const origin =
+      typeof window !== 'undefined' ? window.location.origin : 'https://wearingunusual.com';
+    const directLink = `${origin}/choose-delivery-date/${order.tracking_code}`;
+
+    let messageText = template
+      .replace(/\[DATA\]/gi, deliveriesStartDate)
+      .replace(/\{DATA\}/gi, deliveriesStartDate)
+      .replace(/\[ ESCOLHER DATA DE ENTREGA \]/gi, directLink)
+      .replace(/\[ESCOLHER DATA DE ENTREGA\]/gi, directLink)
+      .replace(/\[LINK\]/gi, directLink)
+      .replace(/\{LINK\}/gi, directLink);
+
+    if (!messageText.includes(directLink)) {
+      messageText += `\n\n${directLink}`;
+    }
+
+    const cleanPhone = order.customer_phone.replace(/\D/g, '');
+    const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(messageText)}`;
+
+    // Open WhatsApp
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+
+    // Mark as sent
+    await markWhatsAppNotificationSent(order.id);
+    showToast(`WhatsApp preparado e registado para ${order.customer_name} (${order.tracking_code})!`);
   };
 
   // Editing states for Products
@@ -644,11 +709,11 @@ export const AdminPanel: React.FC = () => {
                   className="px-3 py-1.5 bg-[#141414] border border-[#262626] rounded text-xs text-white font-sans"
                 >
                   <option value="all">Todos os Estados</option>
-                  <option value="Pendente">Pendente</option>
-                  <option value="Aprovado">Aprovado</option>
-                  <option value="Em Trânsito">Em Trânsito</option>
-                  <option value="Entregue">Entregue</option>
-                  <option value="Cancelado">Cancelado</option>
+                  {(ordersCategory === 'pre_orders' ? PRE_ORDER_STATUSES : REGULAR_ORDER_STATUSES).map((st) => (
+                    <option key={st} value={st}>
+                      {st}
+                    </option>
+                  ))}
                 </select>
               </div>
             )}
@@ -1120,28 +1185,42 @@ export const AdminPanel: React.FC = () => {
                       </div>
                     ) : (
                       filteredOrders.map((order) => {
-                        const normalizedCurrentStatus =
-                          order.status === 'Pedido Confirmado' || order.status === 'Pendente de Verificação'
-                            ? 'Pendente'
-                            : order.status === 'Em Produção/Trânsito'
-                            ? 'Em Trânsito'
-                            : order.status;
+                        const isThisPreOrder =
+                          order.order_type === 'pre_order' ||
+                          order.is_pre_order ||
+                          Boolean(order.items && order.items.some((i) => i.is_pre_order));
+
+                        const statusOptions = isThisPreOrder ? PRE_ORDER_STATUSES : REGULAR_ORDER_STATUSES;
+
+                        const isPaymentVerified =
+                          order.status === 'PAYMENT VERIFIED' ||
+                          order.status === 'Aprovado' ||
+                          order.status === 'IN PRODUCTION' ||
+                          order.status === 'READY FOR DELIVERY' ||
+                          order.status === 'PRODUCTION COMPLETED / READY FOR DELIVERY' ||
+                          order.status === 'DELIVERY SCHEDULED' ||
+                          order.status === 'OUT FOR DELIVERY' ||
+                          order.status === 'DELIVERED';
 
                         return (
                           <div
                             key={order.id}
                             className="bg-[#0e0e0e] border border-[#1c1c1c] rounded-lg p-4 space-y-3.5 shadow-lg"
                           >
-                            {/* Card Header: Tracking Code + Status + Date */}
+                            {/* Card Header: Order Type + Order Number + Status + Date */}
                             <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-[#1c1c1c]">
                               <div>
-                                {(order.order_type === 'pre_order' || order.is_pre_order || (order.items && order.items.some((i) => i.is_pre_order))) && (
-                                  <span className="text-[9px] font-sans font-bold px-1.5 py-0.5 rounded bg-amber-400 text-black uppercase tracking-wider inline-block mb-1">
-                                    PRE-ORDER
-                                  </span>
-                                )}
+                                <span
+                                  className={`text-[9px] font-sans font-bold px-2 py-0.5 rounded uppercase tracking-wider inline-block mb-1 ${
+                                    isThisPreOrder
+                                      ? 'bg-amber-400 text-black'
+                                      : 'bg-white text-black'
+                                  }`}
+                                >
+                                  {isThisPreOrder ? 'PRE-ORDER' : 'REGULAR ORDER'}
+                                </span>
                                 <span className="text-[10px] text-[#666666] uppercase tracking-wider block">
-                                  CÓDIGO DE RASTREIO
+                                  ORDER NUMBER
                                 </span>
                                 <span className="font-mono font-bold text-white text-base tracking-wider block">
                                   {order.tracking_code}
@@ -1152,15 +1231,21 @@ export const AdminPanel: React.FC = () => {
                               </div>
                               <span
                                 className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded text-center shrink-0 ${
-                                  normalizedCurrentStatus === 'Entregue'
+                                  order.status === 'DELIVERED' || order.status === 'Entregue'
                                     ? 'bg-white text-black'
-                                    : normalizedCurrentStatus === 'Em Trânsito'
+                                    : order.status === 'OUT FOR DELIVERY' || order.status === 'Em Trânsito'
                                     ? 'bg-sky-950 text-sky-300 border border-sky-800'
-                                    : normalizedCurrentStatus === 'Aprovado'
-                                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                                    : normalizedCurrentStatus === 'Cancelado'
+                                    : order.status === 'DELIVERY SCHEDULED'
+                                    ? 'bg-purple-950 text-purple-300 border border-purple-800'
+                                    : order.status === 'PRODUCTION COMPLETED / READY FOR DELIVERY' || order.status === 'READY FOR DELIVERY'
+                                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-800 animate-pulse'
+                                    : order.status === 'IN PRODUCTION'
+                                    ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                                    : order.status === 'PAYMENT VERIFIED' || order.status === 'Aprovado'
+                                    ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/80'
+                                    : order.status === 'CANCELLED' || order.status === 'Cancelado'
                                     ? 'bg-red-950 text-red-300 border border-red-800'
-                                    : 'bg-amber-950/80 text-amber-300 border border-amber-800/80'
+                                    : 'bg-[#181818] text-[#cccccc] border border-[#333333]'
                                 }`}
                               >
                                 {order.status}
@@ -1193,6 +1278,81 @@ export const AdminPanel: React.FC = () => {
                               </div>
                             </div>
 
+                            {/* Payment Status & Delivery Date Section */}
+                            <div className="p-2.5 bg-[#121212] border border-[#222222] rounded space-y-2 text-xs">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] text-[#888888] uppercase">Payment Status:</span>
+                                <span
+                                  className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                                    isPaymentVerified
+                                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                      : order.payment_proof_url
+                                      ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                                      : 'bg-[#1a1a1a] text-[#888888]'
+                                  }`}
+                                >
+                                  {isPaymentVerified
+                                    ? 'VERIFICADO ✓'
+                                    : order.payment_proof_url
+                                    ? 'COMPROVATIVO ANEXADO'
+                                    : 'PENDENTE'}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] text-[#888888] uppercase">Delivery Date:</span>
+                                <span className="font-mono text-[11px] text-white font-semibold">
+                                  {order.scheduled_delivery_date ? (
+                                    <span className="text-emerald-300 flex items-center gap-1">
+                                      <Calendar className="w-3 h-3 text-emerald-400" />
+                                      <span>
+                                        {order.scheduled_delivery_date}
+                                        {order.delivery_window ? ` (${order.delivery_window})` : ''}
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-[#777777] italic">
+                                      {order.status === 'PRODUCTION COMPLETED / READY FOR DELIVERY'
+                                        ? 'Pronto para agendamento'
+                                        : 'Aguardando agendamento'}
+                                    </span>
+                                  )}
+                                </span>
+                              </div>
+
+                              {/* Pre-Order WhatsApp Notification Status & Trigger */}
+                              {isThisPreOrder && (
+                                <div className="pt-2 border-t border-[#1c1c1c] space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] text-[#888888] uppercase">WhatsApp Status:</span>
+                                    {order.whatsapp_notification_sent ? (
+                                      <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800 font-bold flex items-center gap-1">
+                                        <Check className="w-3 h-3" />
+                                        <span>Enviado ({formatDate(order.whatsapp_notification_sent_at || '')})</span>
+                                      </span>
+                                    ) : (
+                                      <span className="text-[9px] font-mono text-[#777777] bg-[#1a1a1a] px-2 py-0.5 rounded">
+                                        Não enviado
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSendWhatsAppNotification(order)}
+                                    className={`w-full py-2 px-3 rounded text-[11px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow cursor-pointer ${
+                                      order.status === 'PRODUCTION COMPLETED / READY FOR DELIVERY'
+                                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white animate-pulse'
+                                        : 'bg-[#181818] hover:bg-[#222222] text-[#cccccc] hover:text-white border border-[#333333]'
+                                    }`}
+                                  >
+                                    <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>ENVIAR WHATSAPP</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
                             {/* Items & Total */}
                             <div className="bg-[#141414] border border-[#222222] rounded p-2.5 space-y-1 text-xs">
                               <div className="text-[#999999] text-[11px] space-y-1">
@@ -1213,14 +1373,14 @@ export const AdminPanel: React.FC = () => {
                               </div>
                             </div>
 
-                            {/* Status Change Selector & Proof Button */}
+                            {/* Quick Status Selector & Proof Button */}
                             <div className="space-y-2 pt-1">
                               <div>
                                 <label className="block text-[10px] text-[#777777] uppercase mb-1">
-                                  Alterar Estado Rápido:
+                                  Alterar Estado:
                                 </label>
                                 <select
-                                  value={normalizedCurrentStatus}
+                                  value={order.status}
                                   onChange={async (e) => {
                                     const nextStatus = e.target.value as OrderStatus;
                                     await updateOrderStatus(order.id, nextStatus);
@@ -1228,11 +1388,11 @@ export const AdminPanel: React.FC = () => {
                                   }}
                                   className="w-full px-3 py-2.5 bg-[#161616] border border-[#2e2e2e] rounded text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-white"
                                 >
-                                  <option value="Pendente">Pendente</option>
-                                  <option value="Aprovado">Aprovado</option>
-                                  <option value="Em Trânsito">Em Trânsito</option>
-                                  <option value="Entregue">Entregue</option>
-                                  <option value="Cancelado">Cancelado</option>
+                                  {statusOptions.map((st) => (
+                                    <option key={st} value={st}>
+                                      {st}
+                                    </option>
+                                  ))}
                                 </select>
                               </div>
 
@@ -1291,29 +1451,44 @@ export const AdminPanel: React.FC = () => {
                       <table className="w-full text-left font-sans text-xs">
                         <thead className="bg-[#141414] text-[#888888] uppercase text-[10px] tracking-wider border-b border-[#222222]">
                           <tr>
-                            <th className="py-3.5 px-4">CÓDIGO & DATA</th>
-                            <th className="py-3.5 px-4">DADOS DE ENTREGA (CLIENTE)</th>
-                            <th className="py-3.5 px-4">ITENS & TOTAL</th>
-                            <th className="py-3.5 px-4">COMPROVATIVO</th>
-                            <th className="py-3.5 px-4">ESTADO DA ENCOMENDA</th>
+                            <th className="py-3.5 px-4">ORDER TYPE & NUMBER</th>
+                            <th className="py-3.5 px-4">CLIENTE & CONTACTO</th>
+                            <th className="py-3.5 px-4">CURRENT STATUS</th>
+                            <th className="py-3.5 px-4">PAYMENT STATUS</th>
+                            <th className="py-3.5 px-4">DELIVERY DATE</th>
+                            {ordersCategory === 'pre_orders' ? (
+                              <th className="py-3.5 px-4">WHATSAPP NOTIFICATION</th>
+                            ) : (
+                              <th className="py-3.5 px-4">ITENS & TOTAL</th>
+                            )}
                             <th className="py-3.5 px-4 text-right">AÇÕES</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#181818]">
                           {filteredOrders.length === 0 ? (
                             <tr>
-                              <td colSpan={6} className="py-8 text-center text-xs text-[#777777]">
+                              <td colSpan={7} className="py-8 text-center text-xs text-[#777777]">
                                 Nenhuma encomenda encontrada com os filtros selecionados.
                               </td>
                             </tr>
                           ) : (
                             filteredOrders.map((order) => {
-                              const normalizedCurrentStatus =
-                                order.status === 'Pedido Confirmado' || order.status === 'Pendente de Verificação'
-                                  ? 'Pendente'
-                                  : order.status === 'Em Produção/Trânsito'
-                                  ? 'Em Trânsito'
-                                  : order.status;
+                              const isThisPreOrder =
+                                order.order_type === 'pre_order' ||
+                                order.is_pre_order ||
+                                Boolean(order.items && order.items.some((i) => i.is_pre_order));
+
+                              const statusOptions = isThisPreOrder ? PRE_ORDER_STATUSES : REGULAR_ORDER_STATUSES;
+
+                              const isPaymentVerified =
+                                order.status === 'PAYMENT VERIFIED' ||
+                                order.status === 'Aprovado' ||
+                                order.status === 'IN PRODUCTION' ||
+                                order.status === 'READY FOR DELIVERY' ||
+                                order.status === 'PRODUCTION COMPLETED / READY FOR DELIVERY' ||
+                                order.status === 'DELIVERY SCHEDULED' ||
+                                order.status === 'OUT FOR DELIVERY' ||
+                                order.status === 'DELIVERED';
 
                               return (
                                 <tr
@@ -1321,13 +1496,17 @@ export const AdminPanel: React.FC = () => {
                                   onClick={() => setSelectedOrder(order)}
                                   className="hover:bg-[#141414] cursor-pointer transition-colors"
                                 >
-                                  {/* Código de Rastreio e Data/Hora */}
+                                  {/* 1. ORDER TYPE & NUMBER */}
                                   <td className="py-4 px-4 align-top">
-                                    {(order.order_type === 'pre_order' || order.is_pre_order || (order.items && order.items.some((i) => i.is_pre_order))) && (
-                                      <span className="text-[9px] font-sans font-bold px-1.5 py-0.5 rounded bg-amber-400 text-black uppercase tracking-wider inline-block mb-1">
-                                        PRE-ORDER
-                                      </span>
-                                    )}
+                                    <span
+                                      className={`text-[9px] font-sans font-bold px-1.5 py-0.5 rounded uppercase tracking-wider inline-block mb-1 ${
+                                        isThisPreOrder
+                                          ? 'bg-amber-400 text-black'
+                                          : 'bg-white text-black'
+                                      }`}
+                                    >
+                                      {isThisPreOrder ? 'PRE-ORDER' : 'REGULAR'}
+                                    </span>
                                     <span className="font-mono font-bold text-white text-sm tracking-wider block">
                                       {order.tracking_code}
                                     </span>
@@ -1336,7 +1515,7 @@ export const AdminPanel: React.FC = () => {
                                     </span>
                                   </td>
 
-                                  {/* Dados completos de entrega do cliente */}
+                                  {/* 2. CLIENTE & CONTACTO */}
                                   <td className="py-4 px-4 align-top max-w-xs">
                                     <span className="text-white font-semibold block text-xs">{order.customer_name}</span>
                                     <a
@@ -1360,46 +1539,11 @@ export const AdminPanel: React.FC = () => {
                                     )}
                                   </td>
 
-                                  {/* Itens e Total Pago */}
-                                  <td className="py-4 px-4 align-top">
-                                    <div className="text-[#aaaaaa] text-[11px] space-y-0.5">
-                                      {order.items.map((it, idx) => (
-                                        <div key={idx} className="truncate max-w-[200px]">
-                                          {it.name} <span className="text-[#777777]">({it.size}) x{it.quantity || 1}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                    <span className="font-mono font-bold text-white block mt-1 text-xs">
-                                      {formatAOA(order.total_aoa)}
-                                    </span>
-                                  </td>
-
-                                  {/* Botão VER COMPROVATIVO */}
-                                  <td className="py-4 px-4 align-top">
-                                    {order.payment_proof_url && order.payment_proof_url.trim() !== '' ? (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleOpenProof(order.payment_proof_url, `Comprovativo — ${order.tracking_code}`);
-                                        }}
-                                        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/80 px-2.5 py-1.5 rounded transition-colors shadow-sm cursor-pointer"
-                                        title="Abrir comprovativo em tamanho real"
-                                      >
-                                        <FileCheck className="w-3.5 h-3.5 text-emerald-400" />
-                                        <span>VER COMPROVATIVO</span>
-                                        <Eye className="w-3 h-3 text-emerald-400" />
-                                      </button>
-                                    ) : (
-                                      <span className="text-[11px] text-[#666666]">Sem comprovativo</span>
-                                    )}
-                                  </td>
-
-                                  {/* Seletor de Estado */}
+                                  {/* 3. CURRENT STATUS */}
                                   <td className="py-4 px-4 align-top">
                                     <div className="flex flex-col gap-1.5">
                                       <select
-                                        value={normalizedCurrentStatus}
+                                        value={order.status}
                                         onClick={(e) => e.stopPropagation()}
                                         onChange={async (e) => {
                                           e.stopPropagation();
@@ -1409,23 +1553,29 @@ export const AdminPanel: React.FC = () => {
                                         }}
                                         className="px-2.5 py-1.5 bg-[#161616] hover:bg-[#202020] border border-[#2e2e2e] rounded text-xs font-semibold text-white cursor-pointer focus:outline-none focus:ring-1 focus:ring-white transition-colors"
                                       >
-                                        <option value="Pendente">Pendente</option>
-                                        <option value="Aprovado">Aprovado</option>
-                                        <option value="Em Trânsito">Em Trânsito</option>
-                                        <option value="Entregue">Entregue</option>
-                                        <option value="Cancelado">Cancelado</option>
+                                        {statusOptions.map((st) => (
+                                          <option key={st} value={st}>
+                                            {st}
+                                          </option>
+                                        ))}
                                       </select>
                                       <span
                                         className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded text-center ${
-                                          normalizedCurrentStatus === 'Entregue'
+                                          order.status === 'DELIVERED' || order.status === 'Entregue'
                                             ? 'bg-white text-black'
-                                            : normalizedCurrentStatus === 'Em Trânsito'
+                                            : order.status === 'OUT FOR DELIVERY' || order.status === 'Em Trânsito'
                                             ? 'bg-sky-950 text-sky-300 border border-sky-800'
-                                            : normalizedCurrentStatus === 'Aprovado'
+                                            : order.status === 'DELIVERY SCHEDULED'
+                                            ? 'bg-purple-950 text-purple-300 border border-purple-800'
+                                            : order.status === 'PRODUCTION COMPLETED / READY FOR DELIVERY' || order.status === 'READY FOR DELIVERY'
                                             ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                                            : normalizedCurrentStatus === 'Cancelado'
+                                            : order.status === 'IN PRODUCTION'
+                                            ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                                            : order.status === 'PAYMENT VERIFIED' || order.status === 'Aprovado'
+                                            ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/80'
+                                            : order.status === 'CANCELLED' || order.status === 'Cancelado'
                                             ? 'bg-red-950 text-red-300 border border-red-800'
-                                            : 'bg-amber-950/80 text-amber-300 border border-amber-800/80'
+                                            : 'bg-[#181818] text-[#cccccc] border border-[#333333]'
                                         }`}
                                       >
                                         {order.status}
@@ -1433,7 +1583,114 @@ export const AdminPanel: React.FC = () => {
                                     </div>
                                   </td>
 
-                                  {/* Ações */}
+                                  {/* 4. PAYMENT STATUS */}
+                                  <td className="py-4 px-4 align-top">
+                                    <div className="space-y-1.5">
+                                      <span
+                                        className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded inline-block ${
+                                          isPaymentVerified
+                                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                            : order.payment_proof_url
+                                            ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                                            : 'bg-[#1a1a1a] text-[#888888]'
+                                        }`}
+                                      >
+                                        {isPaymentVerified
+                                          ? 'VERIFICADO ✓'
+                                          : order.payment_proof_url
+                                          ? 'COMPROVATIVO ANEXADO'
+                                          : 'PENDENTE'}
+                                      </span>
+
+                                      {order.payment_proof_url && order.payment_proof_url.trim() !== '' ? (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleOpenProof(order.payment_proof_url, `Comprovativo — ${order.tracking_code}`);
+                                          }}
+                                          className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-700/80 px-2 py-1 rounded transition-colors shadow-sm cursor-pointer block"
+                                          title="Abrir comprovativo em tamanho real"
+                                        >
+                                          <FileCheck className="w-3 h-3 text-emerald-400" />
+                                          <span>COMPROVATIVO</span>
+                                        </button>
+                                      ) : null}
+                                    </div>
+                                  </td>
+
+                                  {/* 5. DELIVERY DATE */}
+                                  <td className="py-4 px-4 align-top">
+                                    {order.scheduled_delivery_date ? (
+                                      <div className="space-y-0.5">
+                                        <span className="font-mono text-xs font-bold text-white flex items-center gap-1">
+                                          <Calendar className="w-3.5 h-3.5 text-emerald-400" />
+                                          <span>{order.scheduled_delivery_date}</span>
+                                        </span>
+                                        {order.delivery_window && (
+                                          <span className="text-[10px] text-[#888888] font-mono block">
+                                            {order.delivery_window}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-[11px] text-[#666666] italic">
+                                        {order.status === 'PRODUCTION COMPLETED / READY FOR DELIVERY'
+                                          ? 'Pronto para agendamento'
+                                          : 'Aguardando agendamento'}
+                                      </span>
+                                    )}
+                                  </td>
+
+                                  {/* 6. WHATSAPP NOTIFICATION (PRE-ORDERS) / ITENS (REGULAR) */}
+                                  {ordersCategory === 'pre_orders' ? (
+                                    <td className="py-4 px-4 align-top">
+                                      <div className="space-y-1.5">
+                                        {order.whatsapp_notification_sent ? (
+                                          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800 font-bold inline-flex items-center gap-1">
+                                            <Check className="w-3 h-3" />
+                                            <span>Enviado ({formatDate(order.whatsapp_notification_sent_at || '')})</span>
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] font-mono text-[#777777] bg-[#181818] px-2 py-0.5 rounded block w-fit">
+                                            Não enviado
+                                          </span>
+                                        )}
+
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleSendWhatsAppNotification(order);
+                                          }}
+                                          className={`py-1.5 px-2.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all shadow cursor-pointer ${
+                                            order.status === 'PRODUCTION COMPLETED / READY FOR DELIVERY'
+                                              ? 'bg-emerald-600 hover:bg-emerald-500 text-white animate-pulse'
+                                              : 'bg-[#181818] hover:bg-[#252525] text-[#cccccc] hover:text-white border border-[#333333]'
+                                          }`}
+                                          title="Enviar notificação oficial no WhatsApp"
+                                        >
+                                          <MessageSquare className="w-3 h-3 text-emerald-400" />
+                                          <span>ENVIAR WHATSAPP</span>
+                                        </button>
+                                      </div>
+                                    </td>
+                                  ) : (
+                                    <td className="py-4 px-4 align-top">
+                                      <div className="text-[#aaaaaa] text-[11px] space-y-0.5">
+                                        {order.items.map((it, idx) => (
+                                          <div key={idx} className="truncate max-w-[180px]">
+                                            {it.name} <span className="text-[#777777]">({it.size}) x{it.quantity || 1}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <span className="font-mono font-bold text-white block mt-1 text-xs">
+                                        {formatAOA(order.total_aoa)}
+                                      </span>
+                                    </td>
+                                  )}
+
+                                  {/* 7. AÇÕES */}
                                   <td className="py-4 px-4 align-top text-right">
                                     <div className="flex items-center justify-end gap-2">
                                       <button
@@ -1516,15 +1773,9 @@ export const AdminPanel: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {(
-                        [
-                          'Pendente',
-                          'Pedido Confirmado',
-                          'Em Produção/Trânsito',
-                          'Prestes a Chegar',
-                          'Entregue',
-                          'Cancelado',
-                        ] as OrderStatus[]
+                      {(selectedOrder.order_type === 'pre_order' || selectedOrder.is_pre_order
+                        ? PRE_ORDER_STATUSES
+                        : REGULAR_ORDER_STATUSES
                       ).map((st) => (
                         <button
                           key={st}
@@ -3515,6 +3766,173 @@ export const AdminPanel: React.FC = () => {
                       >
                         <Clock className="w-3.5 h-3.5" />
                         <span>{settingsForm.pre_order_button_text_pt || 'PRE-ORDER'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SETTINGS → PRE-ORDER CONTENT → WHATSAPP & DELIVERY DATES */}
+                  <div className="p-4 bg-[#141414] border border-amber-500/30 rounded space-y-4 md:col-span-2 shadow-lg">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-[#222222]">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="w-4 h-4 text-emerald-400" />
+                          <span className="text-white font-bold font-display uppercase tracking-wider text-xs">
+                            SETTINGS → PRE-ORDER CONTENT → WHATSAPP & DATAS DE ENTREGA
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[#777777] mt-0.5">
+                          Edite os textos oficiais da notificação de pré-encomenda pronta, link direto de agendamento e calendário de entrega.
+                        </p>
+                      </div>
+                      <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800 self-start sm:self-auto">
+                        WHATSAPP BUSINESS READY
+                      </span>
+                    </div>
+
+                    {/* WhatsApp Template PT & EN */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] text-emerald-400 uppercase tracking-wider block mb-1 font-mono font-bold flex items-center justify-between">
+                          <span>Template WhatsApp Mensagem (PT) *</span>
+                          <span className="text-[9px] text-[#666666] font-normal">[DATA] e [LINK] substituídos auto</span>
+                        </label>
+                        <textarea
+                          rows={6}
+                          value={settingsForm.pre_order_whatsapp_template_pt || ''}
+                          onChange={(e) => {
+                            setSettingsForm((prev) => ({ ...prev, pre_order_whatsapp_template_pt: e.target.value }));
+                            setIsSettingsDirty(true);
+                          }}
+                          placeholder={`UNUSUAL —  ENCOMENDA PRONTA\n\nA tua encomenda está pronta para entrega!\n\nAs entregas começam no dia [DATA].\n\nPor favor, escolhe a data da tua entrega através do link abaixo:\n\n[ ESCOLHER DATA DE ENTREGA ]`}
+                          className="w-full px-3 py-2 bg-[#0c0c0c] border border-[#262626] rounded text-white font-mono text-xs focus:border-emerald-400 outline-none leading-relaxed"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-emerald-400 uppercase tracking-wider block mb-1 font-mono font-bold flex items-center justify-between">
+                          <span>Template WhatsApp Mensagem (EN) *</span>
+                          <span className="text-[9px] text-[#666666] font-normal">[DATA] and [LINK] replaced auto</span>
+                        </label>
+                        <textarea
+                          rows={6}
+                          value={settingsForm.pre_order_whatsapp_template_en || ''}
+                          onChange={(e) => {
+                            setSettingsForm((prev) => ({ ...prev, pre_order_whatsapp_template_en: e.target.value }));
+                            setIsSettingsDirty(true);
+                          }}
+                          placeholder={`UNUSUAL — ORDER READY\n\nYour order is ready for delivery!\n\nDeliveries start on [DATA].\n\nPlease select your preferred delivery date through the link below:\n\n[ CHOOSE DELIVERY DATE ]`}
+                          className="w-full px-3 py-2 bg-[#0c0c0c] border border-[#262626] rounded text-white font-mono text-xs focus:border-emerald-400 outline-none leading-relaxed"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Deliveries Start Date and Available Delivery Dates for Calendar */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#1f1f1f]">
+                      <div>
+                        <label className="text-[10px] text-amber-300 uppercase tracking-wider block mb-1 font-mono font-bold">
+                          Data de Início das Entregas (exibida no WhatsApp)
+                        </label>
+                        <input
+                          type="text"
+                          value={settingsForm.pre_order_deliveries_start_date || ''}
+                          onChange={(e) => {
+                            setSettingsForm((prev) => ({ ...prev, pre_order_deliveries_start_date: e.target.value }));
+                            setIsSettingsDirty(true);
+                          }}
+                          placeholder="Ex: 15 de Outubro de 2026"
+                          className="w-full px-3 py-2 bg-[#0c0c0c] border border-[#262626] rounded text-white font-mono text-xs focus:border-amber-400 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-amber-300 uppercase tracking-wider block mb-1 font-mono font-bold">
+                          Datas Autorizadas para Entrega (separadas por vírgula)
+                        </label>
+                        <input
+                          type="text"
+                          value={
+                            Array.isArray(settingsForm.pre_order_available_dates)
+                              ? settingsForm.pre_order_available_dates.join(', ')
+                              : (settingsForm.pre_order_available_dates as any) || ''
+                          }
+                          onChange={(e) => {
+                            const rawArr = e.target.value
+                              .split(',')
+                              .map((s) => s.trim())
+                              .filter(Boolean);
+                            setSettingsForm((prev) => ({ ...prev, pre_order_available_dates: rawArr }));
+                            setIsSettingsDirty(true);
+                          }}
+                          placeholder="2026-10-15, 2026-10-16, 2026-10-17, 2026-10-18"
+                          className="w-full px-3 py-2 bg-[#0c0c0c] border border-[#262626] rounded text-white font-mono text-xs focus:border-amber-400 outline-none"
+                        />
+                        <span className="text-[10px] text-[#666666] block mt-1">
+                          Apenas estas datas estarão ativas para seleção no calendário do cliente.
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Pre-Order Date Selection Page Micro-copy */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[#1f1f1f]">
+                      <div>
+                        <label className="text-[10px] text-[#aaaaaa] uppercase tracking-wider block mb-1 font-mono">
+                          Título da Página de Escolha de Data (PT)
+                        </label>
+                        <input
+                          type="text"
+                          value={settingsForm.choose_date_title_pt || ''}
+                          onChange={(e) => {
+                            setSettingsForm((prev) => ({ ...prev, choose_date_title_pt: e.target.value }));
+                            setIsSettingsDirty(true);
+                          }}
+                          placeholder="ESCOLHER DATA DE ENTREGA"
+                          className="w-full px-3 py-2 bg-[#0c0c0c] border border-[#262626] rounded text-white font-mono text-xs focus:border-amber-400 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[#aaaaaa] uppercase tracking-wider block mb-1 font-mono">
+                          Título da Página de Escolha de Data (EN)
+                        </label>
+                        <input
+                          type="text"
+                          value={settingsForm.choose_date_title_en || ''}
+                          onChange={(e) => {
+                            setSettingsForm((prev) => ({ ...prev, choose_date_title_en: e.target.value }));
+                            setIsSettingsDirty(true);
+                          }}
+                          placeholder="CHOOSE DELIVERY DATE"
+                          className="w-full px-3 py-2 bg-[#0c0c0c] border border-[#262626] rounded text-white font-mono text-xs focus:border-amber-400 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-[#aaaaaa] uppercase tracking-wider block mb-1 font-mono">
+                          Texto do Botão de Confirmação (PT)
+                        </label>
+                        <input
+                          type="text"
+                          value={settingsForm.choose_date_submit_btn_pt || ''}
+                          onChange={(e) => {
+                            setSettingsForm((prev) => ({ ...prev, choose_date_submit_btn_pt: e.target.value }));
+                            setIsSettingsDirty(true);
+                          }}
+                          placeholder="CONFIRMAR DATA DE ENTREGA"
+                          className="w-full px-3 py-2 bg-[#0c0c0c] border border-[#262626] rounded text-white font-mono text-xs focus:border-amber-400 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[#aaaaaa] uppercase tracking-wider block mb-1 font-mono">
+                          Texto do Botão de Confirmação (EN)
+                        </label>
+                        <input
+                          type="text"
+                          value={settingsForm.choose_date_submit_btn_en || ''}
+                          onChange={(e) => {
+                            setSettingsForm((prev) => ({ ...prev, choose_date_submit_btn_en: e.target.value }));
+                            setIsSettingsDirty(true);
+                          }}
+                          placeholder="CONFIRM DELIVERY DATE"
+                          className="w-full px-3 py-2 bg-[#0c0c0c] border border-[#262626] rounded text-white font-mono text-xs focus:border-amber-400 outline-none"
+                        />
                       </div>
                     </div>
                   </div>

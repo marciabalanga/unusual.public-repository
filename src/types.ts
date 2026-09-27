@@ -50,16 +50,29 @@ export interface Product {
 
 export type OrderType = 'regular' | 'pre_order';
 
+export type RegularOrderStatus =
+  | 'ORDER CONFIRMED'
+  | 'PAYMENT VERIFIED'
+  | 'READY FOR DELIVERY'
+  | 'DELIVERY SCHEDULED'
+  | 'OUT FOR DELIVERY'
+  | 'DELIVERED'
+  | 'CANCELLED';
+
 export type PreOrderStatus =
-  | 'PRE-ORDER CONFIRMED'
+  | 'ORDER CONFIRMED'
   | 'PAYMENT VERIFIED'
   | 'IN PRODUCTION'
   | 'PRODUCTION COMPLETED / READY FOR DELIVERY'
   | 'DELIVERY SCHEDULED'
   | 'OUT FOR DELIVERY'
-  | 'DELIVERED';
+  | 'DELIVERED'
+  | 'CANCELLED';
 
 export type OrderStatus =
+  | RegularOrderStatus
+  | PreOrderStatus
+  | 'PRE-ORDER CONFIRMED'
   | 'Pendente de Verificação'
   | 'Pendente'
   | 'Aprovado'
@@ -68,8 +81,7 @@ export type OrderStatus =
   | 'Em Produção/Trânsito'
   | 'Prestes a Chegar'
   | 'Entregue'
-  | 'Cancelado'
-  | PreOrderStatus;
+  | 'Cancelado';
 
 export interface OrderItem {
   product_id: string;
@@ -135,6 +147,9 @@ export interface Order {
   available_delivery_dates?: string[]; // Datas autorizadas pela UNUSUAL para agendamento
   delivery_window?: string; // Turno/Horário de entrega se aplicável
   actual_delivered_at?: string;
+  whatsapp_notification_sent?: boolean;
+  whatsapp_notification_sent_at?: string;
+  payment_status?: string;
 }
 
 export interface CartItem {
@@ -237,6 +252,20 @@ export interface SiteSettings {
   restock_error_message_en?: string;
   restock_phone_required_error_pt?: string;
   restock_phone_required_error_en?: string;
+
+  // Settings -> Pre-Order Content -> WhatsApp & Delivery Dates
+  pre_order_whatsapp_template_pt?: string;
+  pre_order_whatsapp_template_en?: string;
+  pre_order_deliveries_start_date?: string;
+  pre_order_available_delivery_dates?: string[];
+  pre_order_choose_date_title_pt?: string;
+  pre_order_choose_date_title_en?: string;
+  pre_order_choose_date_desc_pt?: string;
+  pre_order_choose_date_desc_en?: string;
+  pre_order_choose_date_btn_pt?: string;
+  pre_order_choose_date_btn_en?: string;
+  pre_order_delivery_scheduled_msg_pt?: string;
+  pre_order_delivery_scheduled_msg_en?: string;
 
   updated_at?: string;
 }

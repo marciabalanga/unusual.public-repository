@@ -57,6 +57,7 @@ interface StoreContextType {
   deleteOrder: (orderId: string) => Promise<boolean>;
   getOrderByTrackingCode: (code: string) => Promise<Order | null>;
   scheduleDeliveryDate: (orderId: string, date: string, timeWindow?: string) => Promise<boolean>;
+  markWhatsAppNotificationSent: (orderId: string) => Promise<boolean>;
   requestRestock: (productId: string, productName: string, phone: string, customerName?: string, collectionName?: string, language?: string) => Promise<boolean>;
   updateRestockStatus: (id: string, status: string, notes?: string) => Promise<boolean>;
   deleteRestockRequest: (id: string) => Promise<boolean>;
@@ -95,8 +96,10 @@ interface StoreContextType {
   filteredProducts: Product[];
 
   // Active View & Admin
-  activeTab: 'store' | 'capsule' | 'track' | 'admin' | 'product_detail';
-  setActiveTab: (tab: 'store' | 'capsule' | 'track' | 'admin' | 'product_detail') => void;
+  activeTab: 'store' | 'capsule' | 'track' | 'admin' | 'product_detail' | 'choose_delivery_date';
+  setActiveTab: (tab: 'store' | 'capsule' | 'track' | 'admin' | 'product_detail' | 'choose_delivery_date') => void;
+  deliveryDateOrderCode: string | null;
+  setDeliveryDateOrderCode: (code: string | null) => void;
   selectedProductSlug: string | null;
   setSelectedProductSlug: (slug: string | null) => void;
   trackingInput: string;
@@ -259,12 +262,33 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'store' | 'capsule' | 'track' | 'admin' | 'product_detail'>(() => {
+  const [deliveryDateOrderCode, setDeliveryDateOrderCode] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const match =
+        window.location.pathname.match(/\/choose-delivery-date\/([^\/?#]+)/i) ||
+        window.location.hash.match(/#\/?choose-delivery-date\/([^\/?#]+)/i);
+      if (match) return decodeURIComponent(match[1]).trim().toUpperCase();
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('order') || params.get('code') || params.get('schedule');
+      if (q && window.location.pathname.includes('choose-delivery-date')) return q.trim().toUpperCase();
+    }
+    return null;
+  });
+
+  const [activeTab, setActiveTab] = useState<
+    'store' | 'capsule' | 'track' | 'admin' | 'product_detail' | 'choose_delivery_date'
+  >(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
       const hash = window.location.hash.toLowerCase();
       if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
         return 'admin';
+      }
+      if (
+        path.startsWith('/choose-delivery-date') ||
+        hash.includes('choose-delivery-date')
+      ) {
+        return 'choose_delivery_date';
       }
     }
     return 'store';
@@ -1525,8 +1549,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ? [
           {
             step: 1,
-            title: 'PRE-ORDER CONFIRMED',
-            description: 'Pré-encomenda registada no atelier. A sua peça será produzida especificamente para esta reposição.',
+            title: 'ORDER CONFIRMED',
+            description: 'Pré-encomenda registada no atelier. A sua peça será produzida sob demanda com prioridade.',
             timestamp: now,
             completed: true,
             active: true,
@@ -1566,7 +1590,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           {
             step: 6,
             title: 'OUT FOR DELIVERY',
-            description: 'A sua encomenda saiu para entrega.',
+            description: 'A sua encomenda saiu para entrega em Luanda.',
             timestamp: '',
             completed: false,
             active: false,
@@ -1583,41 +1607,56 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       : [
           {
             step: 1,
-            title: 'Pedido Confirmado',
-            description: 'Comprovativo de pagamento submetido pelo cliente. A aguardar validação bancária.',
+            title: 'ORDER CONFIRMED',
+            description: 'Pedido confirmado e vaga reservada no atelier.',
             timestamp: now,
             completed: true,
             active: true,
           },
           {
             step: 2,
-            title: 'A sua encomenda saiu do local de produção',
-            description: 'Peça embalada no atelier de Luanda e entregue à equipa de logística.',
+            title: 'PAYMENT VERIFIED',
+            description: 'Pagamento e comprovativo de transferência validados com sucesso.',
             timestamp: '',
             completed: false,
             active: false,
           },
           {
             step: 3,
-            title: 'A sua encomenda está prestes a chegar',
-            description: 'O estafeta está a caminho do seu endereço. Certifique-se de se manter contactável.',
+            title: 'READY FOR DELIVERY',
+            description: 'Peça embalada sob padrão estrito e pronta para entrega.',
             timestamp: '',
             completed: false,
             active: false,
           },
           {
             step: 4,
-            title: 'Entregue',
-            description: 'Encomenda entregue com sucesso.',
+            title: 'DELIVERY SCHEDULED',
+            description: 'Data de entrega agendada.',
+            timestamp: '',
+            completed: false,
+            active: false,
+          },
+          {
+            step: 5,
+            title: 'OUT FOR DELIVERY',
+            description: 'A sua encomenda saiu para entrega em Luanda. O estafeta está a caminho.',
+            timestamp: '',
+            completed: false,
+            active: false,
+          },
+          {
+            step: 6,
+            title: 'DELIVERED',
+            description: 'Encomenda entregue em mãos com sucesso.',
             timestamp: '',
             completed: false,
             active: false,
           },
         ];
 
-    const initialStatus =
-      (orderData as { status?: OrderStatus }).status ||
-      (isPreOrder ? 'PRE-ORDER CONFIRMED' : 'Pendente de Verificação');
+    const initialStatus: OrderStatus =
+      (orderData as { status?: OrderStatus }).status || 'ORDER CONFIRMED';
 
     const newOrder: Order = {
       ...orderData,
@@ -1695,26 +1734,43 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let updatedOrderForRemote: Order | null = null;
 
     const regularStatusMap: Record<string, number> = {
+      'ORDER CONFIRMED': 1,
+      'PAYMENT VERIFIED': 2,
+      'READY FOR DELIVERY': 3,
+      'DELIVERY SCHEDULED': 4,
+      'OUT FOR DELIVERY': 5,
+      'DELIVERED': 6,
+      'CANCELLED': 0,
+      'Cancelado': 0,
       'Pendente de Verificação': 1,
-      Pendente: 1,
-      Aprovado: 1,
+      'Pendente': 1,
+      'Aprovado': 2,
       'Pedido Confirmado': 1,
-      'Em Trânsito': 2,
-      'Em Produção/Trânsito': 2,
-      'Prestes a Chegar': 3,
-      Entregue: 4,
-      Cancelado: 0,
+      'Em Trânsito': 5,
+      'Em Produção/Trânsito': 5,
+      'Prestes a Chegar': 5,
+      'Entregue': 6,
     };
 
     const preOrderStatusMap: Record<string, number> = {
-      'PRE-ORDER CONFIRMED': 1,
+      'ORDER CONFIRMED': 1,
       'PAYMENT VERIFIED': 2,
       'IN PRODUCTION': 3,
       'PRODUCTION COMPLETED / READY FOR DELIVERY': 4,
       'DELIVERY SCHEDULED': 5,
       'OUT FOR DELIVERY': 6,
       'DELIVERED': 7,
-      Cancelado: 0,
+      'CANCELLED': 0,
+      'Cancelado': 0,
+      'PRE-ORDER CONFIRMED': 1,
+      'Pendente de Verificação': 1,
+      'Pendente': 1,
+      'Aprovado': 2,
+      'Pedido Confirmado': 1,
+      'Em Trânsito': 6,
+      'Em Produção/Trânsito': 3,
+      'Prestes a Chegar': 6,
+      'Entregue': 7,
     };
 
     setOrders((prev) =>
@@ -1729,43 +1785,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const defaultRegularTimeline: OrderTimelineEvent[] = [
           {
             step: 1,
-            title: 'Pedido Confirmado',
-            description: 'Comprovativo validado e vaga reservada no atelier.',
-            timestamp: order.created_at || now,
-            completed: currentStep >= 1,
-            active: currentStep === 1,
-          },
-          {
-            step: 2,
-            title: 'Em Produção/Trânsito',
-            description: 'Peça embalada sob padrão estrito e entregue à logística.',
-            timestamp: now,
-            completed: currentStep >= 2,
-            active: currentStep === 2,
-          },
-          {
-            step: 3,
-            title: 'Prestes a Chegar',
-            description: 'O estafeta está a caminho do seu endereço em Luanda.',
-            timestamp: now,
-            completed: currentStep >= 3,
-            active: currentStep === 3,
-          },
-          {
-            step: 4,
-            title: 'Entregue',
-            description: 'Encomenda entregue em mãos com sucesso.',
-            timestamp: now,
-            completed: currentStep >= 4,
-            active: currentStep === 4,
-          },
-        ];
-
-        const defaultPreOrderTimeline: OrderTimelineEvent[] = [
-          {
-            step: 1,
-            title: 'PRE-ORDER CONFIRMED',
-            description: 'Pré-encomenda registada no atelier.',
+            title: 'ORDER CONFIRMED',
+            description: 'Pedido confirmado e vaga reservada no atelier.',
             timestamp: order.created_at || now,
             completed: currentStep >= 1,
             active: currentStep === 1,
@@ -1773,7 +1794,60 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           {
             step: 2,
             title: 'PAYMENT VERIFIED',
-            description: 'Pagamento/comprovativo validado com sucesso.',
+            description: 'Pagamento e comprovativo de transferência validados com sucesso.',
+            timestamp: now,
+            completed: currentStep >= 2,
+            active: currentStep === 2,
+          },
+          {
+            step: 3,
+            title: 'READY FOR DELIVERY',
+            description: 'Peça embalada sob padrão estrito e pronta para entrega.',
+            timestamp: now,
+            completed: currentStep >= 3,
+            active: currentStep === 3,
+          },
+          {
+            step: 4,
+            title: 'DELIVERY SCHEDULED',
+            description: order.scheduled_delivery_date
+              ? `Data de entrega agendada para ${order.scheduled_delivery_date}.`
+              : 'Data de entrega agendada com a equipa de logística.',
+            timestamp: now,
+            completed: currentStep >= 4,
+            active: currentStep === 4,
+          },
+          {
+            step: 5,
+            title: 'OUT FOR DELIVERY',
+            description: 'A sua encomenda saiu para entrega em Luanda. O estafeta está a caminho.',
+            timestamp: now,
+            completed: currentStep >= 5,
+            active: currentStep === 5,
+          },
+          {
+            step: 6,
+            title: 'DELIVERED',
+            description: 'Encomenda entregue em mãos com sucesso.',
+            timestamp: now,
+            completed: currentStep >= 6,
+            active: currentStep === 6,
+          },
+        ];
+
+        const defaultPreOrderTimeline: OrderTimelineEvent[] = [
+          {
+            step: 1,
+            title: 'ORDER CONFIRMED',
+            description: 'Pré-encomenda registada no atelier. Produção programada com prioridade.',
+            timestamp: order.created_at || now,
+            completed: currentStep >= 1,
+            active: currentStep === 1,
+          },
+          {
+            step: 2,
+            title: 'PAYMENT VERIFIED',
+            description: 'Pagamento/comprovativo validado com sucesso. Vaga no lote de produção assegurada.',
             timestamp: now,
             completed: currentStep >= 2,
             active: currentStep === 2,
@@ -1781,7 +1855,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           {
             step: 3,
             title: 'IN PRODUCTION',
-            description: 'A produção da peça está em andamento no atelier.',
+            description: 'A produção da sua peça está em andamento no atelier.',
             timestamp: now,
             completed: currentStep >= 3,
             active: currentStep === 3,
@@ -1789,7 +1863,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           {
             step: 4,
             title: 'PRODUCTION COMPLETED / READY FOR DELIVERY',
-            description: 'A produção terminou e a peça está pronta para ser entregue.',
+            description: 'A produção terminou e a peça está pronta para entrega. Escolha a sua data preferida.',
             timestamp: now,
             completed: currentStep >= 4,
             active: currentStep === 4,
@@ -1797,7 +1871,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           {
             step: 5,
             title: 'DELIVERY SCHEDULED',
-            description: order.scheduled_delivery_date ? `Entrega agendada para ${order.scheduled_delivery_date}.` : 'Data de entrega agendada.',
+            description: order.scheduled_delivery_date
+              ? `Entrega agendada para ${order.scheduled_delivery_date}${order.delivery_window ? ` (${order.delivery_window})` : ''}.`
+              : 'Data de entrega agendada pelo cliente.',
             timestamp: now,
             completed: currentStep >= 5,
             active: currentStep === 5,
@@ -1805,7 +1881,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           {
             step: 6,
             title: 'OUT FOR DELIVERY',
-            description: 'A sua encomenda saiu para entrega.',
+            description: 'A sua encomenda saiu para entrega em Luanda.',
             timestamp: now,
             completed: currentStep >= 6,
             active: currentStep === 6,
@@ -1813,7 +1889,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           {
             step: 7,
             title: 'DELIVERED',
-            description: 'Peça entregue em mãos.',
+            description: 'Peça entregue em mãos com sucesso.',
             timestamp: now,
             completed: currentStep >= 7,
             active: currentStep === 7,
@@ -2055,6 +2131,42 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   };
 
+  const markWhatsAppNotificationSent = async (orderId: string): Promise<boolean> => {
+    const now = new Date().toISOString();
+    let updatedOrderForRemote: Order | null = null;
+
+    setOrders((prev) =>
+      prev.map((order) => {
+        if (order.id !== orderId && order.tracking_code !== orderId) return order;
+        const updated: Order = {
+          ...order,
+          whatsapp_notification_sent: true,
+          whatsapp_notification_sent_at: now,
+          updated_at: now,
+        };
+        updatedOrderForRemote = updated;
+        return updated;
+      })
+    );
+
+    const canSyncOrders = supabaseStatus.connected && !supabaseStatus.missingTables.includes('orders');
+    if (canSyncOrders && updatedOrderForRemote) {
+      try {
+        await supabase
+          .from('orders')
+          .update({
+            whatsapp_notification_sent: true,
+            whatsapp_notification_sent_at: now,
+            updated_at: now,
+          })
+          .eq('id', (updatedOrderForRemote as Order).id);
+      } catch (err) {
+        console.warn('[Supabase] Erro ao atualizar status de WhatsApp:', err);
+      }
+    }
+    return true;
+  };
+
   const requestRestock = async (
     productId: string,
     productName: string,
@@ -2169,6 +2281,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         deleteOrder,
         getOrderByTrackingCode,
         scheduleDeliveryDate,
+        markWhatsAppNotificationSent,
         requestRestock,
         updateRestockStatus,
         deleteRestockRequest,
@@ -2201,6 +2314,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         filteredProducts,
         activeTab,
         setActiveTab,
+        deliveryDateOrderCode,
+        setDeliveryDateOrderCode,
         selectedProductSlug,
         setSelectedProductSlug,
         trackingInput,

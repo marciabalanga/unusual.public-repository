@@ -41,32 +41,62 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Generate available delivery dates (UNUSUAL controlled dates starting tomorrow, skipping past)
-  // Ex: next 7 business delivery slots
-  const availableSlots: { dateString: string; label: string; weekday: string }[] = [];
-  const baseDate = new Date();
-  baseDate.setDate(baseDate.getDate() + 1); // Earliest is tomorrow
+  // Respect admin configured dates if available, otherwise fallback to upcoming valid business days
+  const configuredDates = Array.isArray(order.available_delivery_dates) && order.available_delivery_dates.length > 0
+    ? order.available_delivery_dates
+    : Array.isArray(settings.pre_order_available_dates) && settings.pre_order_available_dates.length > 0
+    ? settings.pre_order_available_dates
+    : null;
 
-  for (let i = 0; i < 14 && availableSlots.length < 8; i++) {
-    const d = new Date(baseDate);
-    d.setDate(d.getDate() + i);
-    const dayOfWeek = d.getDay(); // 0 is Sunday
-    // UNUSUAL delivers Mon-Sat (skip Sunday)
-    if (dayOfWeek !== 0) {
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const isoDate = `${yyyy}-${mm}-${dd}`;
-      const weekdayName = d.toLocaleDateString('pt-PT', { weekday: 'long' });
-      const formattedLabel = d.toLocaleDateString('pt-PT', {
-        day: 'numeric',
-        month: 'long',
-      });
-      availableSlots.push({
-        dateString: isoDate,
-        label: formattedLabel,
-        weekday: weekdayName.charAt(0).toUpperCase() + weekdayName.slice(1),
-      });
+  const availableSlots: { dateString: string; label: string; weekday: string }[] = [];
+
+  if (configuredDates && configuredDates.length > 0) {
+    configuredDates.forEach((rawDate) => {
+      const trimmed = rawDate.trim();
+      const d = new Date(trimmed + (trimmed.includes('T') ? '' : 'T12:00:00'));
+      if (!isNaN(d.getTime())) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const isoDate = `${yyyy}-${mm}-${dd}`;
+        const weekdayName = d.toLocaleDateString(settings.default_language === 'en' ? 'en-US' : 'pt-PT', { weekday: 'long' });
+        const formattedLabel = d.toLocaleDateString(settings.default_language === 'en' ? 'en-US' : 'pt-PT', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        });
+        availableSlots.push({
+          dateString: isoDate,
+          label: formattedLabel,
+          weekday: weekdayName.charAt(0).toUpperCase() + weekdayName.slice(1),
+        });
+      }
+    });
+  } else {
+    const baseDate = new Date();
+    baseDate.setDate(baseDate.getDate() + 1); // Earliest is tomorrow
+
+    for (let i = 0; i < 14 && availableSlots.length < 8; i++) {
+      const d = new Date(baseDate);
+      d.setDate(d.getDate() + i);
+      const dayOfWeek = d.getDay(); // 0 is Sunday
+      // UNUSUAL delivers Mon-Sat (skip Sunday)
+      if (dayOfWeek !== 0) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const isoDate = `${yyyy}-${mm}-${dd}`;
+        const weekdayName = d.toLocaleDateString(settings.default_language === 'en' ? 'en-US' : 'pt-PT', { weekday: 'long' });
+        const formattedLabel = d.toLocaleDateString(settings.default_language === 'en' ? 'en-US' : 'pt-PT', {
+          day: 'numeric',
+          month: 'long',
+        });
+        availableSlots.push({
+          dateString: isoDate,
+          label: formattedLabel,
+          weekday: weekdayName.charAt(0).toUpperCase() + weekdayName.slice(1),
+        });
+      }
     }
   }
 
