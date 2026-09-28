@@ -167,7 +167,7 @@ const MainContent: React.FC = () => {
       if (type) link.type = type;
     };
 
-    updateOrCreateLink('link[rel="icon"][type="image/svg+xml"]', 'icon', '/icon.svg?v=3', 'image/svg+xml');
+    updateOrCreateLink('link[rel="icon"][type="image/svg+xml"]', 'icon', '/icon.svg?v=4', 'image/svg+xml');
     updateOrCreateLink('link[rel="apple-touch-icon"]', 'apple-touch-icon', absoluteLogoUrl);
     const oldPng = document.querySelector('link[rel="icon"][type="image/png"]');
     if (oldPng) oldPng.remove();
