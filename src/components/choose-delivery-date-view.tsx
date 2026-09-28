@@ -49,6 +49,7 @@ export const ChooseDeliveryDateView: React.FC<ChooseDeliveryDateViewProps> = ({
   const [deliveryNotes, setDeliveryNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isChangingDate, setIsChangingDate] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -183,6 +184,7 @@ export const ChooseDeliveryDateView: React.FC<ChooseDeliveryDateViewProps> = ({
             }
           : null
       );
+      setIsChangingDate(false);
       setIsSuccess(true);
       scrollToTop(true);
     } catch {
@@ -197,10 +199,16 @@ export const ChooseDeliveryDateView: React.FC<ChooseDeliveryDateViewProps> = ({
   };
 
   const handleTrackDirect = () => {
-    if (onOpenTrack && order) {
-      onOpenTrack(order.tracking_code);
+    const code = order?.tracking_code || orderCode;
+    if (code) {
+      if (typeof window !== 'undefined') {
+        window.history.pushState(null, '', `/?track=${encodeURIComponent(code)}`);
+      }
+      setTrackingInput(code);
+    }
+    if (onOpenTrack && code) {
+      onOpenTrack(code);
     } else {
-      if (order) setTrackingInput(order.tracking_code);
       setActiveTab('track');
     }
     scrollToTop(true);
@@ -334,7 +342,7 @@ export const ChooseDeliveryDateView: React.FC<ChooseDeliveryDateViewProps> = ({
               </button>
             </div>
           </div>
-        ) : isSuccess || order.status === 'DELIVERY SCHEDULED' ? (
+        ) : (isSuccess || order.status === 'DELIVERY SCHEDULED') && !isChangingDate ? (
           /* SUCCESS STATE / ALREADY SCHEDULED */
           <div className="space-y-6 animate-fade-in">
             <div className="p-6 sm:p-8 bg-[#0a0a0a] border border-emerald-500/30 rounded-xl text-center space-y-5 shadow-2xl">
@@ -394,8 +402,13 @@ export const ChooseDeliveryDateView: React.FC<ChooseDeliveryDateViewProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsSuccess(false)}
-                  className="py-3 px-4 bg-[#141414] hover:bg-[#202020] text-[#888888] hover:text-white border border-[#262626] font-mono text-xs uppercase tracking-wider rounded transition-colors"
+                  onClick={() => {
+                    setIsChangingDate(true);
+                    setIsSuccess(false);
+                    setError(null);
+                    scrollToTop(true);
+                  }}
+                  className="py-3 px-4 bg-[#141414] hover:bg-[#202020] text-[#888888] hover:text-white border border-[#262626] font-mono text-xs uppercase tracking-wider rounded transition-colors cursor-pointer"
                 >
                   {language === 'en' ? 'Change Date' : 'Alterar Data'}
                 </button>
@@ -454,6 +467,29 @@ export const ChooseDeliveryDateView: React.FC<ChooseDeliveryDateViewProps> = ({
         ) : (
           /* ACTIVE DATE SELECTION FORM */
           <div className="space-y-6 animate-fade-in">
+            {isChangingDate && (
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#141414] border border-[#2a2a2a] text-xs">
+                <div className="flex items-center gap-2 text-[#cccccc]">
+                  <CalendarCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    {language === 'en'
+                      ? `Changing delivery date for order ${order.tracking_code}`
+                      : `A alterar data de entrega da encomenda ${order.tracking_code}`}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsChangingDate(false);
+                    scrollToTop(true);
+                  }}
+                  className="text-[11px] font-mono text-[#888888] hover:text-white underline cursor-pointer shrink-0"
+                >
+                  {language === 'en' ? 'Keep Current Date' : 'Cancelar / Manter Data'}
+                </button>
+              </div>
+            )}
+
             {/* Top Brand Notification Banner */}
             <div className="p-4 rounded-xl bg-gradient-to-r from-amber-950/40 via-[#141414] to-[#141414] border border-amber-500/40 shadow-xl space-y-1.5">
               <div className="flex items-center gap-2 text-amber-300 text-[10px] font-mono uppercase tracking-[0.2em] font-bold">
@@ -661,7 +697,13 @@ export const ChooseDeliveryDateView: React.FC<ChooseDeliveryDateViewProps> = ({
                 ) : (
                   <>
                     <CalendarCheck className="w-4 h-4" />
-                    <span>{btnText}</span>
+                    <span>
+                      {isChangingDate
+                        ? language === 'en'
+                          ? 'CONFIRM NEW DATE'
+                          : 'CONFIRMAR NOVA DATA'
+                        : btnText}
+                    </span>
                   </>
                 )}
               </button>

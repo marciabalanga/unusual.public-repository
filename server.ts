@@ -145,8 +145,20 @@ async function startServer() {
   } else {
     // Production mode: serve dist static files and SPA fallback
     app.use(express.static(path.resolve(__dirname, 'dist')));
-    app.get('*', (_req, res) => {
-      res.sendFile(path.resolve(__dirname, 'dist/index.html'));
+    app.get('*', (req, res) => {
+      const indexPath = path.resolve(__dirname, 'dist/index.html');
+      if (fs.existsSync(indexPath)) {
+        let html = fs.readFileSync(indexPath, 'utf-8');
+        const host = req.get('x-forwarded-host') || req.get('host') || '';
+        const proto = req.get('x-forwarded-proto') || (req.secure ? 'https' : 'http');
+        if (host) {
+          const origin = `${proto}://${host}`;
+          html = html.replace(/content="\/logo\.png"/g, `content="${origin}/logo.png"`);
+        }
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.send(html);
+      }
+      res.sendFile(indexPath);
     });
   }
 

@@ -27,7 +27,7 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
   order,
   onScheduledSuccess,
 }) => {
-  const { t, scheduleDeliveryDate, settings } = useStore();
+  const { t, scheduleDeliveryDate, settings, language } = useStore();
 
   const [selectedDate, setSelectedDate] = useState<string>(
     order.scheduled_delivery_date || ''
@@ -44,6 +44,8 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
   // Respect admin configured dates if available, otherwise fallback to upcoming valid business days
   const configuredDates = Array.isArray(order.available_delivery_dates) && order.available_delivery_dates.length > 0
     ? order.available_delivery_dates
+    : Array.isArray(settings.pre_order_available_delivery_dates) && settings.pre_order_available_delivery_dates.length > 0
+    ? settings.pre_order_available_delivery_dates
     : Array.isArray(settings.pre_order_available_dates) && settings.pre_order_available_dates.length > 0
     ? settings.pre_order_available_dates
     : null;
@@ -59,8 +61,8 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
         const isoDate = `${yyyy}-${mm}-${dd}`;
-        const weekdayName = d.toLocaleDateString(settings.default_language === 'en' ? 'en-US' : 'pt-PT', { weekday: 'long' });
-        const formattedLabel = d.toLocaleDateString(settings.default_language === 'en' ? 'en-US' : 'pt-PT', {
+        const weekdayName = d.toLocaleDateString(language === 'en' ? 'en-US' : 'pt-PT', { weekday: 'long' });
+        const formattedLabel = d.toLocaleDateString(language === 'en' ? 'en-US' : 'pt-PT', {
           day: 'numeric',
           month: 'long',
           year: 'numeric',
@@ -86,8 +88,8 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
         const mm = String(d.getMonth() + 1).padStart(2, '0');
         const dd = String(d.getDate()).padStart(2, '0');
         const isoDate = `${yyyy}-${mm}-${dd}`;
-        const weekdayName = d.toLocaleDateString(settings.default_language === 'en' ? 'en-US' : 'pt-PT', { weekday: 'long' });
-        const formattedLabel = d.toLocaleDateString(settings.default_language === 'en' ? 'en-US' : 'pt-PT', {
+        const weekdayName = d.toLocaleDateString(language === 'en' ? 'en-US' : 'pt-PT', { weekday: 'long' });
+        const formattedLabel = d.toLocaleDateString(language === 'en' ? 'en-US' : 'pt-PT', {
           day: 'numeric',
           month: 'long',
         });

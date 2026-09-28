@@ -35,7 +35,8 @@ import {
   TrendingUp,
   CheckCheck,
   Send,
-  Archive
+  Archive,
+  Calendar
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { useAuth } from '../../context/AuthContext';

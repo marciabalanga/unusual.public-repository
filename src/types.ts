@@ -258,6 +258,7 @@ export interface SiteSettings {
   pre_order_whatsapp_template_en?: string;
   pre_order_deliveries_start_date?: string;
   pre_order_available_delivery_dates?: string[];
+  pre_order_available_dates?: string[];
   pre_order_choose_date_title_pt?: string;
   pre_order_choose_date_title_en?: string;
   pre_order_choose_date_desc_pt?: string;
@@ -266,6 +267,11 @@ export interface SiteSettings {
   pre_order_choose_date_btn_en?: string;
   pre_order_delivery_scheduled_msg_pt?: string;
   pre_order_delivery_scheduled_msg_en?: string;
+  choose_date_title_pt?: string;
+  choose_date_title_en?: string;
+  choose_date_submit_btn_pt?: string;
+  choose_date_submit_btn_en?: string;
+  default_language?: 'pt' | 'en';
 
   updated_at?: string;
 }

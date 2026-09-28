@@ -82,6 +82,20 @@ const MainContent: React.FC = () => {
       const hash = window.location.hash.toLowerCase();
       const searchParams = new URLSearchParams(window.location.search);
       const scheduleCode = searchParams.get('schedule_delivery') || searchParams.get('schedule');
+      const trackCode = searchParams.get('track') || searchParams.get('tracking');
+
+      if (trackCode) {
+        setTrackingInput(trackCode.toUpperCase());
+        setActiveTab('track');
+        setIsSplashActive(false);
+        return;
+      }
+
+      if (path === '/track' || hash === '#track' || hash === '#/track') {
+        setActiveTab('track');
+        setIsSplashActive(false);
+        return;
+      }
 
       // Check /choose-delivery-date/:code
       const chooseMatch =
@@ -141,8 +155,9 @@ const MainContent: React.FC = () => {
       : `${window.location.origin}${rawLogo.startsWith('/') ? '' : '/'}${rawLogo}`;
 
     // 1. Atualizar ou injetar favicons (<link rel="icon"> e <link rel="apple-touch-icon">)
-    const updateOrCreateLink = (rel: string, href: string, type?: string) => {
-      let link = document.querySelector(`link[rel="${rel}"]`) as HTMLLinkElement | null;
+    // Preservar o ícone vetorial SVG "WU" que aparece no topo do Safari ao lado de voltar
+    const updateOrCreateLink = (selector: string, rel: string, href: string, type?: string) => {
+      let link = document.querySelector(selector) as HTMLLinkElement | null;
       if (!link) {
         link = document.createElement('link');
         link.rel = rel;
@@ -152,11 +167,13 @@ const MainContent: React.FC = () => {
       if (type) link.type = type;
     };
 
-    updateOrCreateLink('icon', absoluteLogoUrl, 'image/png');
-    updateOrCreateLink('apple-touch-icon', absoluteLogoUrl);
-    updateOrCreateLink('shortcut icon', absoluteLogoUrl);
+    updateOrCreateLink('link[rel="icon"][type="image/png"]', 'icon', absoluteLogoUrl, 'image/png');
+    updateOrCreateLink('link[rel="apple-touch-icon"]', 'apple-touch-icon', absoluteLogoUrl);
+    updateOrCreateLink('link[rel="shortcut icon"]', 'shortcut icon', absoluteLogoUrl);
 
-    // 2. Atualizar ou injetar meta tags de partilha social (og:image e twitter:image)
+    // 2. Definir título oficial e meta tags de partilha social (WhatsApp preview / OpenGraph / Twitter)
+    document.title = 'UNUSUAL';
+
     const updateOrCreateMeta = (attrName: string, attrVal: string, content: string) => {
       let meta = document.querySelector(`meta[${attrName}="${attrVal}"]`) as HTMLMetaElement | null;
       if (!meta) {
@@ -167,7 +184,14 @@ const MainContent: React.FC = () => {
       meta.content = content;
     };
 
+    updateOrCreateMeta('name', 'description', 'Wearing Unusual – Inspired by the fear of being average.');
+    updateOrCreateMeta('property', 'og:site_name', 'UNUSUAL');
+    updateOrCreateMeta('property', 'og:title', 'Wearing Unusual – Inspired by the fear of being average.');
+    updateOrCreateMeta('property', 'og:description', 'Wearing Unusual – Inspired by the fear of being average.');
     updateOrCreateMeta('property', 'og:image', absoluteLogoUrl);
+    updateOrCreateMeta('property', 'og:image:secure_url', absoluteLogoUrl);
+    updateOrCreateMeta('name', 'twitter:title', 'Wearing Unusual – Inspired by the fear of being average.');
+    updateOrCreateMeta('name', 'twitter:description', 'Wearing Unusual – Inspired by the fear of being average.');
     updateOrCreateMeta('name', 'twitter:image', absoluteLogoUrl);
   }, [settings.site_logo_url, settings.logo_url]);
 
@@ -239,8 +263,12 @@ const MainContent: React.FC = () => {
           setActiveTab('store');
         }}
         onOpenTrack={(code) => {
+          if (typeof window !== 'undefined') {
+            window.history.pushState(null, '', `/?track=${encodeURIComponent(code)}`);
+          }
           setTrackingInput(code);
           setActiveTab('track');
+          scrollToTop(true);
         }}
       />
     );
