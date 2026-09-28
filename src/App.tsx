@@ -167,9 +167,12 @@ const MainContent: React.FC = () => {
       if (type) link.type = type;
     };
 
-    updateOrCreateLink('link[rel="icon"][type="image/png"]', 'icon', absoluteLogoUrl, 'image/png');
+    updateOrCreateLink('link[rel="icon"][type="image/svg+xml"]', 'icon', '/icon.svg?v=3', 'image/svg+xml');
     updateOrCreateLink('link[rel="apple-touch-icon"]', 'apple-touch-icon', absoluteLogoUrl);
-    updateOrCreateLink('link[rel="shortcut icon"]', 'shortcut icon', absoluteLogoUrl);
+    const oldPng = document.querySelector('link[rel="icon"][type="image/png"]');
+    if (oldPng) oldPng.remove();
+    const oldIco = document.querySelector('link[rel="shortcut icon"]');
+    if (oldIco) oldIco.remove();
 
     // 2. Definir título oficial e meta tags de partilha social (WhatsApp preview / OpenGraph / Twitter)
     document.title = 'UNUSUAL';

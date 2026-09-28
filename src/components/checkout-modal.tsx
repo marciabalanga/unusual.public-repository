@@ -284,10 +284,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     >
       <div
         id="checkout-modal-container"
-        className="w-full max-w-2xl mx-auto px-4 py-6 bg-[#0c0c0c] border border-[#222222] rounded-xl shadow-2xl overflow-y-auto max-h-[85vh] scroll-smooth overscroll-contain my-auto [scrollbar-width:thin] [scrollbar-color:#333333_transparent]"
+        className="w-full max-w-2xl mx-auto bg-[#0c0c0c] border border-[#222222] rounded-xl shadow-2xl overflow-y-auto max-h-[88vh] scroll-smooth overscroll-contain my-auto [scrollbar-width:thin] [scrollbar-color:#333333_transparent]"
       >
-        {/* Header (Sticky inside scrollable modal) */}
-        <div className="sticky top-0 bg-[#0c0c0c]/95 backdrop-blur-md z-20 -mt-2 pt-2 pb-4 border-b border-[#1f1f1f] mb-6 flex items-center justify-between">
+        {/* Header (Flush with the top of modal, zero gap) */}
+        <div className="sticky top-0 bg-[#0c0c0c] z-20 px-4 sm:px-6 py-4 border-b border-[#1f1f1f] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <WULogo size="sm" imgClassName="h-6 sm:h-7 max-h-7 w-auto object-contain" />
             <div>
@@ -309,14 +309,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           </button>
         </div>
 
-        {errorMessage && (
-          <div className="mb-6 p-3.5 bg-red-950/70 border border-red-800 rounded flex items-start gap-2.5 text-xs text-red-200 animate-in fade-in">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
-            <span className="font-medium">{errorMessage}</span>
-          </div>
-        )}
+        <div className="px-4 sm:px-6 pt-5 pb-6">
+          {errorMessage && (
+            <div className="mb-6 p-3.5 bg-red-950/70 border border-red-800 rounded flex items-start gap-2.5 text-xs text-red-200 animate-in fade-in">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
+              <span className="font-medium">{errorMessage}</span>
+            </div>
+          )}
 
-        <form onSubmit={handleSubmit} className="space-y-6 pb-2">
+          <form onSubmit={handleSubmit} className="space-y-6 pb-2">
           {/* Section 1: Customer Info */}
           <div className="space-y-4">
             <h3 className="text-xs font-sans tracking-[0.2em] text-[#aaaaaa] uppercase flex items-center gap-2">
@@ -638,6 +639,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             )}
           </div>
         </form>
+        </div>
       </div>
     </div>
   );
