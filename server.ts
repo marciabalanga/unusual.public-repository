@@ -109,15 +109,34 @@ async function startServer() {
         fs.writeFileSync(publicLogo, buffer);
         fs.writeFileSync(brandLogo, buffer);
         fs.copyFileSync(publicLogo, path.resolve(__dirname, 'public/apple-touch-icon.png'));
+        fs.copyFileSync(publicLogo, path.resolve(__dirname, 'public/brand-touch-icon.png'));
+        fs.copyFileSync(publicLogo, path.resolve(__dirname, 'public/brand-favicon.png'));
 
         try {
           const { execSync } = require('child_process');
+          const potrace = require('potrace');
           const ogPreview = path.resolve(__dirname, 'public/og-preview.png');
           const brandOg = path.resolve(__dirname, 'public/brand/wu-og-preview.png');
           const favIco = path.resolve(__dirname, 'public/favicon.ico');
           execSync(`convert -size 1200x630 xc:'#000000' "${publicLogo}" -gravity center -composite -depth 8 "${ogPreview}"`);
           execSync(`cp "${ogPreview}" "${brandOg}"`);
           execSync(`convert "${publicLogo}" -background transparent \\( -clone 0 -resize 16x16 \\) \\( -clone 0 -resize 32x32 \\) \\( -clone 0 -resize 48x48 \\) -delete 0 "${favIco}"`);
+
+          const tempMask = path.resolve(__dirname, 'public/temp-mask.png');
+          execSync(`convert "${publicLogo}" -alpha extract -negate "${tempMask}"`);
+          potrace.trace(tempMask, { threshold: 128, optTolerance: 0.05, turdSize: 1 }, (pErr: any, svgStr: string) => {
+            if (!pErr && svgStr) {
+              const m = svgStr.match(/d="([^"]+)"/);
+              if (m) {
+                const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" fill="none" aria-label="UNUSUAL">\n  <style>\n    .logo-path { fill: #000000; }\n    @media (prefers-color-scheme: dark) {\n      .logo-path { fill: #ffffff; }\n    }\n  </style>\n  <path class="logo-path" fill-rule="evenodd" clip-rule="evenodd" d="${m[1]}" />\n</svg>\n`;
+                const monoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" fill="currentColor" aria-label="UNUSUAL">\n  <path fill-rule="evenodd" clip-rule="evenodd" d="${m[1]}" />\n</svg>\n`;
+                fs.writeFileSync(path.resolve(__dirname, 'public/brand-icon.svg'), iconSvg);
+                fs.writeFileSync(path.resolve(__dirname, 'public/icon.svg'), iconSvg);
+                fs.writeFileSync(path.resolve(__dirname, 'public/brand/brand-logo.svg'), monoSvg);
+                fs.writeFileSync(path.resolve(__dirname, 'public/brand/wu-logo.svg'), monoSvg);
+              }
+            }
+          });
         } catch (genErr) {
           console.warn('[server] Warning generating derived preview/favicon:', genErr);
         }
@@ -126,6 +145,14 @@ async function startServer() {
         if (fs.existsSync(distDir)) {
           fs.writeFileSync(path.resolve(distDir, 'logo.png'), buffer);
           fs.copyFileSync(publicLogo, path.resolve(distDir, 'apple-touch-icon.png'));
+          fs.copyFileSync(publicLogo, path.resolve(distDir, 'brand-touch-icon.png'));
+          fs.copyFileSync(publicLogo, path.resolve(distDir, 'brand-favicon.png'));
+          if (fs.existsSync(path.resolve(__dirname, 'public/brand-icon.svg'))) {
+            fs.copyFileSync(path.resolve(__dirname, 'public/brand-icon.svg'), path.resolve(distDir, 'brand-icon.svg'));
+          }
+          if (fs.existsSync(path.resolve(__dirname, 'public/icon.svg'))) {
+            fs.copyFileSync(path.resolve(__dirname, 'public/icon.svg'), path.resolve(distDir, 'icon.svg'));
+          }
           if (fs.existsSync(path.resolve(__dirname, 'public/og-preview.png'))) {
             fs.copyFileSync(path.resolve(__dirname, 'public/og-preview.png'), path.resolve(distDir, 'og-preview.png'));
           }
@@ -135,8 +162,11 @@ async function startServer() {
           const distBrand = path.resolve(distDir, 'brand');
           if (!fs.existsSync(distBrand)) fs.mkdirSync(distBrand, { recursive: true });
           fs.writeFileSync(path.resolve(distBrand, 'wu-official-logo.png'), buffer);
-          if (fs.existsSync(path.resolve(__dirname, 'public/brand/wu-og-preview.png'))) {
-            fs.copyFileSync(path.resolve(__dirname, 'public/brand/wu-og-preview.png'), path.resolve(distBrand, 'wu-og-preview.png'));
+          if (fs.existsSync(path.resolve(__dirname, 'public/brand/brand-logo.svg'))) {
+            fs.copyFileSync(path.resolve(__dirname, 'public/brand/brand-logo.svg'), path.resolve(distBrand, 'brand-logo.svg'));
+          }
+          if (fs.existsSync(path.resolve(__dirname, 'public/brand/wu-logo.svg'))) {
+            fs.copyFileSync(path.resolve(__dirname, 'public/brand/wu-logo.svg'), path.resolve(distBrand, 'wu-logo.svg'));
           }
         }
 
