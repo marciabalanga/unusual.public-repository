@@ -108,13 +108,36 @@ async function startServer() {
 
         fs.writeFileSync(publicLogo, buffer);
         fs.writeFileSync(brandLogo, buffer);
+        fs.copyFileSync(publicLogo, path.resolve(__dirname, 'public/apple-touch-icon.png'));
+
+        try {
+          const { execSync } = require('child_process');
+          const ogPreview = path.resolve(__dirname, 'public/og-preview.png');
+          const brandOg = path.resolve(__dirname, 'public/brand/wu-og-preview.png');
+          const favIco = path.resolve(__dirname, 'public/favicon.ico');
+          execSync(`convert -size 1200x630 xc:'#000000' "${publicLogo}" -gravity center -composite -depth 8 "${ogPreview}"`);
+          execSync(`cp "${ogPreview}" "${brandOg}"`);
+          execSync(`convert "${publicLogo}" -background transparent \\( -clone 0 -resize 16x16 \\) \\( -clone 0 -resize 32x32 \\) \\( -clone 0 -resize 48x48 \\) -delete 0 "${favIco}"`);
+        } catch (genErr) {
+          console.warn('[server] Warning generating derived preview/favicon:', genErr);
+        }
 
         const distDir = path.resolve(__dirname, 'dist');
         if (fs.existsSync(distDir)) {
           fs.writeFileSync(path.resolve(distDir, 'logo.png'), buffer);
+          fs.copyFileSync(publicLogo, path.resolve(distDir, 'apple-touch-icon.png'));
+          if (fs.existsSync(path.resolve(__dirname, 'public/og-preview.png'))) {
+            fs.copyFileSync(path.resolve(__dirname, 'public/og-preview.png'), path.resolve(distDir, 'og-preview.png'));
+          }
+          if (fs.existsSync(path.resolve(__dirname, 'public/favicon.ico'))) {
+            fs.copyFileSync(path.resolve(__dirname, 'public/favicon.ico'), path.resolve(distDir, 'favicon.ico'));
+          }
           const distBrand = path.resolve(distDir, 'brand');
           if (!fs.existsSync(distBrand)) fs.mkdirSync(distBrand, { recursive: true });
           fs.writeFileSync(path.resolve(distBrand, 'wu-official-logo.png'), buffer);
+          if (fs.existsSync(path.resolve(__dirname, 'public/brand/wu-og-preview.png'))) {
+            fs.copyFileSync(path.resolve(__dirname, 'public/brand/wu-og-preview.png'), path.resolve(distBrand, 'wu-og-preview.png'));
+          }
         }
 
         return res.json({ success: true, url: `/logo.png?v=${Date.now()}` });
@@ -153,6 +176,7 @@ async function startServer() {
         const proto = req.get('x-forwarded-proto') || (req.secure ? 'https' : 'http');
         if (host) {
           const origin = `${proto}://${host}`;
+          html = html.replace(/content="\/og-preview\.png"/g, `content="${origin}/og-preview.png"`);
           html = html.replace(/content="\/logo\.png"/g, `content="${origin}/logo.png"`);
         }
         res.setHeader('Content-Type', 'text/html; charset=utf-8');

@@ -174,6 +174,8 @@ const MainContent: React.FC = () => {
     // 2. Definir título oficial e meta tags de partilha social (WhatsApp preview / OpenGraph / Twitter)
     document.title = 'UNUSUAL';
 
+    const absoluteSocialPreviewUrl = `${window.location.origin}/og-preview.png`;
+
     const updateOrCreateMeta = (attrName: string, attrVal: string, content: string) => {
       let meta = document.querySelector(`meta[${attrName}="${attrVal}"]`) as HTMLMetaElement | null;
       if (!meta) {
@@ -188,11 +190,11 @@ const MainContent: React.FC = () => {
     updateOrCreateMeta('property', 'og:site_name', 'UNUSUAL');
     updateOrCreateMeta('property', 'og:title', 'Wearing Unusual – Inspired by the fear of being average.');
     updateOrCreateMeta('property', 'og:description', 'Wearing Unusual – Inspired by the fear of being average.');
-    updateOrCreateMeta('property', 'og:image', absoluteLogoUrl);
-    updateOrCreateMeta('property', 'og:image:secure_url', absoluteLogoUrl);
+    updateOrCreateMeta('property', 'og:image', absoluteSocialPreviewUrl);
+    updateOrCreateMeta('property', 'og:image:secure_url', absoluteSocialPreviewUrl);
     updateOrCreateMeta('name', 'twitter:title', 'Wearing Unusual – Inspired by the fear of being average.');
     updateOrCreateMeta('name', 'twitter:description', 'Wearing Unusual – Inspired by the fear of being average.');
-    updateOrCreateMeta('name', 'twitter:image', absoluteLogoUrl);
+    updateOrCreateMeta('name', 'twitter:image', absoluteSocialPreviewUrl);
   }, [settings.site_logo_url, settings.logo_url]);
 
   // Find selected product for detail view

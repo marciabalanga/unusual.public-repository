@@ -134,6 +134,18 @@ export const BrandLogoManager: React.FC<BrandLogoManagerProps> = ({ onSuccessToa
         }
       }
 
+      if (resolvedUrl.startsWith('data:image/')) {
+        try {
+          await fetch('/api/save-logo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: resolvedUrl }),
+          });
+        } catch (serverSaveErr) {
+          console.warn('Falha ao persistir logo no servidor:', serverSaveErr);
+        }
+      }
+
       await saveSettings({ site_logo_url: resolvedUrl, logo_url: resolvedUrl });
       notify('Novo logótipo carregado e sincronizado globalmente!');
     } catch (err: unknown) {
