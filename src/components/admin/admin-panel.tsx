@@ -2502,62 +2502,97 @@ export const AdminPanel: React.FC = () => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 text-[10px] font-sans">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              const existing = blocks.find((b) => b.custom_content_id === item.id || b.slug === item.slug);
-                              if (existing) {
-                                showToast(`"${item.title}" já está na homepage (Bloco #${existing.order_index}).`);
-                                return;
-                              }
-                              const newBlock: SiteBlock = {
-                                id: `block_${item.slug.replace(/[^a-z0-9_]/gi, '_') || Date.now()}`,
-                                block_type: 'custom_content',
-                                title: item.internal_name || item.title,
-                                public_name: item.title,
-                                subtitle: item.subtitle || 'Portfolio / Conteúdo Personalizado',
-                                content_type: 'custom',
-                                custom_content_id: item.id,
-                                slug: item.slug,
-                                content: {
+                          {isLinkedAsBlock ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const linked = blocks.find((b) => b.custom_content_id === item.id || b.slug === item.slug);
+                                if (linked) {
+                                  setEditingBlock(linked);
+                                } else {
+                                  setActiveEngine('blocks');
+                                  setPageBuilderTab('blocks');
+                                }
+                              }}
+                              className="py-1.5 px-2 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 rounded border border-emerald-800/80 truncate transition-colors flex items-center justify-center gap-1 font-semibold"
+                              title="Configurar bloco no Page Builder"
+                            >
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              <span>✓ No Page Builder</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const newBlock: SiteBlock = {
+                                  id: `block_${item.slug.replace(/[^a-z0-9_]/gi, '_') || Date.now()}`,
+                                  block_type: 'custom_content',
+                                  title: item.internal_name || item.title,
+                                  public_name: item.title,
+                                  subtitle: item.subtitle || 'Portfolio / Conteúdo Personalizado',
+                                  content_type: 'custom',
                                   custom_content_id: item.id,
-                                  heading: item.title,
-                                  subheading: item.subtitle,
-                                  description: item.description,
-                                  images: item.images,
-                                  items: item.items,
-                                },
-                                is_active: true,
-                                order_index: blocks.length + 1,
-                              };
-                              await saveBlock(newBlock);
-                              showToast(`Bloco "${item.title}" adicionado à homepage!`);
-                            }}
-                            className="py-1.5 px-2 bg-[#141414] hover:bg-[#202020] text-neutral-300 rounded border border-[#222222] truncate transition-colors flex items-center justify-center gap-1"
-                            title="Adicionar como bloco na homepage"
-                          >
-                            <Layers className="w-3 h-3 text-emerald-400" />
-                            <span>+ No Page Builder</span>
-                          </button>
+                                  slug: item.slug,
+                                  content: {
+                                    custom_content_id: item.id,
+                                    heading: item.title,
+                                    subheading: item.subtitle,
+                                    description: item.description,
+                                    images: item.images,
+                                    items: item.items,
+                                  },
+                                  is_active: true,
+                                  order_index: blocks.length + 1,
+                                };
+                                await saveBlock(newBlock);
+                                showToast(`Bloco "${item.title}" adicionado à homepage!`);
+                              }}
+                              className="py-1.5 px-2 bg-[#141414] hover:bg-[#202020] text-neutral-300 rounded border border-[#222222] truncate transition-colors flex items-center justify-center gap-1"
+                              title="Adicionar como bloco na homepage"
+                            >
+                              <Layers className="w-3 h-3 text-emerald-400" />
+                              <span>+ No Page Builder</span>
+                            </button>
+                          )}
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingMenuItem({
-                                id: `menu-${Date.now()}`,
-                                label: item.title,
-                                target_type: 'custom',
-                                target_id: item.id,
-                                order_index: menuItems.length + 1,
-                                is_active: true,
-                              });
-                            }}
-                            className="py-1.5 px-2 bg-[#141414] hover:bg-[#202020] text-neutral-300 rounded border border-[#222222] truncate transition-colors flex items-center justify-center gap-1"
-                            title="Adicionar ligação no menu do site"
-                          >
-                            <Compass className="w-3 h-3 text-blue-400" />
-                            <span>+ No Menu</span>
-                          </button>
+                          {isLinkedInMenu ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const linked = menuItems.find((m) => m.target_id === item.id || m.target_id === item.slug);
+                                if (linked) {
+                                  setEditingMenuItem(linked);
+                                } else {
+                                  setActiveEngine('blocks');
+                                  setPageBuilderTab('menu');
+                                }
+                              }}
+                              className="py-1.5 px-2 bg-blue-950/60 hover:bg-blue-900/80 text-blue-300 rounded border border-blue-800/80 truncate transition-colors flex items-center justify-center gap-1 font-semibold"
+                              title="Editar este link no menu"
+                            >
+                              <Check className="w-3 h-3 text-blue-400" />
+                              <span>✓ No Menu</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingMenuItem({
+                                  id: `menu-${Date.now()}`,
+                                  label: item.title,
+                                  target_type: 'custom',
+                                  target_id: item.id,
+                                  order_index: menuItems.length + 1,
+                                  is_active: true,
+                                });
+                              }}
+                              className="py-1.5 px-2 bg-[#141414] hover:bg-[#202020] text-neutral-300 rounded border border-[#222222] truncate transition-colors flex items-center justify-center gap-1"
+                              title="Adicionar ligação no menu do site"
+                            >
+                              <Compass className="w-3 h-3 text-blue-400" />
+                              <span>+ No Menu</span>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -3828,258 +3863,6 @@ export const AdminPanel: React.FC = () => {
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* Modal de Confirmação Segura para Eliminar Bloco do Page Builder */}
-            {blockToDelete && (
-              <div
-                id="delete-block-backdrop"
-                className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
-                onClick={(e) => {
-                  if ((e.target as HTMLElement).id === 'delete-block-backdrop') {
-                    setBlockToDelete(null);
-                  }
-                }}
-              >
-                <div className="w-full max-w-md bg-[#0e0e0e] border border-red-900/50 rounded-xl p-6 space-y-4 shadow-2xl animate-in fade-in">
-                  <div className="flex items-center gap-3 text-red-400">
-                    <Trash2 className="w-5 h-5 shrink-0" />
-                    <h3 className="font-display uppercase text-base text-white tracking-wider">
-                      Eliminar Bloco da Homepage?
-                    </h3>
-                  </div>
-
-                  <p className="text-xs text-neutral-300 font-sans leading-relaxed">
-                    Tens a certeza que desejas eliminar o bloco{' '}
-                    <strong className="text-white font-bold">
-                      "{blockToDelete.public_name || blockToDelete.title}"
-                    </strong>{' '}
-                    da estrutura da homepage?
-                  </p>
-
-                  <div className="p-3 bg-[#141414] border border-[#262626] rounded text-[11px] text-neutral-400 font-sans space-y-1">
-                    <p className="text-emerald-400 font-semibold uppercase text-[10px]">
-                      ✓ Eliminação Segura (Sem Efeito Cascata)
-                    </p>
-                    <p>
-                      Apenas o bloco do Page Builder será removido. Peças de roupa, fotografias, conteúdos personalizados e histórico NÃO serão apagados.
-                    </p>
-                  </div>
-
-                  <div className="pt-2 flex items-center justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setBlockToDelete(null)}
-                      className="px-4 py-2 bg-[#181818] hover:bg-[#222222] text-neutral-300 rounded text-xs uppercase"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const targetId = blockToDelete.id;
-                        const blockTitle = blockToDelete.public_name || blockToDelete.title;
-                        setBlockToDelete(null);
-                        await deleteBlock(targetId);
-                        showToast(`Bloco "${blockTitle}" eliminado da homepage com sucesso.`);
-                      }}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded transition-colors shadow-lg"
-                    >
-                      Confirmar Eliminação
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Modal de Confirmação Segura para Eliminar Item do Menu */}
-            {menuItemToDelete && (
-              <div
-                id="delete-menu-backdrop"
-                className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
-                onClick={(e) => {
-                  if ((e.target as HTMLElement).id === 'delete-menu-backdrop') {
-                    setMenuItemToDelete(null);
-                  }
-                }}
-              >
-                <div className="w-full max-w-md bg-[#0e0e0e] border border-red-900/50 rounded-xl p-6 space-y-4 shadow-2xl animate-in fade-in">
-                  <div className="flex items-center gap-3 text-red-400">
-                    <Trash2 className="w-5 h-5 shrink-0" />
-                    <h3 className="font-display uppercase text-base text-white tracking-wider">
-                      Eliminar Item do Menu?
-                    </h3>
-                  </div>
-
-                  <p className="text-xs text-neutral-300 font-sans leading-relaxed">
-                    Desejas eliminar o item{' '}
-                    <strong className="text-white font-bold">"{menuItemToDelete.label}"</strong> do menu de navegação?
-                  </p>
-
-                  <div className="pt-2 flex items-center justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setMenuItemToDelete(null)}
-                      className="px-4 py-2 bg-[#181818] hover:bg-[#222222] text-neutral-300 rounded text-xs uppercase"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const targetId = menuItemToDelete.id;
-                        const label = menuItemToDelete.label;
-                        setMenuItemToDelete(null);
-                        await deleteMenuItem(targetId);
-                        showToast(`Item "${label}" eliminado do menu.`);
-                      }}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded transition-colors shadow-lg"
-                    >
-                      Confirmar Eliminação
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Modal de Confirmação Segura para Eliminar Conteúdo Personalizado */}
-            {contentToDelete && (
-              <div
-                id="delete-content-backdrop"
-                className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
-                onClick={(e) => {
-                  if ((e.target as HTMLElement).id === 'delete-content-backdrop') {
-                    setContentToDelete(null);
-                  }
-                }}
-              >
-                <div className="w-full max-w-md bg-[#0e0e0e] border border-red-900/50 rounded-xl p-6 space-y-4 shadow-2xl animate-in fade-in">
-                  <div className="flex items-center gap-3 text-red-400">
-                    <Trash2 className="w-5 h-5 shrink-0" />
-                    <h3 className="font-display uppercase text-base text-white tracking-wider">
-                      Eliminar Conteúdo Personalizado?
-                    </h3>
-                  </div>
-
-                  <p className="text-xs text-neutral-300 font-sans leading-relaxed">
-                    Desejas eliminar o conteúdo{' '}
-                    <strong className="text-white font-bold">"{contentToDelete.title}"</strong>?
-                  </p>
-
-                  <p className="text-[11px] text-neutral-400 font-sans">
-                    Os produtos da loja e o arquivo da Cápsula do Tempo permanecerão intactos.
-                  </p>
-
-                  <div className="pt-2 flex items-center justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setContentToDelete(null)}
-                      className="px-4 py-2 bg-[#181818] hover:bg-[#222222] text-neutral-300 rounded text-xs uppercase"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        const targetId = contentToDelete.id;
-                        const title = contentToDelete.title;
-                        setContentToDelete(null);
-                        await deleteCustomContent(targetId);
-                        showToast(`Conteúdo "${title}" eliminado.`);
-                      }}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded transition-colors shadow-lg"
-                    >
-                      Confirmar Eliminação
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Modal de Edição de Bloco do Page Builder */}
-            {editingBlock && (
-              <BlockEditorModal
-                block={editingBlock}
-                customContents={customContents}
-                onSaveCustomContent={saveCustomContent}
-                onSave={async (updated) => {
-                  await saveBlock(updated);
-                  setEditingBlock(null);
-                }}
-                onClose={() => setEditingBlock(null)}
-                showToast={showToast}
-              />
-            )}
-
-            {/* Modal de Edição de Item do Menu */}
-            {editingMenuItem && (
-              <MenuEditorModal
-                item={editingMenuItem}
-                customContents={customContents}
-                onSave={async (updatedItem) => {
-                  await saveMenuItem(updatedItem);
-                  setEditingMenuItem(null);
-                }}
-                onClose={() => setEditingMenuItem(null)}
-                showToast={showToast}
-              />
-            )}
-
-            {/* Modal de Edição de Conteúdo Personalizado */}
-            {editingCustomContent && (
-              <CustomContentEditorModal
-                content={editingCustomContent}
-                onSave={async (savedContent, options) => {
-                  await saveCustomContent(savedContent);
-
-                  // Opcional: Adicionar automaticamente como Bloco no Page Builder
-                  if (options?.addToPageBuilder) {
-                    const existingBlock = blocks.find((b) => b.custom_content_id === savedContent.id || b.slug === savedContent.slug);
-                    if (!existingBlock) {
-                      const newBlock: SiteBlock = {
-                        id: `block_${savedContent.slug.replace(/[^a-z0-9_]/gi, '_') || Date.now()}`,
-                        block_type: 'custom_content',
-                        title: savedContent.internal_name || savedContent.title,
-                        public_name: savedContent.title,
-                        subtitle: savedContent.subtitle || 'Portfolio / Conteúdo Personalizado',
-                        content_type: 'custom',
-                        custom_content_id: savedContent.id,
-                        slug: savedContent.slug,
-                        content: {
-                          custom_content_id: savedContent.id,
-                          heading: savedContent.title,
-                          subheading: savedContent.subtitle,
-                          description: savedContent.description,
-                          images: savedContent.images,
-                          items: savedContent.items,
-                        },
-                        is_active: true,
-                        order_index: blocks.length + 1,
-                      };
-                      await saveBlock(newBlock);
-                    }
-                  }
-
-                  // Opcional: Adicionar ao Menu de Navegação do Site
-                  if (options?.addToMenu) {
-                    const existingMenu = menuItems.find((m) => m.target_id === savedContent.id);
-                    if (!existingMenu) {
-                      await saveMenuItem({
-                        id: `menu-${Date.now()}`,
-                        label: options.menuLabel || savedContent.title,
-                        target_type: 'custom',
-                        target_id: savedContent.id,
-                        order_index: menuItems.length + 1,
-                        is_active: true,
-                      });
-                    }
-                  }
-
-                  setEditingCustomContent(null);
-                }}
-                onClose={() => setEditingCustomContent(null)}
-                showToast={showToast}
-              />
             )}
           </div>
         )}
@@ -5708,6 +5491,262 @@ export const AdminPanel: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ============================================================================== */}
+        {/* MODAIS GLOBAIS DO SISTEMA (ACESSÍVEIS EM QUALQUER MOTOR / ABA) */}
+        {/* ============================================================================== */}
+
+        {/* Modal de Confirmação Segura para Eliminar Bloco do Page Builder */}
+        {blockToDelete && (
+          <div
+            id="delete-block-backdrop"
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={(e) => {
+              if ((e.target as HTMLElement).id === 'delete-block-backdrop') {
+                setBlockToDelete(null);
+              }
+            }}
+          >
+            <div className="w-full max-w-md bg-[#0e0e0e] border border-red-900/50 rounded-xl p-6 space-y-4 shadow-2xl animate-in fade-in">
+              <div className="flex items-center gap-3 text-red-400">
+                <Trash2 className="w-5 h-5 shrink-0" />
+                <h3 className="font-display uppercase text-base text-white tracking-wider">
+                  Eliminar Bloco da Homepage?
+                </h3>
+              </div>
+
+              <p className="text-xs text-neutral-300 font-sans leading-relaxed">
+                Tens a certeza que desejas eliminar o bloco{' '}
+                <strong className="text-white font-bold">
+                  "{blockToDelete.public_name || blockToDelete.title}"
+                </strong>{' '}
+                da estrutura da homepage?
+              </p>
+
+              <div className="p-3 bg-[#141414] border border-[#262626] rounded text-[11px] text-neutral-400 font-sans space-y-1">
+                <p className="text-emerald-400 font-semibold uppercase text-[10px]">
+                  ✓ Eliminação Segura (Sem Efeito Cascata)
+                </p>
+                <p>
+                  Apenas o bloco do Page Builder será removido. Peças de roupa, fotografias, conteúdos personalizados e histórico NÃO serão apagados.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setBlockToDelete(null)}
+                  className="px-4 py-2 bg-[#181818] hover:bg-[#222222] text-neutral-300 rounded text-xs uppercase"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const targetId = blockToDelete.id;
+                    const blockTitle = blockToDelete.public_name || blockToDelete.title;
+                    setBlockToDelete(null);
+                    await deleteBlock(targetId);
+                    showToast(`Bloco "${blockTitle}" eliminado da homepage com sucesso.`);
+                  }}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded transition-colors shadow-lg"
+                >
+                  Confirmar Eliminação
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Confirmação Segura para Eliminar Item do Menu */}
+        {menuItemToDelete && (
+          <div
+            id="delete-menu-backdrop"
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={(e) => {
+              if ((e.target as HTMLElement).id === 'delete-menu-backdrop') {
+                setMenuItemToDelete(null);
+              }
+            }}
+          >
+            <div className="w-full max-w-md bg-[#0e0e0e] border border-red-900/50 rounded-xl p-6 space-y-4 shadow-2xl animate-in fade-in">
+              <div className="flex items-center gap-3 text-red-400">
+                <Trash2 className="w-5 h-5 shrink-0" />
+                <h3 className="font-display uppercase text-base text-white tracking-wider">
+                  Eliminar Item do Menu?
+                </h3>
+              </div>
+
+              <p className="text-xs text-neutral-300 font-sans leading-relaxed">
+                Desejas eliminar o item{' '}
+                <strong className="text-white font-bold">"{menuItemToDelete.label}"</strong> do menu de navegação?
+              </p>
+
+              <div className="pt-2 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMenuItemToDelete(null)}
+                  className="px-4 py-2 bg-[#181818] hover:bg-[#222222] text-neutral-300 rounded text-xs uppercase"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const targetId = menuItemToDelete.id;
+                    const label = menuItemToDelete.label;
+                    setMenuItemToDelete(null);
+                    await deleteMenuItem(targetId);
+                    showToast(`Item "${label}" eliminado do menu.`);
+                  }}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded transition-colors shadow-lg"
+                >
+                  Confirmar Eliminação
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Confirmação Segura para Eliminar Conteúdo Personalizado */}
+        {contentToDelete && (
+          <div
+            id="delete-content-backdrop"
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+            onClick={(e) => {
+              if ((e.target as HTMLElement).id === 'delete-content-backdrop') {
+                setContentToDelete(null);
+              }
+            }}
+          >
+            <div className="w-full max-w-md bg-[#0e0e0e] border border-red-900/50 rounded-xl p-6 space-y-4 shadow-2xl animate-in fade-in">
+              <div className="flex items-center gap-3 text-red-400">
+                <Trash2 className="w-5 h-5 shrink-0" />
+                <h3 className="font-display uppercase text-base text-white tracking-wider">
+                  Eliminar Conteúdo Personalizado?
+                </h3>
+              </div>
+
+              <p className="text-xs text-neutral-300 font-sans leading-relaxed">
+                Desejas eliminar o conteúdo{' '}
+                <strong className="text-white font-bold">"{contentToDelete.title}"</strong>?
+              </p>
+
+              <p className="text-[11px] text-neutral-400 font-sans">
+                Os produtos da loja e o arquivo da Cápsula do Tempo permanecerão intactos.
+              </p>
+
+              <div className="pt-2 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setContentToDelete(null)}
+                  className="px-4 py-2 bg-[#181818] hover:bg-[#222222] text-neutral-300 rounded text-xs uppercase"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const targetId = contentToDelete.id;
+                    const title = contentToDelete.title;
+                    setContentToDelete(null);
+                    await deleteCustomContent(targetId);
+                    showToast(`Conteúdo "${title}" eliminado.`);
+                  }}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded transition-colors shadow-lg"
+                >
+                  Confirmar Eliminação
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Edição de Bloco do Page Builder */}
+        {editingBlock && (
+          <BlockEditorModal
+            block={editingBlock}
+            customContents={customContents}
+            onSaveCustomContent={saveCustomContent}
+            onSave={async (updated) => {
+              await saveBlock(updated);
+              setEditingBlock(null);
+            }}
+            onClose={() => setEditingBlock(null)}
+            showToast={showToast}
+          />
+        )}
+
+        {/* Modal de Edição de Item do Menu */}
+        {editingMenuItem && (
+          <MenuEditorModal
+            item={editingMenuItem}
+            customContents={customContents}
+            onSave={async (updatedItem) => {
+              await saveMenuItem(updatedItem);
+              setEditingMenuItem(null);
+            }}
+            onClose={() => setEditingMenuItem(null)}
+            showToast={showToast}
+          />
+        )}
+
+        {/* Modal de Edição de Conteúdo Personalizado */}
+        {editingCustomContent && (
+          <CustomContentEditorModal
+            content={editingCustomContent}
+            onSave={async (savedContent, options) => {
+              await saveCustomContent(savedContent);
+
+              // Opcional: Adicionar automaticamente como Bloco no Page Builder
+              if (options?.addToPageBuilder) {
+                const existingBlock = blocks.find((b) => b.custom_content_id === savedContent.id || b.slug === savedContent.slug);
+                if (!existingBlock) {
+                  const newBlock: SiteBlock = {
+                    id: `block_${savedContent.slug.replace(/[^a-z0-9_]/gi, '_') || Date.now()}`,
+                    block_type: 'custom_content',
+                    title: savedContent.internal_name || savedContent.title,
+                    public_name: savedContent.title,
+                    subtitle: savedContent.subtitle || 'Portfolio / Conteúdo Personalizado',
+                    content_type: 'custom',
+                    custom_content_id: savedContent.id,
+                    slug: savedContent.slug,
+                    content: {
+                      custom_content_id: savedContent.id,
+                      heading: savedContent.title,
+                      subheading: savedContent.subtitle,
+                      description: savedContent.description,
+                      images: savedContent.images,
+                      items: savedContent.items,
+                    },
+                    is_active: true,
+                    order_index: blocks.length + 1,
+                  };
+                  await saveBlock(newBlock);
+                }
+              }
+
+              // Opcional: Adicionar ao Menu de Navegação do Site
+              if (options?.addToMenu) {
+                const existingMenu = menuItems.find((m) => m.target_id === savedContent.id);
+                if (!existingMenu) {
+                  await saveMenuItem({
+                    id: `menu-${Date.now()}`,
+                    label: options.menuLabel || savedContent.title,
+                    target_type: 'custom',
+                    target_id: savedContent.id,
+                    order_index: menuItems.length + 1,
+                    is_active: true,
+                  });
+                }
+              }
+
+              setEditingCustomContent(null);
+            }}
+            onClose={() => setEditingCustomContent(null)}
+            showToast={showToast}
+          />
         )}
       </div>
     </div>
