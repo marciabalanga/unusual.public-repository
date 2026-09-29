@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, Sparkles, Clock, Eye, ShieldCheck, ChevronRight, ChevronLeft, ShoppingBag, Archive, Heart } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { formatAOA } from '../lib/format';
+import { formatAOA, isComingBackSoonBadge } from '../lib/format';
 import { Product } from '../types';
 import { scrollToTop } from '../lib/scroll';
 import heroMobileImg from '../assets/images/hero_hoodie_model_1789188901010.jpg';
@@ -212,7 +212,7 @@ export const PageBuilderRenderer: React.FC = () => {
                 <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-[#181818] pb-6 mb-8 sm:mb-10 gap-3">
                   <div>
                     <h2 className="font-display font-bold uppercase text-3xl sm:text-5xl text-white tracking-[0.06em]">
-                      {content.heading || 'DROP ATUAL'}
+                      {block.public_name || content.heading || 'DROP ATUAL'}
                     </h2>
                     <p className="text-xs sm:text-sm text-[#888888] font-sans tracking-wider mt-1.5">
                       {content.subheading || 'Edição limitada. Produzido em Angola.'}
@@ -260,26 +260,37 @@ export const PageBuilderRenderer: React.FC = () => {
                         )}
                         {/* Dynamic Badge & Pre-Order Status Badge */}
                         <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
-                          {product.enable_pre_order && settings.enable_pre_order_button !== false ? (
-                            <>
-                              <span className="text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase bg-amber-400 text-black shadow-lg">
-                                {t('badge_pre_order', 'PRE-ORDER')}
-                              </span>
-                              <span className="text-[8px] font-mono font-bold tracking-[0.18em] px-2 py-0.5 rounded uppercase bg-black/80 text-amber-300 border border-amber-500/40 backdrop-blur-sm">
-                                {t('badge_coming_back_soon', 'COMING BACK SOON')}
-                              </span>
-                            </>
-                          ) : product.badge ? (
-                            <span
-                              className={`text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase ${
-                                product.badge === 'ESGOTADO'
-                                  ? 'bg-red-950 text-red-300 border border-red-800'
-                                  : 'bg-white text-black'
-                              }`}
-                            >
-                              {product.badge}
-                            </span>
-                          ) : null}
+                          {(() => {
+                            const isPreOrder = Boolean(product.enable_pre_order && settings.enable_pre_order_button !== false);
+                            const isComingBackSoon = isComingBackSoonBadge(product.badge);
+
+                            return (
+                              <>
+                                {isPreOrder && (
+                                  <span className="text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase bg-amber-400 text-black shadow-lg">
+                                    {t('badge_pre_order', 'PRE-ORDER')}
+                                  </span>
+                                )}
+                                {isComingBackSoon && (
+                                  <span className="text-[8px] font-mono font-bold tracking-[0.18em] px-2 py-0.5 rounded uppercase bg-black/80 text-amber-300 border border-amber-500/40 backdrop-blur-sm">
+                                    {t('badge_coming_back_soon', 'COMING BACK SOON')}
+                                    {product.pre_order_estimated_delivery ? ` • ${product.pre_order_estimated_delivery}` : ''}
+                                  </span>
+                                )}
+                                {!isPreOrder && !isComingBackSoon && product.badge && (
+                                  <span
+                                    className={`text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase ${
+                                      product.badge === 'ESGOTADO'
+                                        ? 'bg-red-950 text-red-300 border border-red-800'
+                                        : 'bg-white text-black'
+                                    }`}
+                                  >
+                                    {product.badge}
+                                  </span>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
 
                         {/* Botão de Favoritos com Ícone de Coração em Destaque */}
@@ -350,7 +361,7 @@ export const PageBuilderRenderer: React.FC = () => {
                     {block.subtitle || 'EDITORIAL VISUAL'}
                   </span>
                   <h2 className="font-display uppercase text-2xl sm:text-4xl text-white tracking-[0.16em]">
-                    {content.heading || 'LOOKBOOK 01'}
+                    {block.public_name || content.heading || 'LOOKBOOK 01'}
                   </h2>
                   <p className="text-xs sm:text-sm text-[#888888] font-sans leading-relaxed">
                     {content.description || 'Documentação visual das peças nas ruas noturnas e no concreto de Luanda.'}
@@ -409,7 +420,7 @@ export const PageBuilderRenderer: React.FC = () => {
                   {block.subtitle || 'FILOSOFIA DA MARCA'}
                 </span>
                 <h2 className="font-display uppercase text-2xl sm:text-4xl text-white tracking-[0.2em]">
-                  {content.heading || 'O MANIFESTO'}
+                  {block.public_name || content.heading || 'O MANIFESTO'}
                 </h2>
                 <div className="w-12 h-0.5 bg-white mx-auto my-4" />
                 <p className="font-display text-sm sm:text-lg text-[#d4d4d4] max-w-3xl mx-auto leading-loose tracking-[0.08em] uppercase">
@@ -427,7 +438,7 @@ export const PageBuilderRenderer: React.FC = () => {
           // 5. CÁPSULA DO TEMPO (ARCHIVED TIME CAPSULE)
           case 'time_capsule': {
             const content = block.content || {};
-            const sectionTitle = content.heading || block.title || 'CÁPSULA DO TEMPO';
+            const sectionTitle = block.public_name || content.heading || block.title || 'CÁPSULA DO TEMPO';
             const sectionSubtitle = block.subtitle || 'História e Memórias';
             const sectionDesc = content.subheading || (block.subtitle && block.subtitle !== sectionSubtitle ? block.subtitle : 'Registo permanente das peças esgotadas que marcaram o início da nossa história.');
             const customItems = Array.isArray(content.items) ? content.items : [];
@@ -541,6 +552,126 @@ export const PageBuilderRenderer: React.FC = () => {
                     </p>
                   </div>
                 ) : null}
+              </section>
+            );
+          }
+
+          // 7. CUSTOM CONTENT BLOCK (REUTILIZÁVEL: UNUSUAL MODELS, LOOKBOOKS, EDITORIALS, CAMPAIGNS)
+          case 'custom_content': {
+            const customContentList = settings.custom_contents || [];
+            const linkedCustom = customContentList.find(
+              (c) => c.id === block.custom_content_id || c.slug === block.slug || c.id === block.id
+            );
+
+            // Display Title prioritizes title from custom content or public_name (never technical type)
+            const publicTitle = linkedCustom?.title || block.public_name || block.title || 'EDITORIAL';
+            const publicSubtitle = block.subtitle || linkedCustom?.subtitle || '';
+            const description = linkedCustom?.description || block.content?.description || '';
+            const images = linkedCustom?.images || block.content?.images || [];
+            const models = linkedCustom?.items || block.content?.items || [];
+            const sectionSlug = block.slug || linkedCustom?.slug || block.id;
+
+            return (
+              <section
+                key={block.id}
+                id={sectionSlug}
+                className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12"
+              >
+                {/* Header */}
+                <div className="border-b border-[#1c1c1c] pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                  <div>
+                    {publicSubtitle && (
+                      <span className="text-[11px] font-mono text-neutral-400 tracking-[0.25em] uppercase block mb-1.5">
+                        {publicSubtitle}
+                      </span>
+                    )}
+                    <h2 className="font-display uppercase text-2xl sm:text-3xl lg:text-4xl text-white tracking-wider">
+                      {publicTitle}
+                    </h2>
+                  </div>
+                  {description && (
+                    <p className="text-xs sm:text-sm text-[#888888] font-sans max-w-xl leading-relaxed">
+                      {description}
+                    </p>
+                  )}
+                </div>
+
+                {/* Models / Items Cards */}
+                {models.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                    {models.map((model: any) => (
+                      <div
+                        key={model.id}
+                        className="group relative bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg overflow-hidden transition-all duration-300 hover:border-neutral-700"
+                      >
+                        <div className="relative aspect-[3/4] bg-neutral-900 overflow-hidden">
+                          {model.image_url ? (
+                            <img
+                              src={model.image_url}
+                              alt={model.name}
+                              className="w-full h-full object-cover grayscale contrast-125 transition-transform duration-700 group-hover:scale-105 group-hover:grayscale-0"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-neutral-600 font-mono text-xs uppercase">
+                              Sem Imagem
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
+                          <div className="absolute bottom-4 left-4 right-4">
+                            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 block mb-0.5">
+                              {model.role || 'MODEL'}
+                            </span>
+                            <h3 className="font-display uppercase text-lg sm:text-xl text-white tracking-wider">
+                              {model.name}
+                            </h3>
+                          </div>
+                        </div>
+
+                        {/* Bio & Social Link */}
+                        {(model.bio || model.instagram || model.social_link) && (
+                          <div className="p-4 sm:p-5 space-y-3 bg-[#0a0a0a]">
+                            {model.bio && (
+                              <p className="text-xs text-[#888888] font-sans leading-relaxed">
+                                {model.bio}
+                              </p>
+                            )}
+                            {(model.instagram || model.social_link) && (
+                              <div className="pt-2 border-t border-[#161616] flex items-center justify-between text-[11px] font-mono">
+                                <span className="text-neutral-500">CONECTAR</span>
+                                <a
+                                  href={model.social_link || `https://instagram.com/${model.instagram?.replace(/^@/, '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-white hover:underline tracking-wider"
+                                >
+                                  {model.instagram || 'Instagram ↗'}
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Additional Media Gallery if provided */}
+                {images.length > 0 && models.length === 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {images.map((imgUrl: string, imgIdx: number) => (
+                      <div
+                        key={imgIdx}
+                        className="aspect-[4/5] bg-neutral-900 border border-[#1c1c1c] rounded overflow-hidden"
+                      >
+                        <img
+                          src={imgUrl}
+                          alt={`${publicTitle} - ${imgIdx + 1}`}
+                          className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-500"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
             );
           }

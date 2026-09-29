@@ -1,4 +1,4 @@
-import { Product, SiteBlock, DictionaryEntry, SiteSettings } from '../types';
+import { Product, SiteBlock, DictionaryEntry, SiteSettings, CustomContent, SiteMenuItem } from '../types';
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
@@ -58,11 +58,54 @@ export const INITIAL_PRODUCTS: Product[] = [
   }
 ];
 
+export const INITIAL_CUSTOM_CONTENTS: CustomContent[] = [
+  {
+    id: 'custom-unusual-models',
+    title: 'UNUSUAL MODELS',
+    internal_name: 'Model Portfolio',
+    slug: 'unusual-models',
+    subtitle: 'PORTFOLIO & CASTING EDITORIAL',
+    description: 'Apresentação visual dos modelos e personalidades que dão vida ao movimento Wearing Unusual em Luanda.',
+    images: [
+      '/assets/hero-banner.png',
+      '/assets/product_prod-1789321105460_0.png',
+      '/assets/product_prod-void-tee_0.png'
+    ],
+    items: [
+      {
+        id: 'model-1',
+        name: 'Nelson & Edson',
+        role: 'Editorial Duo • Drop 04',
+        bio: 'Rostos oficiais do Drop 04 "Welcome to Luanda". Representação urbana, atitude minimalista e identidade contemporânea angolana.',
+        image_url: '/assets/hero-banner.png',
+        instagram: '@wearingunusual',
+        social_link: 'https://instagram.com/wearingunusual'
+      }
+    ],
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+];
+
+export const INITIAL_MENU_ITEMS: SiteMenuItem[] = [
+  { id: 'menu-1', label: 'DROP ATUAL', target_type: 'store', target_id: 'drop-atual', order_index: 1, is_active: true },
+  { id: 'menu-2', label: 'CÁPSULA DO TEMPO', target_type: 'capsule', order_index: 2, is_active: true },
+  { id: 'menu-3', label: 'MODELS', target_type: 'custom', target_id: 'custom-unusual-models', order_index: 3, is_active: true },
+  { id: 'menu-4', label: 'LOOKBOOK', target_type: 'anchor', target_id: 'lookbook-section', order_index: 4, is_active: true },
+  { id: 'menu-5', label: 'MANIFESTO', target_type: 'anchor', target_id: 'manifesto-section', order_index: 5, is_active: true },
+  { id: 'menu-6', label: 'FAVORITOS', target_type: 'wishlist', order_index: 6, is_active: true },
+  { id: 'menu-7', label: 'RASTREAR', target_type: 'track', order_index: 7, is_active: true },
+];
+
 export const INITIAL_BLOCKS: SiteBlock[] = [
   {
     id: 'block_marquee',
     block_type: 'marquee',
     title: 'Anúncio Superior',
+    public_name: 'LETREIRO SUPERIOR',
+    subtitle: 'Anúncios em Loop Contínuo',
+    content_type: 'product',
     content: {
       items: [
         'EDIÇÃO LIMITADA • DROP 01 WELCOME TO LUANDA',
@@ -82,7 +125,9 @@ export const INITIAL_BLOCKS: SiteBlock[] = [
     id: 'block_hero',
     block_type: 'hero_banner',
     title: 'Banner Principal (Hero Section)',
+    public_name: 'HERO BANNER',
     subtitle: 'DROP 01 — WELCOME TO LUANDA',
+    content_type: 'product',
     content: {
       drop_tag: 'DROP 01 — WELCOME TO LUANDA',
       drop_title: 'Wearing Unusual',
@@ -104,7 +149,9 @@ export const INITIAL_BLOCKS: SiteBlock[] = [
     id: 'block_drop_grid',
     block_type: 'drop_grid',
     title: 'Grelha do Drop Atual',
+    public_name: 'DROP ATUAL',
     subtitle: 'EDIÇÃO LIMITADA. PRODUZIDO EM ANGOLA.',
+    content_type: 'product',
     content: {
       heading: 'DROP ATUAL',
       subheading: 'Edição limitada. Produzido em Angola.',
@@ -117,7 +164,9 @@ export const INITIAL_BLOCKS: SiteBlock[] = [
     id: 'block_lookbook',
     block_type: 'lookbook',
     title: 'Galeria Lookbook',
+    public_name: 'LOOKBOOK',
     subtitle: 'EDITORIAL VISUAL',
+    content_type: 'custom',
     content: {
       heading: 'LOOKBOOK 01',
       description: 'Documentação visual das peças • \n\nSilhuetas, caimento das peças e a atmosfera urbana sob a perspectiva da Unusual.',
@@ -135,7 +184,9 @@ export const INITIAL_BLOCKS: SiteBlock[] = [
     id: 'block_manifesto',
     block_type: 'manifesto',
     title: 'Bloco do Manifesto',
+    public_name: 'MANIFESTO',
     subtitle: 'FILOSOFIA DA MARCA',
+    content_type: 'product',
     content: {
       heading: 'O MANIFESTO',
       text: 'A Unusual é uma marca de streetwear minimalista que representa a arte em si, não sendo focada apenas em vender o produto.\nO que faz da Unusual aquilo que ela é, é a representação do universo artístico: DJs, músicos, fotógrafos e, principalmente, a vibe urbana.\n\nNão vendemos apenas roupa, mas também criamos um movimento cultural e autenticidade.',
@@ -148,7 +199,9 @@ export const INITIAL_BLOCKS: SiteBlock[] = [
     id: 'block_time_capsule',
     block_type: 'time_capsule',
     title: 'Cápsula do Tempo (Arquivo Histórico)',
+    public_name: 'CÁPSULA DO TEMPO',
     subtitle: 'História e Memórias',
+    content_type: 'product',
     content: {
       heading: 'CÁPSULA DO TEMPO',
       subheading: 'Arquivo de silhuetas e lançamentos esgotados.',
@@ -157,6 +210,24 @@ export const INITIAL_BLOCKS: SiteBlock[] = [
     },
     is_active: true,
     order_index: 6,
+  },
+  {
+    id: 'block_unusual_models',
+    block_type: 'custom_content',
+    title: 'Model Portfolio',
+    public_name: 'UNUSUAL MODELS',
+    subtitle: 'Portfolio / Editorial',
+    content_type: 'custom',
+    custom_content_id: 'custom-unusual-models',
+    slug: 'unusual-models',
+    content: {
+      custom_content_id: 'custom-unusual-models',
+      heading: 'UNUSUAL MODELS',
+      subheading: 'PORTFOLIO & CASTING EDITORIAL',
+      description: 'Apresentação visual dos modelos e personalidades que dão vida ao movimento Wearing Unusual em Luanda.',
+    },
+    is_active: true,
+    order_index: 7,
   }
 ];
 
@@ -338,6 +409,10 @@ Please choose your delivery date using the link below:
   pre_order_choose_date_btn_en: 'CONFIRM DELIVERY DATE',
   pre_order_delivery_scheduled_msg_pt: 'A tua entrega foi agendada com sucesso. Entraremos em contacto no dia da entrega.',
   pre_order_delivery_scheduled_msg_en: 'Your delivery has been scheduled successfully. We will contact you on delivery day.',
+
+  // Dynamic Navigation Menu and Custom Content Collections
+  menu_items: INITIAL_MENU_ITEMS,
+  custom_contents: INITIAL_CUSTOM_CONTENTS,
 
   updated_at: '2020-01-01T00:00:00.000Z',
 };

@@ -18,6 +18,9 @@ export const SiteHeader: React.FC = () => {
     language,
     setLanguage,
     t,
+    menuItems,
+    customContents,
+    setSelectedCustomSlug,
   } = useStore();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -67,6 +70,7 @@ export const SiteHeader: React.FC = () => {
   const textColor = marqueeBlock?.content?.text_color || '#a3a3a3';
 
   const handleNavClick = (tab: 'store' | 'capsule' | 'track', anchorId?: string) => {
+    setSelectedCustomSlug(null);
     setActiveTab(tab);
     setIsMobileMenuOpen(false);
     if (anchorId) {
@@ -76,6 +80,53 @@ export const SiteHeader: React.FC = () => {
       }, 100);
     } else {
       scrollToTop(true);
+    }
+  };
+
+  const handleMenuItemClick = (item: any) => {
+    setIsMobileMenuOpen(false);
+    switch (item.target_type) {
+      case 'store':
+        handleNavClick('store', item.target_id || 'drop-atual');
+        break;
+      case 'capsule':
+        handleNavClick('capsule');
+        break;
+      case 'custom': {
+        const found = customContents.find((c) => c.id === item.target_id || c.slug === item.target_id);
+        const slug = found ? found.slug : item.target_id;
+        if (slug) {
+          setSelectedCustomSlug(slug);
+          try {
+            window.history.pushState(null, '', '/' + slug);
+          } catch {}
+          const el = document.getElementById(slug);
+          if (el) {
+            setActiveTab('store');
+            setTimeout(() => {
+              el.scrollIntoView({ behavior: 'smooth' });
+            }, 100);
+          } else {
+            setActiveTab('custom_content');
+            scrollToTop(true);
+          }
+        }
+        break;
+      }
+      case 'anchor':
+        handleNavClick('store', item.target_id);
+        break;
+      case 'wishlist':
+        setIsWishlistOpen(true);
+        break;
+      case 'track':
+        handleNavClick('track');
+        break;
+      case 'external':
+        if (item.url) window.open(item.url, '_blank', 'noopener,noreferrer');
+        break;
+      default:
+        handleNavClick('store');
     }
   };
 
@@ -197,50 +248,70 @@ export const SiteHeader: React.FC = () => {
       {isMobileMenuOpen && (
         <div className="border-t border-[#1a1a1a] bg-[#0c0c0c] px-6 py-8 space-y-6 animate-[fadeIn_0.2s_ease-out]">
           <div className="max-w-7xl mx-auto space-y-4 text-xs tracking-[0.25em] uppercase text-[#a0a0a0]">
-            <button
-              onClick={() => handleNavClick('store', 'drop-atual')}
-              className="block w-full text-left py-2 hover:text-white border-b border-[#181818]"
-            >
-              {t('nav_drop', 'DROP ATUAL')}
-            </button>
-            <button
-              onClick={() => handleNavClick('capsule')}
-              className="block w-full text-left py-2 hover:text-white border-b border-[#181818]"
-            >
-              {t('nav_capsule', 'CÁPSULA DO TEMPO')}
-            </button>
-            <button
-              onClick={() => handleNavClick('store', 'lookbook-section')}
-              className="block w-full text-left py-2 hover:text-white border-b border-[#181818]"
-            >
-              {t('nav_lookbook', 'LOOKBOOK')}
-            </button>
-            <button
-              onClick={() => handleNavClick('store', 'manifesto-section')}
-              className="block w-full text-left py-2 hover:text-white border-b border-[#181818]"
-            >
-              {t('nav_manifesto', 'MANIFESTO')}
-            </button>
-            <button
-              onClick={() => {
-                setIsWishlistOpen(true);
-                setIsMobileMenuOpen(false);
-              }}
-              className="block w-full text-left py-2 hover:text-white border-b border-[#181818] flex items-center justify-between"
-            >
-              <div className="flex items-center gap-2">
-                <Heart className="w-4 h-4" />
-                <span>FAVORITOS</span>
-              </div>
-              <span className="text-white font-mono text-[11px]">({wishlistCount})</span>
-            </button>
-            <button
-              onClick={() => handleNavClick('track')}
-              className="block w-full text-left py-2 hover:text-white border-b border-[#181818] flex items-center gap-2"
-            >
-              <PackageCheck className="w-4 h-4" />
-              {t('nav_track', 'RASTREAR ENCOMENDA')}
-            </button>
+            {menuItems && menuItems.length > 0 ? (
+              menuItems
+                .filter((item: any) => item.is_active !== false)
+                .sort((a: any, b: any) => a.order_index - b.order_index)
+                .map((item: any) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleMenuItemClick(item)}
+                    className="block w-full text-left py-2 hover:text-white border-b border-[#181818] flex items-center justify-between transition-colors group"
+                  >
+                    <span className="group-hover:text-white transition-colors">{item.label}</span>
+                    {item.target_type === 'wishlist' && (
+                      <span className="text-white font-mono text-[11px]">({wishlistCount})</span>
+                    )}
+                  </button>
+                ))
+            ) : (
+              <>
+                <button
+                  onClick={() => handleNavClick('store', 'drop-atual')}
+                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818]"
+                >
+                  {t('nav_drop', 'DROP ATUAL')}
+                </button>
+                <button
+                  onClick={() => handleNavClick('capsule')}
+                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818]"
+                >
+                  {t('nav_capsule', 'CÁPSULA DO TEMPO')}
+                </button>
+                <button
+                  onClick={() => handleNavClick('store', 'lookbook-section')}
+                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818]"
+                >
+                  {t('nav_lookbook', 'LOOKBOOK')}
+                </button>
+                <button
+                  onClick={() => handleNavClick('store', 'manifesto-section')}
+                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818]"
+                >
+                  {t('nav_manifesto', 'MANIFESTO')}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsWishlistOpen(true);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818] flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <Heart className="w-4 h-4" />
+                    <span>FAVORITOS</span>
+                  </div>
+                  <span className="text-white font-mono text-[11px]">({wishlistCount})</span>
+                </button>
+                <button
+                  onClick={() => handleNavClick('track')}
+                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818] flex items-center gap-2"
+                >
+                  <PackageCheck className="w-4 h-4" />
+                  {t('nav_track', 'RASTREAR ENCOMENDA')}
+                </button>
+              </>
+            )}
           </div>
 
           <div className="pt-4 flex items-center justify-between text-xs text-[#777777]">

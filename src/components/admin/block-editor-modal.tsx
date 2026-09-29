@@ -15,21 +15,25 @@ import {
   Eye,
   Code
 } from 'lucide-react';
-import { SiteBlock } from '../../types';
+import { SiteBlock, CustomContent } from '../../types';
 import { SingleImageUploader, MultiImageUploader } from './image-uploader';
 import { ImageGalleryManager } from './image-gallery-manager';
 import { supabase, uploadImageToSupabase } from '../../lib/supabase';
 
 interface BlockEditorModalProps {
   block: SiteBlock;
+  customContents?: CustomContent[];
   onSave: (updatedBlock: SiteBlock) => Promise<void> | void;
+  onSaveCustomContent?: (content: CustomContent) => Promise<boolean> | void;
   onClose: () => void;
   showToast: (msg: string) => void;
 }
 
 export const BlockEditorModal: React.FC<BlockEditorModalProps> = ({
   block,
+  customContents = [],
   onSave,
+  onSaveCustomContent,
   onClose,
   showToast,
 }) => {
@@ -62,6 +66,23 @@ export const BlockEditorModal: React.FC<BlockEditorModalProps> = ({
       } catch (dbErr) {
         console.warn('Erro ao atualizar Supabase site_blocks:', dbErr);
       }
+
+      if (editingBlock.block_type === 'custom_content' && onSaveCustomContent) {
+        const publicTitle = editingBlock.public_name || editingBlock.title;
+        const linkedId = editingBlock.custom_content_id || `custom-${editingBlock.id}`;
+        await onSaveCustomContent({
+          id: linkedId,
+          title: publicTitle,
+          internal_name: editingBlock.title,
+          slug: editingBlock.slug || publicTitle.toLowerCase().replace(/[^a-z0-9_-]/g, '-'),
+          subtitle: editingBlock.subtitle,
+          description: editingBlock.content?.description || '',
+          images: Array.isArray(editingBlock.content?.images) ? editingBlock.content.images : [],
+          items: Array.isArray(editingBlock.content?.items) ? editingBlock.content.items : [],
+          is_active: editingBlock.is_active,
+        });
+      }
+
       await onSave(editingBlock);
       showToast('Conteúdo do bloco guardado com sucesso!');
       onClose();
@@ -148,6 +169,62 @@ export const BlockEditorModal: React.FC<BlockEditorModalProps> = ({
         {/* VISUAL FORM BUILDER TAB */}
         {activeTab === 'content' && (
           <div className="space-y-6 max-h-[68vh] overflow-y-auto pr-1">
+            {/* Common Block Identity Section (Separating Technical ID, Internal Name, and Public Name) */}
+            <div className="p-4 bg-[#111111] border border-[#222222] rounded-lg space-y-3 font-sans text-xs">
+              <div className="flex items-center justify-between border-b border-[#1c1c1c] pb-2">
+                <span className="font-display uppercase text-white tracking-wider text-xs block">
+                  Identidade do Bloco no Site & Page Builder
+                </span>
+                <span className="font-mono text-[10px] text-neutral-400 bg-[#161616] px-2 py-0.5 rounded border border-[#262626]">
+                  ID TÉCNICO: <strong className="text-amber-400">{editingBlock.id}</strong>
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[#888888] uppercase text-[10px] mb-1 font-mono">
+                    Nome Público (Apresentado no Site e no Card) *
+                  </label>
+                  <input
+                    type="text"
+                    value={editingBlock.public_name || editingBlock.title || ''}
+                    onChange={(e) => setEditingBlock((prev) => ({ ...prev, public_name: e.target.value }))}
+                    placeholder="Ex: UNUSUAL MODELS"
+                    className="w-full px-3 py-2 bg-[#161616] border border-[#2a2a2a] rounded text-white font-bold"
+                  />
+                  <span className="text-[10px] text-neutral-500 mt-1 block">
+                    Nome visível aos clientes na homepage e no card do Page Builder.
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-[#888888] uppercase text-[10px] mb-1 font-mono">
+                    Nome Interno (Identificação Administrativa)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingBlock.title || ''}
+                    onChange={(e) => setEditingBlock((prev) => ({ ...prev, title: e.target.value }))}
+                    placeholder="Ex: Model Portfolio"
+                    className="w-full px-3 py-2 bg-[#161616] border border-[#2a2a2a] rounded text-neutral-300"
+                  />
+                  <span className="text-[10px] text-neutral-500 mt-1 block">
+                    Nome de controlo interno no painel administrativo.
+                  </span>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[#888888] uppercase text-[10px] mb-1 font-mono">
+                    Subtítulo / Categoria do Bloco
+                  </label>
+                  <input
+                    type="text"
+                    value={editingBlock.subtitle || ''}
+                    onChange={(e) => setEditingBlock((prev) => ({ ...prev, subtitle: e.target.value }))}
+                    placeholder="Ex: Portfolio / Editorial"
+                    className="w-full px-3 py-2 bg-[#161616] border border-[#2a2a2a] rounded text-neutral-400"
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* 1. HERO BANNER EDITOR */}
             {editingBlock.block_type === 'hero_banner' && (
               <div className="space-y-6 text-xs font-sans">
@@ -802,6 +879,225 @@ export const BlockEditorModal: React.FC<BlockEditorModalProps> = ({
                       onChange={(e) => updateContentField('speed_seconds', Number(e.target.value))}
                       className="w-32 px-3 py-1.5 bg-[#161616] border border-[#2a2a2a] rounded text-white font-mono"
                     />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 7. CUSTOM CONTENT EDITOR (UNUSUAL MODELS, LOOKBOOKS, EDITORIALS, CAMPAIGNS) */}
+            {editingBlock.block_type === 'custom_content' && (
+              <div className="space-y-6 text-xs font-sans">
+                <div className="p-4 bg-[#111111] border border-[#1f1f1f] rounded-lg space-y-4">
+                  <div>
+                    <span className="font-display uppercase text-white tracking-wider text-xs block">
+                      Configurações do Conteúdo Editorial
+                    </span>
+                    <p className="text-[11px] text-[#777777] mt-0.5">
+                      Personalize a descrição, galeria de fotografias e os perfis deste conteúdo editorial.
+                    </p>
+                  </div>
+
+                  {customContents && customContents.length > 0 && (
+                    <div className="p-3 bg-[#161616] border border-[#262626] rounded-lg space-y-2">
+                      <label className="block text-[#888888] uppercase text-[10px] font-mono">
+                        Vincular a Conteúdo Personalizado Existente
+                      </label>
+                      <select
+                        value={editingBlock.custom_content_id || ''}
+                        onChange={(e) => {
+                          const selectedId = e.target.value;
+                          const found = customContents.find((c) => c.id === selectedId);
+                          if (found) {
+                            setEditingBlock((prev) => ({
+                              ...prev,
+                              custom_content_id: found.id,
+                              public_name: found.title,
+                              title: found.internal_name || found.title,
+                              subtitle: found.subtitle || prev.subtitle,
+                              slug: found.slug,
+                              content: {
+                                ...prev.content,
+                                custom_content_id: found.id,
+                                description: found.description,
+                                images: found.images,
+                                items: found.items,
+                              }
+                            }));
+                          }
+                        }}
+                        className="w-full px-3 py-2 bg-[#0e0e0e] border border-[#333333] rounded text-white text-xs font-semibold"
+                      >
+                        <option value="">-- Manter conteúdo exclusivo deste bloco --</option>
+                        {customContents.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.title} {c.internal_name ? `(${c.internal_name})` : ''} — /{c.slug}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[#888888] uppercase text-[10px] mb-1">
+                      Slug / Identificador URL
+                    </label>
+                    <input
+                      type="text"
+                      value={editingBlock.slug || content.slug || ''}
+                      onChange={(e) => {
+                        const val = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+                        setEditingBlock((prev) => ({ ...prev, slug: val }));
+                        updateContentField('slug', val);
+                      }}
+                      placeholder="unusual-models"
+                      className="w-full px-3 py-2 bg-[#161616] border border-[#2a2a2a] rounded text-white font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#888888] uppercase text-[10px] mb-1">
+                      Descrição do Conteúdo
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={content.description || ''}
+                      onChange={(e) => updateContentField('description', e.target.value)}
+                      placeholder="Descreva o conceito, manifesto ou objetivo deste conteúdo..."
+                      className="w-full px-3 py-2 bg-[#161616] border border-[#2a2a2a] rounded text-white"
+                    />
+                  </div>
+
+                  {/* Multiple Gallery Media */}
+                  <ImageGalleryManager
+                    totalSlots={8}
+                    sectionTitle="Galeria de Fotografias"
+                    images={Array.isArray(content.images) ? content.images : []}
+                    onChange={(imgs) => updateContentField('images', imgs.filter(Boolean))}
+                  />
+
+                  {/* Modelos / Fichas do Portfólio */}
+                  <div className="pt-4 border-t border-[#1c1c1c] space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-display uppercase text-white tracking-wider text-xs block">
+                          Perfis de Modelos / Fichas do Portfólio
+                        </span>
+                        <p className="text-[11px] text-[#777777]">
+                          Adicione modelos com foto, nome, bio e link do Instagram.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentItems = Array.isArray(content.items) ? content.items : [];
+                          const newItem = {
+                            id: `item-${Date.now()}`,
+                            name: 'Novo Modelo',
+                            role: 'Editorial Model',
+                            bio: '',
+                            image_url: '',
+                            instagram: '@wearingunusual',
+                          };
+                          updateContentField('items', [...currentItems, newItem]);
+                        }}
+                        className="px-3 py-1 bg-white text-black font-bold uppercase rounded text-[10px] flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Adicionar Modelo</span>
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      {(content.items || []).map((model: any, mIdx: number) => (
+                        <div key={model.id || mIdx} className="p-4 bg-[#141414] border border-[#242424] rounded-lg space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-[11px] text-neutral-400 font-bold uppercase">
+                              #{mIdx + 1} — {model.name || 'Modelo'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = content.items.filter((_: any, i: number) => i !== mIdx);
+                                updateContentField('items', updated);
+                              }}
+                              className="text-neutral-500 hover:text-red-400 p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[#888888] text-[10px] uppercase mb-1">Nome</label>
+                              <input
+                                type="text"
+                                value={model.name || ''}
+                                onChange={(e) => {
+                                  const updated = [...content.items];
+                                  updated[mIdx] = { ...updated[mIdx], name: e.target.value };
+                                  updateContentField('items', updated);
+                                }}
+                                className="w-full px-3 py-1.5 bg-[#181818] border border-[#2c2c2c] rounded text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[#888888] text-[10px] uppercase mb-1">Função / Role</label>
+                              <input
+                                type="text"
+                                value={model.role || ''}
+                                onChange={(e) => {
+                                  const updated = [...content.items];
+                                  updated[mIdx] = { ...updated[mIdx], role: e.target.value };
+                                  updateContentField('items', updated);
+                                }}
+                                placeholder="Ex: Editorial Duo • Drop 04"
+                                className="w-full px-3 py-1.5 bg-[#181818] border border-[#2c2c2c] rounded text-white"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-[#888888] text-[10px] uppercase mb-1">URL da Fotografia</label>
+                              <input
+                                type="text"
+                                value={model.image_url || ''}
+                                onChange={(e) => {
+                                  const updated = [...content.items];
+                                  updated[mIdx] = { ...updated[mIdx], image_url: e.target.value };
+                                  updateContentField('items', updated);
+                                }}
+                                placeholder="Cole o URL da foto ou carregue"
+                                className="w-full px-3 py-1.5 bg-[#181818] border border-[#2c2c2c] rounded text-white font-mono text-[11px]"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-[#888888] text-[10px] uppercase mb-1">Bio / Informações</label>
+                              <textarea
+                                rows={2}
+                                value={model.bio || ''}
+                                onChange={(e) => {
+                                  const updated = [...content.items];
+                                  updated[mIdx] = { ...updated[mIdx], bio: e.target.value };
+                                  updateContentField('items', updated);
+                                }}
+                                className="w-full px-3 py-1.5 bg-[#181818] border border-[#2c2c2c] rounded text-white"
+                              />
+                            </div>
+                            <div className="sm:col-span-2">
+                              <label className="block text-[#888888] text-[10px] uppercase mb-1">Instagram (@handle)</label>
+                              <input
+                                type="text"
+                                value={model.instagram || ''}
+                                onChange={(e) => {
+                                  const updated = [...content.items];
+                                  updated[mIdx] = { ...updated[mIdx], instagram: e.target.value };
+                                  updateContentField('items', updated);
+                                }}
+                                placeholder="@handle"
+                                className="w-full px-3 py-1.5 bg-[#181818] border border-[#2c2c2c] rounded text-white font-mono"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>

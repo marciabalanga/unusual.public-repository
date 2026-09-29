@@ -10,13 +10,17 @@ import {
   SiteSettings,
   Language,
   OrderTimelineEvent,
-  RestockRequest
+  RestockRequest,
+  CustomContent,
+  SiteMenuItem
 } from '../types';
 import {
   INITIAL_PRODUCTS,
   INITIAL_BLOCKS,
   INITIAL_DICTIONARY,
-  INITIAL_SETTINGS
+  INITIAL_SETTINGS,
+  INITIAL_CUSTOM_CONTENTS,
+  INITIAL_MENU_ITEMS
 } from '../data/initialData';
 import { supabase, testSupabaseConnection, SupabaseHealth } from '../lib/supabase';
 import { generateTrackingCode } from '../lib/format';
@@ -36,8 +40,20 @@ interface StoreContextType {
   // Blocks (Motor 1)
   blocks: SiteBlock[];
   saveBlock: (block: SiteBlock) => Promise<boolean>;
+  deleteBlock: (id: string) => Promise<boolean>;
   toggleBlock: (id: string, isActive: boolean) => Promise<void>;
   reorderBlocks: (newBlocks: SiteBlock[]) => Promise<void>;
+
+  // Custom Contents (Reutilizáveis)
+  customContents: CustomContent[];
+  saveCustomContent: (content: CustomContent) => Promise<boolean>;
+  deleteCustomContent: (id: string) => Promise<boolean>;
+
+  // Site Navigation Menu (Editável)
+  menuItems: SiteMenuItem[];
+  saveMenuItem: (item: SiteMenuItem) => Promise<boolean>;
+  deleteMenuItem: (id: string) => Promise<boolean>;
+  reorderMenuItems: (items: SiteMenuItem[]) => Promise<void>;
 
   // Dictionary (Motor 3)
   dictionary: Record<string, DictionaryEntry>;
@@ -96,12 +112,14 @@ interface StoreContextType {
   filteredProducts: Product[];
 
   // Active View & Admin
-  activeTab: 'store' | 'capsule' | 'track' | 'admin' | 'product_detail' | 'choose_delivery_date';
-  setActiveTab: (tab: 'store' | 'capsule' | 'track' | 'admin' | 'product_detail' | 'choose_delivery_date') => void;
+  activeTab: 'store' | 'capsule' | 'track' | 'admin' | 'product_detail' | 'choose_delivery_date' | 'custom_content';
+  setActiveTab: (tab: 'store' | 'capsule' | 'track' | 'admin' | 'product_detail' | 'choose_delivery_date' | 'custom_content') => void;
   deliveryDateOrderCode: string | null;
   setDeliveryDateOrderCode: (code: string | null) => void;
   selectedProductSlug: string | null;
   setSelectedProductSlug: (slug: string | null) => void;
+  selectedCustomSlug: string | null;
+  setSelectedCustomSlug: (slug: string | null) => void;
   trackingInput: string;
   setTrackingInput: (code: string) => void;
 
@@ -275,8 +293,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return null;
   });
 
+  const [selectedCustomSlug, setSelectedCustomSlug] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+      if (path && path !== 'admin' && !path.startsWith('choose-delivery-date') && !path.startsWith('track') && !path.startsWith('capsule')) {
+        return path;
+      }
+    }
+    return null;
+  });
+
   const [activeTab, setActiveTab] = useState<
-    'store' | 'capsule' | 'track' | 'admin' | 'product_detail' | 'choose_delivery_date'
+    'store' | 'capsule' | 'track' | 'admin' | 'product_detail' | 'choose_delivery_date' | 'custom_content'
   >(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
@@ -289,6 +317,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         hash.includes('choose-delivery-date')
       ) {
         return 'choose_delivery_date';
+      }
+      const cleanSlug = path.replace(/^\/+|\/+$/g, '');
+      if (cleanSlug && cleanSlug !== 'admin' && !cleanSlug.startsWith('choose-delivery-date') && cleanSlug !== 'track' && cleanSlug !== 'capsule') {
+        return 'custom_content';
       }
     }
     return 'store';
@@ -1168,6 +1200,116 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       } catch {}
     }
+  };
+
+  const deleteBlock = async (id: string): Promise<boolean> => {
+    const updated = blocks.filter((b) => b.id !== id).map((b, i) => ({ ...b, order_index: i + 1 }));
+    setBlocks(updated);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEYS.BLOCKS, JSON.stringify(updated));
+    } catch {}
+    setStoredItem(LOCAL_STORAGE_KEYS.BLOCKS, updated).catch(() => {});
+    try {
+      await fetch('/api/store-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blocks: updated }),
+      });
+    } catch {}
+    const canSync = supabaseStatus.connected && !supabaseStatus.missingTables.includes('site_blocks');
+    if (canSync) {
+      try {
+        await supabase.from('site_blocks').delete().eq('id', id);
+      } catch {}
+    }
+    return true;
+  };
+
+  // Custom Contents (Reutilizáveis - UNUSUAL MODELS, Lookbooks, Campaigns, etc.)
+  const customContents: CustomContent[] = settings.custom_contents && settings.custom_contents.length > 0
+    ? settings.custom_contents
+    : INITIAL_CUSTOM_CONTENTS;
+
+  const saveCustomContent = async (item: CustomContent): Promise<boolean> => {
+    const current = settings.custom_contents && settings.custom_contents.length > 0
+      ? settings.custom_contents
+      : INITIAL_CUSTOM_CONTENTS;
+    const exists = current.some((c) => c.id === item.id);
+    const updated = exists
+      ? current.map((c) => (c.id === item.id ? { ...item, updated_at: new Date().toISOString() } : c))
+      : [...current, { ...item, updated_at: new Date().toISOString() }];
+
+    // Auto-sync any linked blocks in the Page Builder so their public_name and slug match the updated content name
+    const currentBlocks = settings.blocks && settings.blocks.length > 0 ? settings.blocks : INITIAL_BLOCKS;
+    let blocksChanged = false;
+    const updatedBlocks = currentBlocks.map((b) => {
+      if (b.custom_content_id === item.id || b.slug === item.slug || b.id === `block_${item.id}`) {
+        blocksChanged = true;
+        return {
+          ...b,
+          public_name: item.title,
+          slug: item.slug,
+          content: {
+            ...b.content,
+            custom_content_id: item.id,
+            heading: item.title,
+            subheading: item.subtitle,
+            description: item.description,
+            images: item.images,
+            items: item.items,
+          },
+        };
+      }
+      return b;
+    });
+
+    if (blocksChanged) {
+      await saveSettings({ custom_contents: updated, blocks: updatedBlocks });
+    } else {
+      await saveSettings({ custom_contents: updated });
+    }
+    return true;
+  };
+
+  const deleteCustomContent = async (id: string): Promise<boolean> => {
+    const current = settings.custom_contents && settings.custom_contents.length > 0
+      ? settings.custom_contents
+      : INITIAL_CUSTOM_CONTENTS;
+    const updated = current.filter((c) => c.id !== id);
+    await saveSettings({ custom_contents: updated });
+    return true;
+  };
+
+  // Site Navigation Menu (Editável)
+  const menuItems: SiteMenuItem[] = settings.menu_items && settings.menu_items.length > 0
+    ? settings.menu_items
+    : INITIAL_MENU_ITEMS;
+
+  const saveMenuItem = async (item: SiteMenuItem): Promise<boolean> => {
+    const current = settings.menu_items && settings.menu_items.length > 0
+      ? settings.menu_items
+      : INITIAL_MENU_ITEMS;
+    const exists = current.some((m) => m.id === item.id);
+    const updated = exists
+      ? current.map((m) => (m.id === item.id ? item : m))
+      : [...current, item];
+
+    await saveSettings({ menu_items: updated });
+    return true;
+  };
+
+  const deleteMenuItem = async (id: string): Promise<boolean> => {
+    const current = settings.menu_items && settings.menu_items.length > 0
+      ? settings.menu_items
+      : INITIAL_MENU_ITEMS;
+    const updated = current.filter((m) => m.id !== id).map((m, idx) => ({ ...m, order_index: idx + 1 }));
+    await saveSettings({ menu_items: updated });
+    return true;
+  };
+
+  const reorderMenuItems = async (items: SiteMenuItem[]): Promise<void> => {
+    const updated = items.map((m, idx) => ({ ...m, order_index: idx + 1 }));
+    await saveSettings({ menu_items: updated });
   };
 
   // Dictionary CRUD
@@ -2266,8 +2408,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleProductVisibility,
         blocks,
         saveBlock,
+        deleteBlock,
         toggleBlock,
         reorderBlocks,
+        customContents,
+        saveCustomContent,
+        deleteCustomContent,
+        menuItems,
+        saveMenuItem,
+        deleteMenuItem,
+        reorderMenuItems,
         dictionary,
         language,
         setLanguage,
@@ -2318,6 +2468,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setDeliveryDateOrderCode,
         selectedProductSlug,
         setSelectedProductSlug,
+        selectedCustomSlug,
+        setSelectedCustomSlug,
         trackingInput,
         setTrackingInput,
         supabaseStatus,

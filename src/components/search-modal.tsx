@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, ArrowRight, Tag, ShoppingBag } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { formatAOA } from '../lib/format';
+import { formatAOA, isComingBackSoonBadge } from '../lib/format';
 import { Product } from '../types';
 import { scrollToTop } from '../lib/scroll';
 
@@ -150,7 +150,11 @@ export const SearchModal: React.FC = () => {
                       <h4 className="font-display uppercase text-sm text-white tracking-wider group-hover:text-[#ffffff]">
                         {product.name}
                       </h4>
-                      {product.badge && (
+                      {isComingBackSoonBadge(product.badge) ? (
+                        <span className="text-[8px] font-mono px-1.5 py-0.5 rounded uppercase tracking-wider font-bold bg-black text-amber-300 border border-amber-500/40">
+                          COMING BACK SOON
+                        </span>
+                      ) : product.badge ? (
                         <span
                           className={`text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider font-semibold ${
                             product.badge === 'ESGOTADO'
@@ -160,7 +164,7 @@ export const SearchModal: React.FC = () => {
                         >
                           {product.badge}
                         </span>
-                      )}
+                      ) : null}
                     </div>
                     <p className="text-xs text-[#777777] font-sans mt-0.5">
                       {product.category} • {product.lifecycle === 'time_capsule' ? 'Arquivo Cápsula' : 'Drop Ativo'}

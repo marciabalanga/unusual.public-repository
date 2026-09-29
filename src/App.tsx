@@ -21,6 +21,7 @@ import { scrollToTop } from './lib/scroll';
 import { ScheduleDeliveryModal } from './components/schedule-delivery-modal';
 import { MaintenanceView } from './components/maintenance-view';
 import { ChooseDeliveryDateView } from './components/choose-delivery-date-view';
+import { CustomContentView } from './components/custom-content-view';
 
 const MainContent: React.FC = () => {
   const {
@@ -28,6 +29,8 @@ const MainContent: React.FC = () => {
     setActiveTab,
     selectedProductSlug,
     setSelectedProductSlug,
+    selectedCustomSlug,
+    setSelectedCustomSlug,
     products,
     setTrackingInput,
     settings,
@@ -41,6 +44,7 @@ const MainContent: React.FC = () => {
     saveSettings,
     deliveryDateOrderCode,
     setDeliveryDateOrderCode,
+    customContents,
   } = useStore();
 
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -125,7 +129,48 @@ const MainContent: React.FC = () => {
       if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
         setActiveTab('admin');
         setIsSplashActive(false);
-      } else if (activeTab === 'admin') {
+        return;
+      }
+
+      if (path === '/capsule' || hash === '#capsule' || hash === '#/capsule') {
+        setActiveTab('capsule');
+        setIsSplashActive(false);
+        return;
+      }
+
+      // Check clean slug for custom contents (e.g. /unusual-models)
+      const cleanSlug = path.replace(/^\/+|\/+$/g, '');
+      const cleanHash = hash.replace(/^#\/?/, '').replace(/\/+$/, '');
+      const targetSlug = cleanSlug || cleanHash;
+
+      if (targetSlug && targetSlug !== 'store') {
+        // 1. Check Custom Content
+        const matchedCustom = customContents.find(
+          (c) =>
+            c.slug?.toLowerCase() === targetSlug.toLowerCase() ||
+            c.id?.toLowerCase() === targetSlug.toLowerCase()
+        );
+        if (matchedCustom) {
+          setSelectedCustomSlug(matchedCustom.slug);
+          setActiveTab('custom_content');
+          setIsSplashActive(false);
+          return;
+        }
+
+        // 2. Check Product
+        const cleanProductSlug = targetSlug.replace(/^peca\//i, '').replace(/^produto\//i, '');
+        const matchedProduct = products.find(
+          (p) => p.slug?.toLowerCase() === cleanProductSlug.toLowerCase()
+        );
+        if (matchedProduct) {
+          setSelectedProductSlug(matchedProduct.slug);
+          setActiveTab('product_detail');
+          setIsSplashActive(false);
+          return;
+        }
+      }
+
+      if (activeTab === 'admin') {
         setActiveTab('store');
       }
     };
@@ -353,6 +398,17 @@ const MainContent: React.FC = () => {
           )}
 
           {activeTab === 'capsule' && <TimeCapsuleView />}
+
+          {activeTab === 'custom_content' && (
+            <CustomContentView
+              slug={selectedCustomSlug || 'unusual-models'}
+              onBack={() => {
+                setSelectedCustomSlug(null);
+                setActiveTab('store');
+                scrollToTop(true);
+              }}
+            />
+          )}
 
           {activeTab === 'track' && <TrackOrderView />}
         </main>

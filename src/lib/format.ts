@@ -24,3 +24,9 @@ export function formatDate(dateString: string): string {
     return dateString;
   }
 }
+
+export function isComingBackSoonBadge(badge?: string | null): boolean {
+  if (!badge) return false;
+  const upper = badge.trim().toUpperCase();
+  return upper === 'AGUARDANDO VAGA' || upper === 'ESGOTADO';
+}

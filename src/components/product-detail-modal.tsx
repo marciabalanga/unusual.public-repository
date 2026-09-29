@@ -13,7 +13,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { formatAOA } from '../lib/format';
+import { formatAOA, isComingBackSoonBadge } from '../lib/format';
 import { Product } from '../types';
 import { scrollToTop } from '../lib/scroll';
 import { PreOrderModal } from './pre-order-modal';
@@ -201,17 +201,31 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
             ) : (
               <ShoppingBag className="w-16 h-16 text-[#333333]" />
             )}
-            {product.badge && (
-              <span
-                className={`absolute top-4 left-4 text-[10px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase z-10 ${
-                  product.badge === 'ESGOTADO'
-                    ? 'bg-red-950 text-red-300 border border-red-800'
-                    : 'bg-white text-black'
-                }`}
-              >
-                {product.badge}
-              </span>
-            )}
+            {(() => {
+              const isComingBackSoon = isComingBackSoonBadge(product.badge);
+              if (isComingBackSoon) {
+                return (
+                  <span className="absolute top-4 left-4 text-[9px] font-mono font-bold tracking-[0.18em] px-2.5 py-1 rounded uppercase z-10 bg-black/85 text-amber-300 border border-amber-500/40 backdrop-blur-sm shadow-xl">
+                    {t('badge_coming_back_soon', 'COMING BACK SOON')}
+                    {product.pre_order_estimated_delivery ? ` • ${product.pre_order_estimated_delivery}` : ''}
+                  </span>
+                );
+              }
+              if (product.badge) {
+                return (
+                  <span
+                    className={`absolute top-4 left-4 text-[10px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase z-10 ${
+                      product.badge === 'ESGOTADO'
+                        ? 'bg-red-950 text-red-300 border border-red-800'
+                        : 'bg-white text-black'
+                    }`}
+                  >
+                    {product.badge}
+                  </span>
+                );
+              }
+              return null;
+            })()}
 
             {/* BOTÃO DE FAVORITOS (HEART ICON EM DESTAQUE NÍTIDO & VIDRO FOSCO) */}
             <button
@@ -390,20 +404,24 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
 
           {/* Add to Cart Button or Pre-Order / Restock Buttons */}
           <div className="space-y-3 pt-2">
-            {/* 1. PRE-ORDER: O administrador decidiu produzir novamente */}
+            {/* Coming Back Soon Indicator: ONLY displayed when badge is AGUARDANDO VAGA or ESGOTADO */}
+            {isComingBackSoonBadge(product.badge) && (
+              <div className="flex items-center gap-2 px-3.5 py-2.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono">
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                <span className="font-bold uppercase tracking-wider">
+                  {t('badge_coming_back_soon', 'COMING BACK SOON')}
+                </span>
+                {product.pre_order_estimated_delivery && (
+                  <span className="text-[#888888] text-[11px] ml-auto">
+                    {product.pre_order_estimated_delivery}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* 1. PRE-ORDER: O administrador configurou pré-venda */}
             {product.enable_pre_order && settings.enable_pre_order_button !== false ? (
               <div className="space-y-2.5">
-                {/* Coming Back Soon Indicator */}
-                <div className="flex items-center gap-2 px-3 py-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono">
-                  <Clock className="w-3.5 h-3.5 shrink-0" />
-                  <span className="font-bold uppercase tracking-wider">
-                    {t('badge_coming_back_soon', 'COMING BACK SOON')}
-                  </span>
-                  <span className="text-[#888888] text-[11px] ml-auto">
-                    {product.pre_order_estimated_delivery || '15–25 Outubro'}
-                  </span>
-                </div>
-
                 {/* Pre-Order Action Button */}
                 {settings.checkout_locked ? (
                   <div className="p-3.5 bg-red-950/60 border border-red-800 rounded-lg text-center text-xs text-red-200 flex items-center justify-center gap-2 font-sans">

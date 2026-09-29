@@ -36,14 +36,17 @@ import {
   CheckCheck,
   Send,
   Archive,
-  Calendar
+  Calendar,
+  Compass
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatAOA, formatDate } from '../../lib/format';
-import { Product, Order, OrderStatus, SiteBlock, DictionaryEntry, SiteSettings, BlockType, RestockRequest } from '../../types';
+import { Product, Order, OrderStatus, SiteBlock, DictionaryEntry, SiteSettings, BlockType, RestockRequest, CustomContent, CustomContentItem, SiteMenuItem } from '../../types';
 import { SUPABASE_SCHEMA_SQL, SUPABASE_FIX_RLS_SQL } from '../../data/initialData';
 import { BlockEditorModal } from './block-editor-modal';
+import { CustomContentEditorModal } from './custom-content-editor-modal';
+import { MenuEditorModal } from './menu-editor-modal';
 import { MultiImageUploader } from './image-uploader';
 import { ImageGalleryManager } from './image-gallery-manager';
 import { BrandLogoManager } from './brand-logo-manager';
@@ -61,8 +64,16 @@ export const AdminPanel: React.FC = () => {
     toggleProductVisibility,
     blocks,
     saveBlock,
+    deleteBlock,
     toggleBlock,
     reorderBlocks,
+    customContents,
+    saveCustomContent,
+    deleteCustomContent,
+    menuItems,
+    saveMenuItem,
+    deleteMenuItem,
+    reorderMenuItems,
     dictionary,
     saveDictionaryEntry,
     settings,
@@ -274,12 +285,20 @@ export const AdminPanel: React.FC = () => {
     showToast(`WhatsApp preparado e registado para ${order.customer_name} (${order.tracking_code})!`);
   };
 
-  // Editing states for Products
+  // Editing states for Products & Custom Contents
+  const [catalogTab, setCatalogTab] = useState<'products' | 'custom_contents'>('products');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+  const [editingCustomContent, setEditingCustomContent] = useState<CustomContent | null>(null);
+  const [contentToDelete, setContentToDelete] = useState<CustomContent | null>(null);
 
-  // Editing states for Blocks
+  // Editing states for Blocks & Navigation Menu
+  const [pageBuilderTab, setPageBuilderTab] = useState<'blocks' | 'menu'>('blocks');
   const [editingBlock, setEditingBlock] = useState<SiteBlock | null>(null);
+  const [blockToDelete, setBlockToDelete] = useState<SiteBlock | null>(null);
+  const [editingMenuItem, setEditingMenuItem] = useState<SiteMenuItem | null>(null);
+  const [menuItemToDelete, setMenuItemToDelete] = useState<SiteMenuItem | null>(null);
+  const [isAddingBlockPickerOpen, setIsAddingBlockPickerOpen] = useState(false);
 
   // Dictionary Search, Filter and New Key State
   const [dictSearch, setDictSearch] = useState('');
@@ -442,7 +461,7 @@ export const AdminPanel: React.FC = () => {
             }`}
           >
             <ShoppingBag className="w-4 h-4" />
-            <span>2. Catálogo & Ciclo de Vida ({products.length})</span>
+            <span>2. Conteúdos & Produtos ({products.length} Produtos • {customContents.length} Personalizados)</span>
           </button>
 
           <button
@@ -454,7 +473,7 @@ export const AdminPanel: React.FC = () => {
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>1. Page Builder ({blocks.length} Blocos)</span>
+            <span>1. Page Builder & Menu ({blocks.length} Blocos • {menuItems.length} Itens Menu)</span>
           </button>
 
           <button
@@ -2101,11 +2120,43 @@ export const AdminPanel: React.FC = () => {
         )}
 
         {/* ============================================================================== */}
-        {/* MOTOR 2: CATÁLOGO & CICLO DE VIDA (DROP & CÁPSULA) */}
+        {/* MOTOR 2: CONTEÚDOS & PRODUTOS (PRODUTOS & CONTEÚDO PERSONALIZADO) */}
         {/* ============================================================================== */}
         {activeEngine === 'catalog' && (
           <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0d0d0d] p-4 rounded-lg border border-[#1f1f1f]">
+            {/* Seletor Estrutural de Tipo de Conteúdo: PRODUTOS vs CONTEÚDO PERSONALIZADO */}
+            <div className="flex items-center gap-2 border-b border-[#1c1c1c] pb-3 overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setCatalogTab('products')}
+                className={`flex items-center gap-2 px-4 py-2 rounded text-xs font-sans tracking-wider uppercase transition-all whitespace-nowrap ${
+                  catalogTab === 'products'
+                    ? 'bg-white text-black font-bold shadow-lg'
+                    : 'text-[#888888] hover:text-white hover:bg-[#141414]'
+                }`}
+              >
+                <ShoppingBag className="w-4 h-4" />
+                <span>Tipo A: PRODUTOS ({products.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCatalogTab('custom_contents')}
+                className={`flex items-center gap-2 px-4 py-2 rounded text-xs font-sans tracking-wider uppercase transition-all whitespace-nowrap ${
+                  catalogTab === 'custom_contents'
+                    ? 'bg-white text-black font-bold shadow-lg'
+                    : 'text-[#888888] hover:text-white hover:bg-[#141414]'
+                }`}
+              >
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>Tipo B: CONTEÚDO PERSONALIZADO ({customContents.length})</span>
+              </button>
+            </div>
+
+            {/* SEÇÃO A: PRODUTOS (VESTUÁRIO COM FICHA TÉCNICA E CICLO DE VIDA) */}
+            {catalogTab === 'products' && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0d0d0d] p-4 rounded-lg border border-[#1f1f1f]">
               <div>
                 <h2 className="font-display uppercase text-lg text-white tracking-wider">
                   MOTOR DE CATÁLOGO & CICLO DE VIDA
@@ -2310,6 +2361,244 @@ export const AdminPanel: React.FC = () => {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* SEÇÃO B: CONTEÚDO PERSONALIZADO (EDITORIAL, LOOKBOOKS, PORTFÓLIOS, UNUSUAL MODELS) */}
+        {catalogTab === 'custom_contents' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0d0d0d] p-4 rounded-lg border border-[#1f1f1f]">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display uppercase text-lg text-white tracking-wider">
+                    CONTEÚDOS PERSONALIZADOS (EDITORIAL & PORTFÓLIO)
+                  </h2>
+                  <span className="text-[10px] bg-amber-400 text-black font-bold uppercase px-2 py-0.5 rounded font-mono">
+                    REUTILIZÁVEL
+                  </span>
+                </div>
+                <p className="text-xs text-[#777777] font-sans mt-0.5">
+                  Crie livremente páginas como UNUSUAL MODELS, Lookbooks, Campanhas e Fotografias. Sem restrições nem campos de roupa.
+                </p>
+              </div>
+
+              <button
+                onClick={() => {
+                  setEditingCustomContent({
+                    id: `custom-${Date.now()}`,
+                    title: 'NOVO CONTEÚDO',
+                    internal_name: 'Novo Editorial',
+                    slug: `conteudo-${Date.now().toString(36)}`,
+                    subtitle: 'PORTFOLIO & CASTING EDITORIAL',
+                    description: '',
+                    images: [],
+                    items: [],
+                    is_active: true,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                  });
+                }}
+                className="px-4 py-2 bg-white text-black font-sans font-bold text-xs tracking-wider uppercase rounded hover:bg-[#eaeaea] transition-colors flex items-center gap-1.5 self-start sm:self-auto shadow-lg"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Adicionar Conteúdo Personalizado</span>
+              </button>
+            </div>
+
+            {/* Custom Contents Grid */}
+            {customContents.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {customContents.map((item) => {
+                  const isLinkedAsBlock = blocks.some((b) => b.custom_content_id === item.id || b.slug === item.slug);
+                  const isLinkedInMenu = menuItems.some((m) => m.target_id === item.id);
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="bg-[#0e0e0e] border border-[#1f1f1f] rounded-lg p-5 flex flex-col justify-between space-y-4 hover:border-[#333333] transition-colors group"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[9px] bg-white text-black font-bold px-2 py-0.5 rounded uppercase">
+                            CONTEÚDO PERSONALIZADO
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {isLinkedAsBlock && (
+                              <span className="text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-1.5 py-0.5 rounded font-mono">
+                                Na Homepage
+                              </span>
+                            )}
+                            {isLinkedInMenu && (
+                              <span className="text-[9px] bg-blue-950 text-blue-300 border border-blue-800 px-1.5 py-0.5 rounded font-mono">
+                                No Menu
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="text-[10px] text-neutral-500 font-mono uppercase tracking-wider block">
+                            {item.subtitle || 'PORTFOLIO / EDITORIAL'}
+                          </span>
+                          <h3 className="font-display uppercase text-lg text-white tracking-wider mt-0.5 group-hover:text-amber-300 transition-colors">
+                            {item.title}
+                          </h3>
+                          {item.internal_name && item.internal_name !== item.title && (
+                            <p className="text-[11px] text-[#777777] font-sans">
+                              Nome interno: <strong className="text-neutral-400">{item.internal_name}</strong>
+                            </p>
+                          )}
+                          <p className="text-[11px] text-amber-400/90 font-mono mt-0.5">
+                            URL: /{item.slug}
+                          </p>
+                        </div>
+
+                        {item.description && (
+                          <p className="text-xs text-[#888888] font-sans line-clamp-2 leading-relaxed">
+                            {item.description}
+                          </p>
+                        )}
+
+                        {/* Preview thumbnails */}
+                        <div className="flex items-center gap-2 pt-1 overflow-x-auto">
+                          {item.images && item.images.length > 0 ? (
+                            item.images.slice(0, 4).map((img, idx) => (
+                              <div key={idx} className="w-12 h-14 rounded bg-[#181818] overflow-hidden border border-[#262626] shrink-0">
+                                <img src={img} alt="" className="w-full h-full object-cover" />
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-[11px] text-neutral-600 font-mono">Sem fotografias</div>
+                          )}
+                          {item.items && item.items.length > 0 && (
+                            <span className="text-[10px] font-mono text-neutral-400 pl-1 shrink-0">
+                              +{item.items.length} {item.items.length === 1 ? 'modelo' : 'modelos'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="pt-3 border-t border-[#181818] space-y-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEditingCustomContent(item)}
+                            className="flex-1 py-2 bg-[#1f1f1f] hover:bg-white hover:text-black rounded text-xs font-sans tracking-wider uppercase transition-colors flex items-center justify-center gap-1.5 font-bold"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                            <span>Editar Conteúdo</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setContentToDelete(item)}
+                            className="p-2 text-[#666666] hover:text-red-400 hover:bg-red-950/40 rounded bg-[#141414] border border-[#222222] hover:border-red-900/50 transition-colors flex items-center justify-center shrink-0"
+                            title={`Eliminar "${item.title}"`}
+                            aria-label={`Eliminar "${item.title}"`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-[10px] font-sans">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const existing = blocks.find((b) => b.custom_content_id === item.id || b.slug === item.slug);
+                              if (existing) {
+                                showToast(`"${item.title}" já está na homepage (Bloco #${existing.order_index}).`);
+                                return;
+                              }
+                              const newBlock: SiteBlock = {
+                                id: `block_${item.slug.replace(/[^a-z0-9_]/gi, '_') || Date.now()}`,
+                                block_type: 'custom_content',
+                                title: item.internal_name || item.title,
+                                public_name: item.title,
+                                subtitle: item.subtitle || 'Portfolio / Conteúdo Personalizado',
+                                content_type: 'custom',
+                                custom_content_id: item.id,
+                                slug: item.slug,
+                                content: {
+                                  custom_content_id: item.id,
+                                  heading: item.title,
+                                  subheading: item.subtitle,
+                                  description: item.description,
+                                  images: item.images,
+                                  items: item.items,
+                                },
+                                is_active: true,
+                                order_index: blocks.length + 1,
+                              };
+                              await saveBlock(newBlock);
+                              showToast(`Bloco "${item.title}" adicionado à homepage!`);
+                            }}
+                            className="py-1.5 px-2 bg-[#141414] hover:bg-[#202020] text-neutral-300 rounded border border-[#222222] truncate transition-colors flex items-center justify-center gap-1"
+                            title="Adicionar como bloco na homepage"
+                          >
+                            <Layers className="w-3 h-3 text-emerald-400" />
+                            <span>+ No Page Builder</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingMenuItem({
+                                id: `menu-${Date.now()}`,
+                                label: item.title,
+                                target_type: 'custom',
+                                target_id: item.id,
+                                order_index: menuItems.length + 1,
+                                is_active: true,
+                              });
+                            }}
+                            className="py-1.5 px-2 bg-[#141414] hover:bg-[#202020] text-neutral-300 rounded border border-[#222222] truncate transition-colors flex items-center justify-center gap-1"
+                            title="Adicionar ligação no menu do site"
+                          >
+                            <Compass className="w-3 h-3 text-blue-400" />
+                            <span>+ No Menu</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-12 text-center bg-[#0d0d0d] border border-dashed border-[#242424] rounded-xl space-y-4">
+                <Sparkles className="w-10 h-10 text-neutral-600 mx-auto" />
+                <div>
+                  <h4 className="font-display uppercase text-white text-base tracking-wider">
+                    Nenhum Conteúdo Personalizado Criado
+                  </h4>
+                  <p className="text-xs text-[#777777] font-sans mt-1 max-w-md mx-auto">
+                    Crie páginas e portfólios editoriais reutilizáveis como o UNUSUAL MODELS com fotos, casting e narrativa própria.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingCustomContent({
+                      id: `custom-${Date.now()}`,
+                      title: 'UNUSUAL MODELS',
+                      internal_name: 'Model Portfolio',
+                      slug: 'unusual-models',
+                      subtitle: 'PORTFOLIO & CASTING EDITORIAL',
+                      description: 'Apresentação visual dos modelos e personalidades que dão vida ao movimento Wearing Unusual em Luanda.',
+                      images: [],
+                      items: [],
+                      is_active: true,
+                      created_at: new Date().toISOString(),
+                      updated_at: new Date().toISOString(),
+                    });
+                  }}
+                  className="px-5 py-2.5 bg-white text-black font-bold text-xs uppercase rounded hover:bg-[#eaeaea] transition-all"
+                >
+                  Criar Primeiro Conteúdo (UNUSUAL MODELS)
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
             {/* Product Editor Modal */}
             {editingProduct && (
@@ -2926,137 +3215,869 @@ export const AdminPanel: React.FC = () => {
         )}
 
         {/* ============================================================================== */}
-        {/* MOTOR 1: PAGE BUILDER & BLOCOS MODULARES */}
+        {/* MOTOR 1: PAGE BUILDER & MENU DO SITE */}
         {/* ============================================================================== */}
         {activeEngine === 'blocks' && (
           <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0d0d0d] p-4 rounded-lg border border-[#1f1f1f]">
-              <div>
-                <h2 className="font-display uppercase text-lg text-white tracking-wider">
-                  MOTOR DE ESTRUTURA E BLOCOS (PAGE BUILDER)
-                </h2>
-                <p className="text-xs text-[#777777] font-sans">
-                  Ative, desative, reordene e personalize 100% dos textos, fotos e botões de qualquer bloco da homepage.
-                </p>
-              </div>
+            {/* Sub-Tabs: 1. BLOCOS DA HOMEPAGE vs 2. MENU DO SITE */}
+            <div className="flex items-center gap-2 border-b border-[#1c1c1c] pb-3 overflow-x-auto no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setPageBuilderTab('blocks')}
+                className={`flex items-center gap-2 px-4 py-2 rounded text-xs font-sans tracking-wider uppercase transition-all whitespace-nowrap ${
+                  pageBuilderTab === 'blocks'
+                    ? 'bg-white text-black font-bold shadow-lg'
+                    : 'text-[#888888] hover:text-white hover:bg-[#141414]'
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                <span>1. Blocos da Homepage ({blocks.length})</span>
+              </button>
 
               <button
-                onClick={() => {
-                  const newBlock: SiteBlock = {
-                    id: `block-${Date.now()}`,
-                    block_type: 'manifesto',
-                    title: 'Novo Bloco Editorial',
-                    subtitle: 'DESTAQUE EXCLUSIVO',
-                    is_active: true,
-                    order_index: blocks.length + 1,
-                    content: {
-                      heading: 'TÍTULO DO NOVO BLOCO',
-                      text: 'Escreva aqui o manifesto ou novidade da marca...',
-                      subtext: 'Wearing Unusual • Luanda',
-                    },
-                  };
-                  setEditingBlock(newBlock);
-                }}
-                className="px-4 py-2 bg-white text-black font-sans font-bold text-xs tracking-wider uppercase rounded hover:bg-[#eaeaea] transition-colors flex items-center gap-1.5 self-start sm:self-auto"
+                type="button"
+                onClick={() => setPageBuilderTab('menu')}
+                className={`flex items-center gap-2 px-4 py-2 rounded text-xs font-sans tracking-wider uppercase transition-all whitespace-nowrap ${
+                  pageBuilderTab === 'menu'
+                    ? 'bg-white text-black font-bold shadow-lg'
+                    : 'text-[#888888] hover:text-white hover:bg-[#141414]'
+                }`}
               >
-                <Plus className="w-4 h-4" />
-                <span>Adicionar Bloco</span>
+                <Compass className="w-4 h-4 text-blue-400" />
+                <span>2. Menu do Site ({menuItems.length})</span>
               </button>
             </div>
 
-            {/* Blocks List */}
-            <div className="space-y-4">
-              {[...blocks]
-                .sort((a, b) => a.order_index - b.order_index)
-                .map((block, idx) => (
-                  <div
-                    key={block.id}
-                    className="p-4 bg-[#0e0e0e] border border-[#1f1f1f] rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="flex flex-col gap-1">
-                        <button
-                          disabled={idx === 0}
-                          onClick={async () => {
-                            const sorted = [...blocks].sort((a, b) => a.order_index - b.order_index);
-                            const temp = sorted[idx];
-                            sorted[idx] = sorted[idx - 1];
-                            sorted[idx - 1] = temp;
-                            await reorderBlocks(sorted);
-                            showToast('Ordem dos blocos atualizada!');
-                          }}
-                          className="p-1 text-[#666666] hover:text-white disabled:opacity-20"
-                        >
-                          <ArrowUp className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          disabled={idx === blocks.length - 1}
-                          onClick={async () => {
-                            const sorted = [...blocks].sort((a, b) => a.order_index - b.order_index);
-                            const temp = sorted[idx];
-                            sorted[idx] = sorted[idx + 1];
-                            sorted[idx + 1] = temp;
-                            await reorderBlocks(sorted);
-                            showToast('Ordem dos blocos atualizada!');
-                          }}
-                          className="p-1 text-[#666666] hover:text-white disabled:opacity-20"
-                        >
-                          <ArrowDown className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-[#888888]">#{block.order_index}</span>
-                          <h3 className="font-display uppercase text-sm text-white tracking-wider">
-                            {block.title}
-                          </h3>
-                          <span className="text-[10px] bg-[#1a1a1a] text-[#888888] px-2 py-0.5 rounded font-mono">
-                            {block.block_type}
-                          </span>
-                        </div>
-                        {block.subtitle && (
-                          <p className="text-xs text-[#777777] font-sans mt-0.5">{block.subtitle}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 self-end sm:self-auto">
-                      <button
-                        onClick={async () => {
-                          await toggleBlock(block.id, !block.is_active);
-                          showToast(`Bloco ${!block.is_active ? 'ativado' : 'desativado'} na homepage.`);
-                        }}
-                        className={`px-3 py-1.5 rounded text-xs font-sans font-medium transition-colors ${
-                          block.is_active
-                            ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
-                            : 'bg-red-950/50 text-red-400 border border-red-900/50'
-                        }`}
-                      >
-                        {block.is_active ? 'Ativo na Loja' : 'Desativado'}
-                      </button>
-
-                      <button
-                        onClick={() => setEditingBlock(block)}
-                        className="px-3 py-1.5 bg-[#1f1f1f] hover:bg-white hover:text-black rounded text-xs font-sans tracking-wider uppercase transition-colors flex items-center gap-1"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                        <span>Editar</span>
-                      </button>
-                    </div>
+            {/* SUB-SEÇÃO 1: BLOCOS DA HOMEPAGE */}
+            {pageBuilderTab === 'blocks' && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0d0d0d] p-4 rounded-lg border border-[#1f1f1f]">
+                  <div>
+                    <h2 className="font-display uppercase text-lg text-white tracking-wider">
+                      MOTOR DE ESTRUTURA E BLOCOS (PAGE BUILDER)
+                    </h2>
+                    <p className="text-xs text-[#777777] font-sans">
+                      Ative, desative, reordene, edite e elimine blocos da homepage com total autonomia.
+                    </p>
                   </div>
-                ))}
-            </div>
 
-            {/* Comprehensive Dynamic Block Content Editor Modal */}
+                  <button
+                    onClick={() => setIsAddingBlockPickerOpen(true)}
+                    className="px-4 py-2 bg-white text-black font-sans font-bold text-xs tracking-wider uppercase rounded hover:bg-[#eaeaea] transition-colors flex items-center gap-1.5 self-start sm:self-auto shadow-lg"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Adicionar Bloco</span>
+                  </button>
+                </div>
+
+                {/* Blocks List */}
+                <div className="space-y-4">
+                  {[...blocks]
+                    .sort((a, b) => a.order_index - b.order_index)
+                    .map((block, idx) => {
+                      const linkedCustom = customContents.find(
+                        (c) => c.id === block.custom_content_id || c.slug === block.slug
+                      );
+                      const displayTitle = linkedCustom?.title || block.public_name || block.title;
+                      const displaySubtitle =
+                        block.subtitle ||
+                        (block.block_type === 'custom_content' ? 'Portfolio / Conteúdo Personalizado' : '');
+
+                      return (
+                        <div
+                          key={block.id}
+                          className="p-4 bg-[#0e0e0e] border border-[#1f1f1f] rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#2f2f2f] transition-colors"
+                        >
+                          <div className="flex items-center gap-4 min-w-0">
+                            <div className="flex flex-col gap-1">
+                              <button
+                                disabled={idx === 0}
+                                onClick={async () => {
+                                  const sorted = [...blocks].sort((a, b) => a.order_index - b.order_index);
+                                  const temp = sorted[idx];
+                                  sorted[idx] = sorted[idx - 1];
+                                  sorted[idx - 1] = temp;
+                                  await reorderBlocks(sorted);
+                                  showToast('Ordem dos blocos atualizada!');
+                                }}
+                                className="p-1 text-[#666666] hover:text-white disabled:opacity-20 transition-colors"
+                                title="Mover bloco para cima"
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                disabled={idx === blocks.length - 1}
+                                onClick={async () => {
+                                  const sorted = [...blocks].sort((a, b) => a.order_index - b.order_index);
+                                  const temp = sorted[idx];
+                                  sorted[idx] = sorted[idx + 1];
+                                  sorted[idx + 1] = temp;
+                                  await reorderBlocks(sorted);
+                                  showToast('Ordem dos blocos atualizada!');
+                                }}
+                                className="p-1 text-[#666666] hover:text-white disabled:opacity-20 transition-colors"
+                                title="Mover bloco para baixo"
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono text-xs text-[#888888]">#{block.order_index}</span>
+                                <h3 className="font-display uppercase text-sm sm:text-base text-white tracking-wider truncate">
+                                  {displayTitle}
+                                </h3>
+                                <span className="text-[10px] bg-[#1a1a1a] text-[#888888] px-2 py-0.5 rounded font-mono uppercase">
+                                  {block.block_type === 'custom_content' ? 'CONTEÚDO PERSONALIZADO' : block.block_type}
+                                </span>
+                              </div>
+
+                              {displaySubtitle && (
+                                <p className="text-xs text-[#777777] font-sans mt-0.5 truncate">
+                                  {displaySubtitle}
+                                </p>
+                              )}
+
+                              <div className="flex items-center gap-2 mt-1 text-[10px] font-mono text-[#555555]">
+                                <span>ID técnico: <strong className="text-neutral-400">{block.id}</strong></span>
+                                {block.title && block.title !== displayTitle && (
+                                  <span>• Nome interno: <strong className="text-neutral-400">{block.title}</strong></span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
+                            {/* Ativar / Desativar */}
+                            <button
+                              onClick={async () => {
+                                await toggleBlock(block.id, !block.is_active);
+                                showToast(`Bloco "${displayTitle}" ${!block.is_active ? 'ativado' : 'desativado'} na homepage.`);
+                              }}
+                              className={`px-3 py-1.5 rounded text-xs font-sans font-medium transition-colors ${
+                                block.is_active
+                                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                  : 'bg-red-950/50 text-red-400 border border-red-900/50'
+                              }`}
+                            >
+                              {block.is_active ? 'Ativo na Loja' : 'Desativado'}
+                            </button>
+
+                            {/* Botão EDITAR */}
+                            <button
+                              onClick={() => setEditingBlock(block)}
+                              className="px-3 py-1.5 bg-[#1f1f1f] hover:bg-white hover:text-black rounded text-xs font-sans tracking-wider uppercase transition-colors flex items-center gap-1 font-semibold"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                              <span>Editar</span>
+                            </button>
+
+                            {/* Ícone pequeno de lixo/trash para ELIMINAR */}
+                            <button
+                              onClick={() => setBlockToDelete(block)}
+                              className="p-2 text-[#666666] hover:text-red-400 hover:bg-red-950/40 rounded bg-[#141414] border border-[#222222] hover:border-red-900/50 transition-colors flex items-center justify-center shrink-0"
+                              title={`Eliminar bloco "${displayTitle}"`}
+                              aria-label={`Eliminar bloco "${displayTitle}"`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* SUB-SEÇÃO 2: MENU DE NAVEGAÇÃO DO SITE */}
+            {pageBuilderTab === 'menu' && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0d0d0d] p-4 rounded-lg border border-[#1f1f1f]">
+                  <div>
+                    <h2 className="font-display uppercase text-lg text-white tracking-wider">
+                      MENU DE NAVEGAÇÃO DO SITE
+                    </h2>
+                    <p className="text-xs text-[#777777] font-sans">
+                      Controle a ordem, os nomes e os destinos de cada item do menu do site. Pode ligar itens à loja, arquivos ou conteúdos personalizados.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setEditingMenuItem({
+                        id: `menu-${Date.now()}`,
+                        label: 'NOVO ITEM',
+                        target_type: 'store',
+                        target_id: 'drop-atual',
+                        order_index: menuItems.length + 1,
+                        is_active: true,
+                      });
+                    }}
+                    className="px-4 py-2 bg-white text-black font-sans font-bold text-xs tracking-wider uppercase rounded hover:bg-[#eaeaea] transition-colors flex items-center gap-1.5 self-start sm:self-auto shadow-lg"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Adicionar Item ao Menu</span>
+                  </button>
+                </div>
+
+                {/* Menu Items List */}
+                <div className="space-y-3">
+                  {[...menuItems]
+                    .sort((a, b) => a.order_index - b.order_index)
+                    .map((item, idx) => {
+                      let targetBadge = 'LOJA / DROP';
+                      let targetDetail = '';
+
+                      if (item.target_type === 'custom') {
+                        const linked = customContents.find((c) => c.id === item.target_id || c.slug === item.target_id);
+                        targetBadge = 'CONTEÚDO PERSONALIZADO';
+                        targetDetail = linked ? linked.title : item.target_id || '';
+                      } else if (item.target_type === 'capsule') {
+                        targetBadge = 'CÁPSULA DO TEMPO';
+                      } else if (item.target_type === 'anchor') {
+                        targetBadge = 'ÂNCORA NA PÁGINA';
+                        targetDetail = `#${item.target_id || ''}`;
+                      } else if (item.target_type === 'wishlist') {
+                        targetBadge = 'FAVORITOS';
+                      } else if (item.target_type === 'track') {
+                        targetBadge = 'RASTREIO';
+                      } else if (item.target_type === 'external') {
+                        targetBadge = 'LINK EXTERNO';
+                        targetDetail = item.url || '';
+                      }
+
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-4 bg-[#0e0e0e] border border-[#1f1f1f] rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-[#2a2a2a] transition-colors"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="flex flex-col gap-1">
+                              <button
+                                disabled={idx === 0}
+                                onClick={async () => {
+                                  const sorted = [...menuItems].sort((a, b) => a.order_index - b.order_index);
+                                  const temp = sorted[idx];
+                                  sorted[idx] = sorted[idx - 1];
+                                  sorted[idx - 1] = temp;
+                                  await reorderMenuItems(sorted);
+                                  showToast('Ordem do menu atualizada!');
+                                }}
+                                className="p-1 text-[#666666] hover:text-white disabled:opacity-20 transition-colors"
+                                title="Subir item no menu"
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                disabled={idx === menuItems.length - 1}
+                                onClick={async () => {
+                                  const sorted = [...menuItems].sort((a, b) => a.order_index - b.order_index);
+                                  const temp = sorted[idx];
+                                  sorted[idx] = sorted[idx + 1];
+                                  sorted[idx + 1] = temp;
+                                  await reorderMenuItems(sorted);
+                                  showToast('Ordem do menu atualizada!');
+                                }}
+                                className="p-1 text-[#666666] hover:text-white disabled:opacity-20 transition-colors"
+                                title="Descer item no menu"
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono text-xs text-[#888888]">#{idx + 1}</span>
+                                <h3 className="font-display uppercase text-sm sm:text-base text-white tracking-wider">
+                                  {item.label}
+                                </h3>
+                                <span className="text-[10px] bg-[#1a1a1a] text-neutral-300 border border-[#2a2a2a] px-2 py-0.5 rounded font-mono">
+                                  {targetBadge}
+                                </span>
+                              </div>
+
+                              {targetDetail && (
+                                <p className="text-xs text-[#777777] font-sans mt-0.5">
+                                  Destino: <strong className="text-neutral-400">{targetDetail}</strong>
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
+                            {/* Ativar / Desativar */}
+                            <button
+                              onClick={async () => {
+                                const nextState = item.is_active === false ? true : false;
+                                await saveMenuItem({ ...item, is_active: nextState });
+                                showToast(`Item "${item.label}" ${nextState ? 'ativado' : 'desativado'} no menu.`);
+                              }}
+                              className={`px-3 py-1.5 rounded text-xs font-sans font-medium transition-colors ${
+                                item.is_active !== false
+                                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                  : 'bg-red-950/50 text-red-400 border border-red-900/50'
+                              }`}
+                            >
+                              {item.is_active !== false ? 'Ativo no Menu' : 'Desativado'}
+                            </button>
+
+                            {/* Editar */}
+                            <button
+                              onClick={() => setEditingMenuItem(item)}
+                              className="px-3 py-1.5 bg-[#1f1f1f] hover:bg-white hover:text-black rounded text-xs font-sans tracking-wider uppercase transition-colors flex items-center gap-1 font-semibold"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                              <span>Editar</span>
+                            </button>
+
+                            {/* Eliminar */}
+                            <button
+                              onClick={() => setMenuItemToDelete(item)}
+                              className="p-2 text-[#666666] hover:text-red-400 hover:bg-red-950/40 rounded bg-[#141414] border border-[#222222] hover:border-red-900/50 transition-colors flex items-center justify-center shrink-0"
+                              title={`Eliminar item "${item.label}" do menu`}
+                              aria-label={`Eliminar item "${item.label}" do menu`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            {/* Modal de Escolha ao Adicionar Novo Bloco no Page Builder */}
+            {isAddingBlockPickerOpen && (
+              <div
+                id="block-picker-backdrop"
+                className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).id === 'block-picker-backdrop') {
+                    setIsAddingBlockPickerOpen(false);
+                  }
+                }}
+              >
+                <div className="w-full max-w-xl bg-[#0c0c0c] border border-[#242424] rounded-xl p-6 space-y-5 shadow-2xl animate-in fade-in">
+                  <div className="flex items-center justify-between border-b border-[#1c1c1c] pb-3">
+                    <div>
+                      <span className="text-[10px] bg-white text-black font-bold uppercase tracking-widest px-2 py-0.5 rounded">
+                        PAGE BUILDER
+                      </span>
+                      <h3 className="font-display uppercase text-lg text-white tracking-wider mt-1">
+                        Escolha o Tipo de Bloco
+                      </h3>
+                    </div>
+                    <button
+                      onClick={() => setIsAddingBlockPickerOpen(false)}
+                      className="p-1.5 text-[#777777] hover:text-white rounded bg-[#161616]"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-[#888888] font-sans">
+                    Selecione o tipo de conteúdo ou secção que deseja posicionar na homepage do site:
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-sans text-xs">
+                    {/* 1. Conteúdo Personalizado (UNUSUAL MODELS, Portfólio, etc.) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingBlockPickerOpen(false);
+                        const firstCustom = customContents[0];
+                        const newBlock: SiteBlock = {
+                          id: `block_${firstCustom ? firstCustom.slug : 'custom'}_${Date.now()}`,
+                          block_type: 'custom_content',
+                          title: firstCustom?.internal_name || 'UNUSUAL MODELS',
+                          public_name: firstCustom?.title || 'UNUSUAL MODELS',
+                          subtitle: firstCustom?.subtitle || 'Portfolio / Conteúdo Personalizado',
+                          content_type: 'custom',
+                          custom_content_id: firstCustom?.id,
+                          slug: firstCustom?.slug || 'unusual-models',
+                          content: {
+                            custom_content_id: firstCustom?.id,
+                            heading: firstCustom?.title || 'UNUSUAL MODELS',
+                            subheading: firstCustom?.subtitle || 'Portfolio / Conteúdo Personalizado',
+                            description: firstCustom?.description || '',
+                            images: firstCustom?.images || [],
+                            items: firstCustom?.items || [],
+                          },
+                          is_active: true,
+                          order_index: blocks.length + 1,
+                        };
+                        setEditingBlock(newBlock);
+                      }}
+                      className="p-4 bg-[#141414] hover:bg-[#1f1f1f] border border-amber-500/40 rounded-lg text-left space-y-1 transition-all group"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-amber-400" />
+                        <strong className="text-white text-xs uppercase tracking-wider group-hover:text-amber-300">
+                          Conteúdo Personalizado
+                        </strong>
+                      </div>
+                      <p className="text-[11px] text-[#777777]">
+                        UNUSUAL MODELS, Portfólio de Modelos, Lookbooks ou Campanhas editoriais.
+                      </p>
+                    </button>
+
+                    {/* 2. Grelha do Drop Atual (Produtos) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingBlockPickerOpen(false);
+                        const newBlock: SiteBlock = {
+                          id: `block_drop_${Date.now()}`,
+                          block_type: 'drop_grid',
+                          title: 'Grelha do Drop Atual',
+                          public_name: 'DROP ATUAL',
+                          subtitle: 'EDIÇÃO LIMITADA. PRODUZIDO EM ANGOLA.',
+                          content_type: 'product',
+                          content: {
+                            heading: 'DROP ATUAL',
+                            subheading: 'Edição limitada. Produzido em Angola.',
+                            show_categories_filter: true,
+                          },
+                          is_active: true,
+                          order_index: blocks.length + 1,
+                        };
+                        setEditingBlock(newBlock);
+                      }}
+                      className="p-4 bg-[#141414] hover:bg-[#1f1f1f] border border-[#242424] rounded-lg text-left space-y-1 transition-all group"
+                    >
+                      <strong className="text-white text-xs uppercase tracking-wider group-hover:text-white block">
+                        Grelha do Drop (Produtos)
+                      </strong>
+                      <p className="text-[11px] text-[#777777]">
+                        Apresentação das peças de vestuário ativas com preços, badges e filtros.
+                      </p>
+                    </button>
+
+                    {/* 3. Hero Banner */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingBlockPickerOpen(false);
+                        const newBlock: SiteBlock = {
+                          id: `block_hero_${Date.now()}`,
+                          block_type: 'hero_banner',
+                          title: 'Banner Principal (Hero)',
+                          public_name: 'HERO BANNER',
+                          subtitle: 'DESTAQUE PRINCIPAL',
+                          content_type: 'product',
+                          content: {
+                            drop_tag: 'NOVA COLEÇÃO',
+                            drop_title: 'Wearing Unusual',
+                            cta_text: 'COMPRAR AGORA',
+                            cta_link: '#drop-atual',
+                            bg_image: '/assets/hero-banner.png',
+                            bg_images: ['/assets/hero-banner.png'],
+                            overlay_opacity: 0.55,
+                            text_alignment: 'left',
+                          },
+                          is_active: true,
+                          order_index: blocks.length + 1,
+                        };
+                        setEditingBlock(newBlock);
+                      }}
+                      className="p-4 bg-[#141414] hover:bg-[#1f1f1f] border border-[#242424] rounded-lg text-left space-y-1 transition-all group"
+                    >
+                      <strong className="text-white text-xs uppercase tracking-wider group-hover:text-white block">
+                        Banner Hero Principal
+                      </strong>
+                      <p className="text-[11px] text-[#777777]">
+                        Banner visual imersivo com carrossel de fotos e botões de chamada.
+                      </p>
+                    </button>
+
+                    {/* 4. Letreiro Superior (Marquee) */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingBlockPickerOpen(false);
+                        const newBlock: SiteBlock = {
+                          id: `block_marquee_${Date.now()}`,
+                          block_type: 'marquee',
+                          title: 'Letreiro Superior',
+                          public_name: 'LETREIRO ANÚNCIOS',
+                          subtitle: 'Mensagens em Loop',
+                          content_type: 'product',
+                          content: {
+                            items: [
+                              'WEARING UNUSUAL • HIGH-END STREETWEAR',
+                              'ENTREGAS EM LUANDA',
+                              'PAGAMENTO MULTICAIXA EXPRESS',
+                            ],
+                            speed_seconds: 25,
+                            bg_color: '#000000',
+                            text_color: '#d4d4d4',
+                          },
+                          is_active: true,
+                          order_index: blocks.length + 1,
+                        };
+                        setEditingBlock(newBlock);
+                      }}
+                      className="p-4 bg-[#141414] hover:bg-[#1f1f1f] border border-[#242424] rounded-lg text-left space-y-1 transition-all group"
+                    >
+                      <strong className="text-white text-xs uppercase tracking-wider group-hover:text-white block">
+                        Letreiro Marquee
+                      </strong>
+                      <p className="text-[11px] text-[#777777]">
+                        Faixa de anúncios com animação infinita de texto no topo.
+                      </p>
+                    </button>
+
+                    {/* 5. Galeria Lookbook */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingBlockPickerOpen(false);
+                        const newBlock: SiteBlock = {
+                          id: `block_lookbook_${Date.now()}`,
+                          block_type: 'lookbook',
+                          title: 'Galeria Lookbook',
+                          public_name: 'LOOKBOOK',
+                          subtitle: 'EDITORIAL VISUAL',
+                          content_type: 'custom',
+                          content: {
+                            heading: 'LOOKBOOK',
+                            description: 'Documentação visual das silhuetas e caimentos.',
+                            columns: 3,
+                            images: [],
+                          },
+                          is_active: true,
+                          order_index: blocks.length + 1,
+                        };
+                        setEditingBlock(newBlock);
+                      }}
+                      className="p-4 bg-[#141414] hover:bg-[#1f1f1f] border border-[#242424] rounded-lg text-left space-y-1 transition-all group"
+                    >
+                      <strong className="text-white text-xs uppercase tracking-wider group-hover:text-white block">
+                        Galeria Lookbook
+                      </strong>
+                      <p className="text-[11px] text-[#777777]">
+                        Mosaico visual fotográfico com legendas para editorial de moda.
+                      </p>
+                    </button>
+
+                    {/* 6. Manifesto da Marca */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingBlockPickerOpen(false);
+                        const newBlock: SiteBlock = {
+                          id: `block_manifesto_${Date.now()}`,
+                          block_type: 'manifesto',
+                          title: 'Manifesto da Marca',
+                          public_name: 'MANIFESTO',
+                          subtitle: 'FILOSOFIA DA MARCA',
+                          content_type: 'product',
+                          content: {
+                            heading: 'O MANIFESTO',
+                            text: 'A Unusual é uma marca de streetwear minimalista focada na representação do universo artístico.',
+                            subtext: 'Inspired by the fear of being average.',
+                          },
+                          is_active: true,
+                          order_index: blocks.length + 1,
+                        };
+                        setEditingBlock(newBlock);
+                      }}
+                      className="p-4 bg-[#141414] hover:bg-[#1f1f1f] border border-[#242424] rounded-lg text-left space-y-1 transition-all group"
+                    >
+                      <strong className="text-white text-xs uppercase tracking-wider group-hover:text-white block">
+                        Manifesto da Marca
+                      </strong>
+                      <p className="text-[11px] text-[#777777]">
+                        Declaração cultural e artística da Wearing Unusual.
+                      </p>
+                    </button>
+
+                    {/* 7. Cápsula do Tempo */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingBlockPickerOpen(false);
+                        const newBlock: SiteBlock = {
+                          id: `block_capsule_${Date.now()}`,
+                          block_type: 'time_capsule',
+                          title: 'Cápsula do Tempo (Arquivo Histórico)',
+                          public_name: 'CÁPSULA DO TEMPO',
+                          subtitle: 'HISTÓRIA E MEMÓRIAS',
+                          content_type: 'product',
+                          content: {
+                            heading: 'CÁPSULA DO TEMPO',
+                            subheading: 'Arquivo de silhuetas e lançamentos esgotados.',
+                            notice: 'Peças em arquivo histórico. Não disponíveis para compra imediata.',
+                          },
+                          is_active: true,
+                          order_index: blocks.length + 1,
+                        };
+                        setEditingBlock(newBlock);
+                      }}
+                      className="p-4 bg-[#141414] hover:bg-[#1f1f1f] border border-[#242424] rounded-lg text-left space-y-1 transition-all group sm:col-span-2"
+                    >
+                      <strong className="text-white text-xs uppercase tracking-wider group-hover:text-white block">
+                        Cápsula do Tempo (Arquivo Histórico)
+                      </strong>
+                      <p className="text-[11px] text-[#777777]">
+                        Acesso ao acervo histórico com recolha de interesse para relançamento das coleções.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal de Confirmação Segura para Eliminar Bloco do Page Builder */}
+            {blockToDelete && (
+              <div
+                id="delete-block-backdrop"
+                className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).id === 'delete-block-backdrop') {
+                    setBlockToDelete(null);
+                  }
+                }}
+              >
+                <div className="w-full max-w-md bg-[#0e0e0e] border border-red-900/50 rounded-xl p-6 space-y-4 shadow-2xl animate-in fade-in">
+                  <div className="flex items-center gap-3 text-red-400">
+                    <Trash2 className="w-5 h-5 shrink-0" />
+                    <h3 className="font-display uppercase text-base text-white tracking-wider">
+                      Eliminar Bloco da Homepage?
+                    </h3>
+                  </div>
+
+                  <p className="text-xs text-neutral-300 font-sans leading-relaxed">
+                    Tens a certeza que desejas eliminar o bloco{' '}
+                    <strong className="text-white font-bold">
+                      "{blockToDelete.public_name || blockToDelete.title}"
+                    </strong>{' '}
+                    da estrutura da homepage?
+                  </p>
+
+                  <div className="p-3 bg-[#141414] border border-[#262626] rounded text-[11px] text-neutral-400 font-sans space-y-1">
+                    <p className="text-emerald-400 font-semibold uppercase text-[10px]">
+                      ✓ Eliminação Segura (Sem Efeito Cascata)
+                    </p>
+                    <p>
+                      Apenas o bloco do Page Builder será removido. Peças de roupa, fotografias, conteúdos personalizados e histórico NÃO serão apagados.
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setBlockToDelete(null)}
+                      className="px-4 py-2 bg-[#181818] hover:bg-[#222222] text-neutral-300 rounded text-xs uppercase"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const targetId = blockToDelete.id;
+                        const blockTitle = blockToDelete.public_name || blockToDelete.title;
+                        setBlockToDelete(null);
+                        await deleteBlock(targetId);
+                        showToast(`Bloco "${blockTitle}" eliminado da homepage com sucesso.`);
+                      }}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded transition-colors shadow-lg"
+                    >
+                      Confirmar Eliminação
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal de Confirmação Segura para Eliminar Item do Menu */}
+            {menuItemToDelete && (
+              <div
+                id="delete-menu-backdrop"
+                className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).id === 'delete-menu-backdrop') {
+                    setMenuItemToDelete(null);
+                  }
+                }}
+              >
+                <div className="w-full max-w-md bg-[#0e0e0e] border border-red-900/50 rounded-xl p-6 space-y-4 shadow-2xl animate-in fade-in">
+                  <div className="flex items-center gap-3 text-red-400">
+                    <Trash2 className="w-5 h-5 shrink-0" />
+                    <h3 className="font-display uppercase text-base text-white tracking-wider">
+                      Eliminar Item do Menu?
+                    </h3>
+                  </div>
+
+                  <p className="text-xs text-neutral-300 font-sans leading-relaxed">
+                    Desejas eliminar o item{' '}
+                    <strong className="text-white font-bold">"{menuItemToDelete.label}"</strong> do menu de navegação?
+                  </p>
+
+                  <div className="pt-2 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setMenuItemToDelete(null)}
+                      className="px-4 py-2 bg-[#181818] hover:bg-[#222222] text-neutral-300 rounded text-xs uppercase"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const targetId = menuItemToDelete.id;
+                        const label = menuItemToDelete.label;
+                        setMenuItemToDelete(null);
+                        await deleteMenuItem(targetId);
+                        showToast(`Item "${label}" eliminado do menu.`);
+                      }}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded transition-colors shadow-lg"
+                    >
+                      Confirmar Eliminação
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal de Confirmação Segura para Eliminar Conteúdo Personalizado */}
+            {contentToDelete && (
+              <div
+                id="delete-content-backdrop"
+                className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4"
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).id === 'delete-content-backdrop') {
+                    setContentToDelete(null);
+                  }
+                }}
+              >
+                <div className="w-full max-w-md bg-[#0e0e0e] border border-red-900/50 rounded-xl p-6 space-y-4 shadow-2xl animate-in fade-in">
+                  <div className="flex items-center gap-3 text-red-400">
+                    <Trash2 className="w-5 h-5 shrink-0" />
+                    <h3 className="font-display uppercase text-base text-white tracking-wider">
+                      Eliminar Conteúdo Personalizado?
+                    </h3>
+                  </div>
+
+                  <p className="text-xs text-neutral-300 font-sans leading-relaxed">
+                    Desejas eliminar o conteúdo{' '}
+                    <strong className="text-white font-bold">"{contentToDelete.title}"</strong>?
+                  </p>
+
+                  <p className="text-[11px] text-neutral-400 font-sans">
+                    Os produtos da loja e o arquivo da Cápsula do Tempo permanecerão intactos.
+                  </p>
+
+                  <div className="pt-2 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setContentToDelete(null)}
+                      className="px-4 py-2 bg-[#181818] hover:bg-[#222222] text-neutral-300 rounded text-xs uppercase"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const targetId = contentToDelete.id;
+                        const title = contentToDelete.title;
+                        setContentToDelete(null);
+                        await deleteCustomContent(targetId);
+                        showToast(`Conteúdo "${title}" eliminado.`);
+                      }}
+                      className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded transition-colors shadow-lg"
+                    >
+                      Confirmar Eliminação
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal de Edição de Bloco do Page Builder */}
             {editingBlock && (
               <BlockEditorModal
                 block={editingBlock}
+                customContents={customContents}
+                onSaveCustomContent={saveCustomContent}
                 onSave={async (updated) => {
                   await saveBlock(updated);
                   setEditingBlock(null);
                 }}
                 onClose={() => setEditingBlock(null)}
+                showToast={showToast}
+              />
+            )}
+
+            {/* Modal de Edição de Item do Menu */}
+            {editingMenuItem && (
+              <MenuEditorModal
+                item={editingMenuItem}
+                customContents={customContents}
+                onSave={async (updatedItem) => {
+                  await saveMenuItem(updatedItem);
+                  setEditingMenuItem(null);
+                }}
+                onClose={() => setEditingMenuItem(null)}
+                showToast={showToast}
+              />
+            )}
+
+            {/* Modal de Edição de Conteúdo Personalizado */}
+            {editingCustomContent && (
+              <CustomContentEditorModal
+                content={editingCustomContent}
+                onSave={async (savedContent, options) => {
+                  await saveCustomContent(savedContent);
+
+                  // Opcional: Adicionar automaticamente como Bloco no Page Builder
+                  if (options?.addToPageBuilder) {
+                    const existingBlock = blocks.find((b) => b.custom_content_id === savedContent.id || b.slug === savedContent.slug);
+                    if (!existingBlock) {
+                      const newBlock: SiteBlock = {
+                        id: `block_${savedContent.slug.replace(/[^a-z0-9_]/gi, '_') || Date.now()}`,
+                        block_type: 'custom_content',
+                        title: savedContent.internal_name || savedContent.title,
+                        public_name: savedContent.title,
+                        subtitle: savedContent.subtitle || 'Portfolio / Conteúdo Personalizado',
+                        content_type: 'custom',
+                        custom_content_id: savedContent.id,
+                        slug: savedContent.slug,
+                        content: {
+                          custom_content_id: savedContent.id,
+                          heading: savedContent.title,
+                          subheading: savedContent.subtitle,
+                          description: savedContent.description,
+                          images: savedContent.images,
+                          items: savedContent.items,
+                        },
+                        is_active: true,
+                        order_index: blocks.length + 1,
+                      };
+                      await saveBlock(newBlock);
+                    }
+                  }
+
+                  // Opcional: Adicionar ao Menu de Navegação do Site
+                  if (options?.addToMenu) {
+                    const existingMenu = menuItems.find((m) => m.target_id === savedContent.id);
+                    if (!existingMenu) {
+                      await saveMenuItem({
+                        id: `menu-${Date.now()}`,
+                        label: options.menuLabel || savedContent.title,
+                        target_type: 'custom',
+                        target_id: savedContent.id,
+                        order_index: menuItems.length + 1,
+                        is_active: true,
+                      });
+                    }
+                  }
+
+                  setEditingCustomContent(null);
+                }}
+                onClose={() => setEditingCustomContent(null)}
                 showToast={showToast}
               />
             )}

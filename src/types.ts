@@ -168,13 +168,53 @@ export type BlockType =
   | 'time_capsule'
   | 'lookbook'
   | 'manifesto'
-  | 'editorial_highlight';
+  | 'editorial_highlight'
+  | 'custom_content';
+
+export interface CustomContentItem {
+  id: string;
+  name: string;
+  role?: string;
+  bio?: string;
+  image_url?: string;
+  images?: string[];
+  social_link?: string;
+  instagram?: string;
+}
+
+export interface CustomContent {
+  id: string;
+  title: string;              // Nome do Conteúdo (ex: "UNUSUAL MODELS")
+  internal_name?: string;     // Nome interno (ex: "Model Portfolio")
+  slug: string;               // ex: "unusual-models"
+  subtitle?: string;          // ex: "Portfolio / Editorial"
+  description?: string;
+  images: string[];
+  items?: CustomContentItem[];
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface SiteMenuItem {
+  id: string;
+  label: string;             // Nome no menu (ex: "MODELS" ou "SHOP")
+  target_type: 'store' | 'capsule' | 'custom' | 'anchor' | 'external' | 'wishlist' | 'track';
+  target_id?: string;        // ID do conteúdo personalizado ou âncora
+  url?: string;              // URL externa se target_type === 'external'
+  order_index: number;
+  is_active: boolean;
+}
 
 export interface SiteBlock {
   id: string;
   block_type: BlockType;
-  title: string;
-  subtitle?: string;
+  title: string;              // Nome interno (Internal Name)
+  public_name?: string;       // Nome público / apresentado no site
+  subtitle?: string;          // Subtítulo ou categoria (ex: "Portfolio / Editorial")
+  content_type?: 'product' | 'custom'; // Tipo de conteúdo
+  custom_content_id?: string; // Se vinculado a um conteúdo personalizado
+  slug?: string;
   content: Record<string, any>;
   is_active: boolean;
   order_index: number;
@@ -272,6 +312,11 @@ export interface SiteSettings {
   choose_date_submit_btn_pt?: string;
   choose_date_submit_btn_en?: string;
   default_language?: 'pt' | 'en';
+
+  // Navigation Menu and Custom Content Collections
+  menu_items?: SiteMenuItem[];
+  custom_contents?: CustomContent[];
+  blocks?: SiteBlock[];
 
   updated_at?: string;
 }

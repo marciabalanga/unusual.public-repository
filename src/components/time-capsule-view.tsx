@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Clock, ArrowLeft, Eye, Archive } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { formatAOA } from '../lib/format';
+import { formatAOA, isComingBackSoonBadge } from '../lib/format';
 import { Product } from '../types';
 import { scrollToTop } from '../lib/scroll';
 
@@ -65,15 +65,16 @@ export const TimeCapsuleView: React.FC = () => {
                 <Archive className="w-8 h-8 text-[#333333]" />
               )}
               <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
-                {product.enable_pre_order && settings.enable_pre_order_button !== false ? (
-                  <>
-                    <span className="text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded bg-amber-400 text-black uppercase shadow-lg">
-                      PRE-ORDER
-                    </span>
-                    <span className="text-[8px] font-mono font-bold tracking-[0.18em] px-2 py-0.5 rounded bg-black/80 text-amber-300 border border-amber-500/40 uppercase">
-                      COMING BACK SOON
-                    </span>
-                  </>
+                {product.enable_pre_order && settings.enable_pre_order_button !== false && (
+                  <span className="text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded bg-amber-400 text-black uppercase shadow-lg">
+                    PRE-ORDER
+                  </span>
+                )}
+                {isComingBackSoonBadge(product.badge) ? (
+                  <span className="text-[8px] font-mono font-bold tracking-[0.18em] px-2 py-0.5 rounded bg-black/80 text-amber-300 border border-amber-500/40 uppercase">
+                    COMING BACK SOON
+                    {product.pre_order_estimated_delivery ? ` • ${product.pre_order_estimated_delivery}` : ''}
+                  </span>
                 ) : product.enable_request_restock !== false && settings.enable_request_restock_button !== false ? (
                   <span className="text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded bg-[#161616] text-amber-300 border border-amber-500/30 uppercase flex items-center gap-1.5 shadow-md">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
