@@ -18,15 +18,36 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
+function normalizeState(raw: any): any {
+  if (raw && raw.draft && raw.published) {
+    return raw;
+  }
+  const base = {
+    products: Array.isArray(raw?.products) ? raw.products : [],
+    blocks: Array.isArray(raw?.blocks) ? raw.blocks : [],
+    settings: typeof raw?.settings === 'object' && raw.settings ? raw.settings : {},
+    dictionary: typeof raw?.dictionary === 'object' && raw.dictionary ? raw.dictionary : {},
+    deletedCustomIds: Array.isArray(raw?.deletedCustomIds) ? raw.deletedCustomIds : [],
+  };
+  return {
+    draft: { ...base },
+    published: { ...base },
+    published_at: raw?.published_at || new Date().toISOString(),
+    updated_at: raw?.updated_at || new Date().toISOString(),
+    has_changes: false,
+  };
+}
+
 function readStoredState(): any {
   try {
     if (fs.existsSync(stateFile)) {
-      return JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+      const raw = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+      return normalizeState(raw);
     }
   } catch (e) {
     console.warn('[server] Error reading store_state.json:', e);
   }
-  return {};
+  return normalizeState({});
 }
 
 function writeStoredState(state: any): boolean {
@@ -55,41 +76,86 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // API 1: GET /api/store-state
-  app.get('/api/store-state', (_req, res) => {
+  app.get('/api/store-state', (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Content-Type', 'application/json');
     const state = readStoredState();
-    res.json(state);
+    const scope = req.query.scope as string;
+    if (scope === 'draft') {
+      res.json(state.draft || {});
+    } else if (scope === 'published') {
+      res.json(state.published || {});
+    } else {
+      res.json(state);
+    }
   });
 
-  // API 2: POST /api/store-state
+  // API 2: POST /api/store-state (Saves to DRAFT by default)
   app.post('/api/store-state', (req, res) => {
     try {
       const data = req.body || {};
-      const current = readStoredState();
+      const state = readStoredState();
 
-      if (data.settings) {
-        current.settings = { ...(current.settings || {}), ...data.settings };
+      if (data.publish === true) {
+        state.published = JSON.parse(JSON.stringify(state.draft));
+        state.published_at = new Date().toISOString();
+        state.has_changes = false;
+      } else {
+        const target = state.draft || {};
+        if (data.settings) {
+          target.settings = { ...(target.settings || {}), ...data.settings };
+        }
+        if (data.products && Array.isArray(data.products)) {
+          target.products = data.products;
+        }
+        if (data.blocks && Array.isArray(data.blocks)) {
+          target.blocks = data.blocks;
+        }
+        if (data.dictionary) {
+          target.dictionary = { ...(target.dictionary || {}), ...data.dictionary };
+        }
+        if (data.deletedCustomIds && Array.isArray(data.deletedCustomIds)) {
+          target.deletedCustomIds = data.deletedCustomIds;
+        }
+        state.draft = target;
+        state.has_changes = true;
       }
-      if (data.products && Array.isArray(data.products)) {
-        current.products = data.products;
-      }
-      if (data.blocks && Array.isArray(data.blocks)) {
-        current.blocks = data.blocks;
-      }
-      if (data.dictionary) {
-        current.dictionary = { ...(current.dictionary || {}), ...data.dictionary };
-      }
-      current.updated_at = new Date().toISOString();
+      state.updated_at = new Date().toISOString();
 
-      const success = writeStoredState(current);
+      const success = writeStoredState(state);
       if (success) {
-        res.json({ success: true, state: current });
+        res.json({ success: true, state });
       } else {
         res.status(500).json({ success: false, error: 'Failed to write state file' });
       }
     } catch (err: any) {
       console.error('[server] POST /api/store-state error:', err);
+      res.status(500).json({ success: false, error: err?.message || String(err) });
+    }
+  });
+
+  // API 2b: POST /api/publish-draft (Explicitly promotes DRAFT -> PUBLISHED)
+  app.post('/api/publish-draft', (req, res) => {
+    try {
+      const state = readStoredState();
+      const payload = req.body || {};
+
+      if (payload.draft) {
+        state.draft = { ...state.draft, ...payload.draft };
+      }
+      state.published = JSON.parse(JSON.stringify(state.draft));
+      state.published_at = new Date().toISOString();
+      state.has_changes = false;
+      state.updated_at = new Date().toISOString();
+
+      const success = writeStoredState(state);
+      if (success) {
+        res.json({ success: true, state });
+      } else {
+        res.status(500).json({ success: false, error: 'Failed to publish state' });
+      }
+    } catch (err: any) {
+      console.error('[server] POST /api/publish-draft error:', err);
       res.status(500).json({ success: false, error: err?.message || String(err) });
     }
   });

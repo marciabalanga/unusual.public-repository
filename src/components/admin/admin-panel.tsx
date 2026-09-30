@@ -37,7 +37,8 @@ import {
   Send,
   Archive,
   Calendar,
-  Compass
+  Compass,
+  UploadCloud
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { useAuth } from '../../context/AuthContext';
@@ -90,9 +91,24 @@ export const AdminPanel: React.FC = () => {
     refreshSupabase,
     isSyncing,
     setActiveTab,
+    isPreviewMode,
+    setIsPreviewMode,
+    hasUnpublishedChanges,
+    publishDraft,
+    isPublishing,
+    lastPublishedAt,
   } = useStore();
 
   const { user, signOut } = useAuth();
+
+  const handlePublishDraft = async () => {
+    const success = await publishDraft();
+    if (success) {
+      showToast('Alterações publicadas com sucesso na loja oficial de clientes!');
+    } else {
+      showToast('Erro ao publicar alterações.');
+    }
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -417,14 +433,42 @@ export const AdminPanel: React.FC = () => {
               </div>
             )}
 
+            {/* Botão PREVIEW (Abre o rascunho em modo de cliente seguro) */}
             <button
+              type="button"
               onClick={() => {
+                setIsPreviewMode(true);
                 scrollToTop(true);
                 setActiveTab('store');
               }}
-              className="px-3.5 py-1.5 bg-[#181818] hover:bg-white hover:text-black text-xs font-sans tracking-wider uppercase rounded border border-[#2c2c2c] transition-colors"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#181818] hover:bg-white hover:text-black text-white text-xs font-sans tracking-wider uppercase rounded border border-[#2c2c2c] transition-all font-semibold shadow-md"
+              title="Abrir versão de PREVIEW da loja com as alterações em rascunho (navegar como cliente)"
             >
-              Ver Loja Pública
+              <Eye className="w-3.5 h-3.5" />
+              <span>Preview</span>
+              {hasUnpublishedChanges && (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse ml-0.5" />
+              )}
+            </button>
+
+            {/* Botão PUBLICAR (Promove DRAFT -> PUBLISHED oficial) */}
+            <button
+              type="button"
+              disabled={isPublishing}
+              onClick={handlePublishDraft}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded text-xs font-sans tracking-wider uppercase transition-all font-bold shadow-md ${
+                hasUnpublishedChanges
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white animate-pulse'
+                  : 'bg-[#181818] hover:bg-[#252525] text-neutral-300 border border-[#2c2c2c]'
+              }`}
+              title={
+                hasUnpublishedChanges
+                  ? 'Existem alterações em rascunho. Clique para publicar na loja oficial de clientes'
+                  : 'A versão pública está sincronizada com o rascunho'
+              }
+            >
+              <UploadCloud className="w-3.5 h-3.5" />
+              <span>{isPublishing ? 'A Publicar...' : hasUnpublishedChanges ? 'Publicar' : 'Publicado ✓'}</span>
             </button>
 
             <button
@@ -5742,6 +5786,10 @@ export const AdminPanel: React.FC = () => {
                 }
               }
 
+              setEditingCustomContent(null);
+            }}
+            onDelete={async (id) => {
+              await deleteCustomContent(id);
               setEditingCustomContent(null);
             }}
             onClose={() => setEditingCustomContent(null)}

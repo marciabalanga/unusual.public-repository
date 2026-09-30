@@ -22,6 +22,7 @@ import { ScheduleDeliveryModal } from './components/schedule-delivery-modal';
 import { MaintenanceView } from './components/maintenance-view';
 import { ChooseDeliveryDateView } from './components/choose-delivery-date-view';
 import { CustomContentView } from './components/custom-content-view';
+import { PreviewTopBar } from './components/preview-top-bar';
 
 const MainContent: React.FC = () => {
   const {
@@ -45,6 +46,8 @@ const MainContent: React.FC = () => {
     deliveryDateOrderCode,
     setDeliveryDateOrderCode,
     customContents,
+    isPreviewMode,
+    setIsPreviewMode,
   } = useStore();
 
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -132,6 +135,19 @@ const MainContent: React.FC = () => {
         return;
       }
 
+      if (path === '/preview' || hash === '#preview' || hash === '#/preview') {
+        if (isAuthenticated) {
+          setIsPreviewMode(true);
+          setActiveTab('store');
+          setIsSplashActive(false);
+          return;
+        } else {
+          setActiveTab('admin');
+          setIsSplashActive(false);
+          return;
+        }
+      }
+
       if (path === '/capsule' || hash === '#capsule' || hash === '#/capsule') {
         setActiveTab('capsule');
         setIsSplashActive(false);
@@ -189,6 +205,13 @@ const MainContent: React.FC = () => {
   useEffect(() => {
     scrollToTop(true);
   }, [activeTab, selectedProductSlug]);
+
+  // Segurança do Preview: visitantes não autenticados nunca acedem a dados em rascunho
+  useEffect(() => {
+    if (!isAuthenticated && isPreviewMode) {
+      setIsPreviewMode(false);
+    }
+  }, [isAuthenticated, isPreviewMode, setIsPreviewMode]);
 
   // Sincronização Dinâmica do Ícone (Favicon / Apple Touch Icon) e Redes Sociais com o Logótipo da Marca
   useEffect(() => {
@@ -337,6 +360,16 @@ const MainContent: React.FC = () => {
           isSplashActive ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'
         }`}
       >
+        {/* Barra de Controlo do Modo Preview (apenas visível em Preview autenticado) */}
+        {isPreviewMode && (
+          <PreviewTopBar
+            onReturnToAdmin={() => {
+              setIsPreviewMode(false);
+              setActiveTab('admin');
+              scrollToTop(true);
+            }}
+          />
+        )}
         {/* Maintenance Mode Banner if active (apenas visível para administradores autenticados) */}
         {settings.maintenance_mode && isAuthenticated && (
           <div className="bg-amber-950/90 border-b border-amber-600 px-4 py-2.5 text-center text-xs font-sans text-amber-200 flex flex-wrap items-center justify-between gap-2 z-50">

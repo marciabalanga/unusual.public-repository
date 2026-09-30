@@ -127,6 +127,14 @@ interface StoreContextType {
   supabaseStatus: SupabaseHealth;
   refreshSupabase: () => Promise<void>;
   isSyncing: boolean;
+
+  // Preview & Draft Architecture (Separação Rascunho / Publicado / Preview)
+  isPreviewMode: boolean;
+  setIsPreviewMode: (val: boolean) => void;
+  hasUnpublishedChanges: boolean;
+  publishDraft: () => Promise<boolean>;
+  isPublishing: boolean;
+  lastPublishedAt: string | null;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -146,13 +154,28 @@ const LOCAL_STORAGE_KEYS = {
   INSTAGRAM_HANDLE: 'wu_instagram_handle_v1',
   DELETED_PRODUCTS: 'wu_deleted_products_v1',
   DELETED_ORDERS: 'wu_deleted_orders_v1',
+  DELETED_CUSTOM_CONTENTS: 'wu_deleted_custom_contents_v1',
   RESTOCK_REQUESTS: 'wu_restock_requests_v1',
+
+  // Draft vs Published Keys
+  PUBLISHED_PRODUCTS: 'wu_published_products_v1',
+  PUBLISHED_BLOCKS: 'wu_published_blocks_v1',
+  PUBLISHED_SETTINGS: 'wu_published_settings_v1',
+  PUBLISHED_DICTIONARY: 'wu_published_dictionary_v1',
+  DRAFT_PRODUCTS: 'wu_draft_products_v1',
+  DRAFT_BLOCKS: 'wu_draft_blocks_v1',
+  DRAFT_SETTINGS: 'wu_draft_settings_v1',
+  DRAFT_DICTIONARY: 'wu_draft_dictionary_v1',
+  HAS_UNPUBLISHED_CHANGES: 'wu_has_unpublished_changes_v1',
+  IS_PREVIEW_MODE: 'wu_is_preview_mode_v1',
 };
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Local state with LocalStorage caching
-  const [products, setProducts] = useState<Product[]>(() => {
+  // Published State (Live Store for Public Visitors)
+  const [publishedProducts, setPublishedProducts] = useState<Product[]>(() => {
     try {
+      const pubSaved = localStorage.getItem(LOCAL_STORAGE_KEYS.PUBLISHED_PRODUCTS);
+      if (pubSaved) return JSON.parse(pubSaved);
       const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.PRODUCTS);
       return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
     } catch {
@@ -160,8 +183,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  const [blocks, setBlocks] = useState<SiteBlock[]>(() => {
+  const [publishedBlocks, setPublishedBlocks] = useState<SiteBlock[]>(() => {
     try {
+      const pubSaved = localStorage.getItem(LOCAL_STORAGE_KEYS.PUBLISHED_BLOCKS);
+      if (pubSaved) return JSON.parse(pubSaved);
       const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.BLOCKS);
       return saved ? JSON.parse(saved) : INITIAL_BLOCKS;
     } catch {
@@ -169,8 +194,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  const [dictionary, setDictionary] = useState<Record<string, DictionaryEntry>>(() => {
+  const [publishedDictionary, setPublishedDictionary] = useState<Record<string, DictionaryEntry>>(() => {
     try {
+      const pubSaved = localStorage.getItem(LOCAL_STORAGE_KEYS.PUBLISHED_DICTIONARY);
+      if (pubSaved) return JSON.parse(pubSaved);
       const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.DICTIONARY);
       if (saved) return JSON.parse(saved);
     } catch {}
@@ -179,13 +206,60 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return map;
   });
 
-  const [settings, setSettings] = useState<SiteSettings>(() => {
+  const [publishedSettings, setPublishedSettings] = useState<SiteSettings>(() => {
+    try {
+      const pubSaved = localStorage.getItem(LOCAL_STORAGE_KEYS.PUBLISHED_SETTINGS);
+      if (pubSaved) return JSON.parse(pubSaved);
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.SETTINGS);
+      return saved ? { ...INITIAL_SETTINGS, ...JSON.parse(saved) } : INITIAL_SETTINGS;
+    } catch {
+      return INITIAL_SETTINGS;
+    }
+  });
+
+  // Draft State (Admin Panel & Preview Mode)
+  const [draftProducts, setDraftProducts] = useState<Product[]>(() => {
+    try {
+      const draftSaved = localStorage.getItem(LOCAL_STORAGE_KEYS.DRAFT_PRODUCTS);
+      if (draftSaved) return JSON.parse(draftSaved);
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.PRODUCTS);
+      return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+    } catch {
+      return INITIAL_PRODUCTS;
+    }
+  });
+
+  const [draftBlocks, setDraftBlocks] = useState<SiteBlock[]>(() => {
+    try {
+      const draftSaved = localStorage.getItem(LOCAL_STORAGE_KEYS.DRAFT_BLOCKS);
+      if (draftSaved) return JSON.parse(draftSaved);
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.BLOCKS);
+      return saved ? JSON.parse(saved) : INITIAL_BLOCKS;
+    } catch {
+      return INITIAL_BLOCKS;
+    }
+  });
+
+  const [draftDictionary, setDraftDictionary] = useState<Record<string, DictionaryEntry>>(() => {
+    try {
+      const draftSaved = localStorage.getItem(LOCAL_STORAGE_KEYS.DRAFT_DICTIONARY);
+      if (draftSaved) return JSON.parse(draftSaved);
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.DICTIONARY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    const map: Record<string, DictionaryEntry> = {};
+    INITIAL_DICTIONARY.forEach((d) => (map[d.key] = d));
+    return map;
+  });
+
+  const [draftSettings, setDraftSettings] = useState<SiteSettings>(() => {
     try {
       const cachedLogo = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEYS.BRAND_LOGO) : null;
       const cachedBio = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEYS.BRAND_BIO) : null;
       const cachedLocation = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEYS.LOCATION_TEXT) : null;
       const cachedInsta = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEYS.INSTAGRAM_HANDLE) : null;
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.SETTINGS);
+      const draftSaved = localStorage.getItem(LOCAL_STORAGE_KEYS.DRAFT_SETTINGS);
+      const saved = draftSaved || localStorage.getItem(LOCAL_STORAGE_KEYS.SETTINGS);
       if (saved) {
         const parsed = JSON.parse(saved);
         const resolvedLogo =
@@ -204,20 +278,50 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           logo_url: resolvedLogo,
         };
       }
-      if (cachedLogo || cachedBio || cachedLocation || cachedInsta) {
-        return {
-          ...INITIAL_SETTINGS,
-          ...(cachedBio ? { brand_bio: cachedBio } : {}),
-          ...(cachedLocation ? { location_text: cachedLocation } : {}),
-          ...(cachedInsta ? { instagram_handle: cachedInsta } : {}),
-          ...(cachedLogo ? { site_logo_url: cachedLogo, logo_url: cachedLogo } : {}),
-        };
-      }
       return INITIAL_SETTINGS;
     } catch {
       return INITIAL_SETTINGS;
     }
   });
+
+  // Preview Mode State
+  const [isPreviewMode, setIsPreviewModeState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+      const hash = window.location.hash.toLowerCase();
+      if (path === '/preview' || hash === '#preview' || hash === '#/preview') return true;
+      try {
+        return localStorage.getItem(LOCAL_STORAGE_KEYS.IS_PREVIEW_MODE) === 'true';
+      } catch {}
+    }
+    return false;
+  });
+
+  const setIsPreviewMode = useCallback((val: boolean) => {
+    setIsPreviewModeState(val);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEYS.IS_PREVIEW_MODE, String(val));
+    } catch {}
+  }, []);
+
+  // Has Unpublished Changes (Draft is ahead of Published)
+  const [hasUnpublishedChanges, setHasUnpublishedChangesState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(LOCAL_STORAGE_KEYS.HAS_UNPUBLISHED_CHANGES) === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const setHasUnpublishedChanges = useCallback((val: boolean) => {
+    setHasUnpublishedChangesState(val);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEYS.HAS_UNPUBLISHED_CHANGES, String(val));
+    } catch {}
+  }, []);
+
+  const [isPublishing, setIsPublishing] = useState<boolean>(false);
+  const [lastPublishedAt, setLastPublishedAt] = useState<string | null>(null);
 
   const [orders, setOrders] = useState<Order[]>(() => {
     try {
@@ -242,6 +346,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [restockRequests, setRestockRequests] = useState<RestockRequest[]>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.RESTOCK_REQUESTS);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [deletedCustomIds, setDeletedCustomIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.DELETED_CUSTOM_CONTENTS);
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -325,6 +438,37 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     return 'store';
   });
+
+  // Source of Truth Resolution:
+  // In Admin OR in Preview Mode -> Uses DRAFT state
+  // In Public Store (customer / visitor) -> Uses PUBLISHED state
+  const isUsingDraft = activeTab === 'admin' || isPreviewMode;
+
+  const products = isUsingDraft ? draftProducts : publishedProducts;
+  const blocks = isUsingDraft ? draftBlocks : publishedBlocks;
+  const settings = isUsingDraft ? draftSettings : publishedSettings;
+  const dictionary = isUsingDraft ? draftDictionary : publishedDictionary;
+
+  const setProducts = useCallback((val: React.SetStateAction<Product[]>) => {
+    setHasUnpublishedChanges(true);
+    setDraftProducts(val);
+  }, [setHasUnpublishedChanges]);
+
+  const setBlocks = useCallback((val: React.SetStateAction<SiteBlock[]>) => {
+    setHasUnpublishedChanges(true);
+    setDraftBlocks(val);
+  }, [setHasUnpublishedChanges]);
+
+  const setSettings = useCallback((val: React.SetStateAction<SiteSettings>) => {
+    setHasUnpublishedChanges(true);
+    setDraftSettings(val);
+  }, [setHasUnpublishedChanges]);
+
+  const setDictionary = useCallback((val: React.SetStateAction<Record<string, DictionaryEntry>>) => {
+    setHasUnpublishedChanges(true);
+    setDraftDictionary(val);
+  }, [setHasUnpublishedChanges]);
+
   const [selectedProductSlug, setSelectedProductSlug] = useState<string | null>(null);
   const [trackingInput, setTrackingInput] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
@@ -806,10 +950,37 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             };
           }
 
+          // Clean remote object: exclude undefined or null properties so they do not wipe existing values
+          const cleanRemote: Record<string, any> = {};
+          if (setRes.data && typeof setRes.data === 'object') {
+            for (const [k, v] of Object.entries(setRes.data as Record<string, any>)) {
+              if (v !== undefined && v !== null) cleanRemote[k] = v;
+            }
+          }
+
+          let deletedCustomSet = new Set<string>();
+          try {
+            const rawDel = localStorage.getItem(LOCAL_STORAGE_KEYS.DELETED_CUSTOM_CONTENTS);
+            if (rawDel) deletedCustomSet = new Set(JSON.parse(rawDel));
+          } catch {}
+
+          const existingCustom = prev.custom_contents !== undefined
+            ? prev.custom_contents
+            : INITIAL_CUSTOM_CONTENTS.filter((c) => !deletedCustomSet.has(c.id) && !deletedCustomSet.has(c.slug));
+
+          const mergedCustom = cleanRemote.custom_contents !== undefined
+            ? cleanRemote.custom_contents
+            : existingCustom;
+
+          const filteredCustom = Array.isArray(mergedCustom)
+            ? mergedCustom.filter((c) => !deletedCustomSet.has(c.id) && !deletedCustomSet.has(c.slug))
+            : [];
+
           return {
             ...INITIAL_SETTINGS,
             ...prev,
-            ...(setRes.data as SiteSettings),
+            ...cleanRemote,
+            custom_contents: filteredCustom,
             brand_bio: finalBrandBio,
             location_text: finalLocationText,
             instagram_handle: finalInstagram,
@@ -1226,21 +1397,40 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Custom Contents (Reutilizáveis - UNUSUAL MODELS, Lookbooks, Campaigns, etc.)
-  const customContents: CustomContent[] = settings.custom_contents && settings.custom_contents.length > 0
-    ? settings.custom_contents
-    : INITIAL_CUSTOM_CONTENTS;
+  const deletedCustomSet = useMemo(() => new Set(deletedCustomIds), [deletedCustomIds]);
 
-  const saveCustomContent = async (item: CustomContent): Promise<boolean> => {
-    const current = settings.custom_contents && settings.custom_contents.length > 0
+  const customContents: CustomContent[] = useMemo(() => {
+    const raw = Array.isArray(settings.custom_contents)
       ? settings.custom_contents
       : INITIAL_CUSTOM_CONTENTS;
-    const exists = current.some((c) => c.id === item.id);
+    return raw.filter((c) => !deletedCustomSet.has(c.id) && !deletedCustomSet.has(c.slug));
+  }, [settings.custom_contents, deletedCustomSet]);
+
+  const saveCustomContent = async (item: CustomContent): Promise<boolean> => {
+    setHasUnpublishedChanges(true);
+
+    // If reviving or updating an item, remove from deleted blacklist
+    setDeletedCustomIds((prev) => {
+      const filtered = prev.filter((d) => d !== item.id && d !== item.slug);
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEYS.DELETED_CUSTOM_CONTENTS, JSON.stringify(filtered));
+      } catch {}
+      return filtered;
+    });
+
+    const deletedSet = new Set(deletedCustomIds.filter((d) => d !== item.id && d !== item.slug));
+    const raw = Array.isArray(settings.custom_contents)
+      ? settings.custom_contents
+      : INITIAL_CUSTOM_CONTENTS;
+    const current = raw.filter((c) => !deletedSet.has(c.id) && !deletedSet.has(c.slug));
+
+    const exists = current.some((c) => c.id === item.id || c.slug === item.slug);
     const updated = exists
-      ? current.map((c) => (c.id === item.id ? { ...item, updated_at: new Date().toISOString() } : c))
+      ? current.map((c) => (c.id === item.id || c.slug === item.slug ? { ...item, updated_at: new Date().toISOString() } : c))
       : [...current, { ...item, updated_at: new Date().toISOString() }];
 
     // Auto-sync any linked blocks in the Page Builder so their public_name and slug match the updated content name
-    const currentBlocks = settings.blocks && settings.blocks.length > 0 ? settings.blocks : INITIAL_BLOCKS;
+    const currentBlocks = blocks && blocks.length > 0 ? blocks : INITIAL_BLOCKS;
     let blocksChanged = false;
     const updatedBlocks = currentBlocks.map((b) => {
       if (b.custom_content_id === item.id || b.slug === item.slug || b.id === `block_${item.id}`) {
@@ -1264,6 +1454,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
 
     if (blocksChanged) {
+      setBlocks(updatedBlocks);
       await saveSettings({ custom_contents: updated, blocks: updatedBlocks });
     } else {
       await saveSettings({ custom_contents: updated });
@@ -1272,21 +1463,79 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteCustomContent = async (id: string): Promise<boolean> => {
-    const current = settings.custom_contents && settings.custom_contents.length > 0
+    setHasUnpublishedChanges(true);
+
+    const deletedItem = customContents.find((c) => c.id === id || c.slug === id);
+    const targetId = id;
+    const targetSlug = deletedItem?.slug || id;
+
+    // 1. Blacklist permanently in state & localStorage
+    const nextDeleted = Array.from(new Set([...deletedCustomIds, targetId, targetSlug]));
+    setDeletedCustomIds(nextDeleted);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEYS.DELETED_CUSTOM_CONTENTS, JSON.stringify(nextDeleted));
+    } catch {}
+
+    // 2. Filter from custom_contents
+    const current = Array.isArray(settings.custom_contents)
       ? settings.custom_contents
       : INITIAL_CUSTOM_CONTENTS;
-    const updated = current.filter((c) => c.id !== id);
-    await saveSettings({ custom_contents: updated });
+    const updated = current.filter(
+      (c) => c.id !== targetId && c.slug !== targetSlug && c.id !== targetSlug
+    );
+
+    // 3. Clean up linked blocks from both draftBlocks and blocks
+    const currentBlocks = blocks && blocks.length > 0 ? blocks : INITIAL_BLOCKS;
+    const updatedBlocks = currentBlocks.filter(
+      (b) =>
+        b.custom_content_id !== targetId &&
+        b.custom_content_id !== targetSlug &&
+        b.slug !== targetSlug &&
+        b.id !== `block_${targetId}` &&
+        b.id !== `block_${targetSlug}`
+    );
+
+    // 4. Clean up menu items
+    const currentMenu = Array.isArray(settings.menu_items) ? settings.menu_items : INITIAL_MENU_ITEMS;
+    const updatedMenu = currentMenu.filter(
+      (m) =>
+        m.target_id !== targetId &&
+        m.target_id !== targetSlug &&
+        m.target_id !== `custom-${targetId}` &&
+        m.target_id !== `custom-${targetSlug}`
+    );
+
+    setBlocks(updatedBlocks);
+    await saveSettings({
+      custom_contents: updated,
+      blocks: updatedBlocks,
+      menu_items: updatedMenu,
+    });
+
+    // 5. Instantly persist to server state
+    try {
+      await fetch('/api/store-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deletedCustomIds: nextDeleted,
+          settings: { custom_contents: updated, blocks: updatedBlocks, menu_items: updatedMenu },
+          blocks: updatedBlocks,
+        }),
+      });
+    } catch {}
+
     return true;
   };
 
   // Site Navigation Menu (Editável)
-  const menuItems: SiteMenuItem[] = settings.menu_items && settings.menu_items.length > 0
+  const menuItems: SiteMenuItem[] = Array.isArray(settings.menu_items)
     ? settings.menu_items
     : INITIAL_MENU_ITEMS;
 
   const saveMenuItem = async (item: SiteMenuItem): Promise<boolean> => {
-    const current = settings.menu_items && settings.menu_items.length > 0
+    setHasUnpublishedChanges(true);
+    const current = Array.isArray(settings.menu_items)
       ? settings.menu_items
       : INITIAL_MENU_ITEMS;
     const exists = current.some((m) => m.id === item.id);
@@ -1299,7 +1548,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteMenuItem = async (id: string): Promise<boolean> => {
-    const current = settings.menu_items && settings.menu_items.length > 0
+    setHasUnpublishedChanges(true);
+    const current = Array.isArray(settings.menu_items)
       ? settings.menu_items
       : INITIAL_MENU_ITEMS;
     const updated = current.filter((m) => m.id !== id).map((m, idx) => ({ ...m, order_index: idx + 1 }));
@@ -1308,6 +1558,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const reorderMenuItems = async (items: SiteMenuItem[]): Promise<void> => {
+    setHasUnpublishedChanges(true);
     const updated = items.map((m, idx) => ({ ...m, order_index: idx + 1 }));
     await saveSettings({ menu_items: updated });
   };
@@ -1369,8 +1620,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSettings(merged);
     try {
       localStorage.setItem(LOCAL_STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
+      localStorage.setItem(LOCAL_STORAGE_KEYS.DRAFT_SETTINGS, JSON.stringify(merged));
     } catch {}
     setStoredItem(LOCAL_STORAGE_KEYS.SETTINGS, merged).catch(() => {});
+    setStoredItem(LOCAL_STORAGE_KEYS.DRAFT_SETTINGS, merged).catch(() => {});
 
     // Instantly persist settings to server state (cross-browser / cross-device)
     try {
@@ -1545,6 +1798,80 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
     return true;
+  };
+
+  // Explicit Action to promote DRAFT -> PUBLISHED (Loja Oficial de Clientes)
+  const publishDraft = async (): Promise<boolean> => {
+    setIsPublishing(true);
+    try {
+      const currentDraftProducts = [...draftProducts];
+      const currentDraftBlocks = [...draftBlocks];
+      const currentDraftSettings = { ...draftSettings };
+      const currentDraftDictionary = { ...draftDictionary };
+
+      // 1. Promote in client state
+      setPublishedProducts(currentDraftProducts);
+      setPublishedBlocks(currentDraftBlocks);
+      setPublishedSettings(currentDraftSettings);
+      setPublishedDictionary(currentDraftDictionary);
+      setHasUnpublishedChanges(false);
+
+      const now = new Date().toISOString();
+      setLastPublishedAt(now);
+
+      // 2. Persist to published storage
+      try {
+        localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_PRODUCTS, JSON.stringify(currentDraftProducts));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_BLOCKS, JSON.stringify(currentDraftBlocks));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_SETTINGS, JSON.stringify(currentDraftSettings));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_DICTIONARY, JSON.stringify(currentDraftDictionary));
+        // Keep standard keys in sync
+        localStorage.setItem(LOCAL_STORAGE_KEYS.PRODUCTS, JSON.stringify(currentDraftProducts));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.BLOCKS, JSON.stringify(currentDraftBlocks));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.SETTINGS, JSON.stringify(currentDraftSettings));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.DICTIONARY, JSON.stringify(currentDraftDictionary));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.HAS_UNPUBLISHED_CHANGES, 'false');
+      } catch {}
+
+      // 3. Call server /api/publish-draft
+      try {
+        await fetch('/api/publish-draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            draft: {
+              products: currentDraftProducts,
+              blocks: currentDraftBlocks,
+              settings: currentDraftSettings,
+              dictionary: currentDraftDictionary,
+            },
+          }),
+        });
+      } catch (e) {
+        console.warn('[Server] Falha ao publicar estado no servidor:', e);
+      }
+
+      // 4. Supabase upsert for published data if connected
+      if (supabaseStatus.connected) {
+        try {
+          if (!supabaseStatus.missingTables.includes('products')) {
+            await supabase.from('products').upsert(currentDraftProducts.map(toSupabaseProduct));
+          }
+          if (!supabaseStatus.missingTables.includes('site_blocks')) {
+            await supabase.from('site_blocks').upsert(currentDraftBlocks);
+          }
+        } catch (e) {
+          console.warn('[Supabase] Falha ao sincronizar publicação com Supabase:', e);
+        }
+      }
+
+      return true;
+    } catch (err) {
+      console.error('[StoreContext] Erro ao publicar rascunho:', err);
+      return false;
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   // Cart Management
@@ -1813,6 +2140,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       created_at: now,
       updated_at: now,
     };
+
+    // Modo de Simulação de Preview: Permite testar todo o fluxo visual de checkout sem criar encomenda real
+    if (isPreviewMode) {
+      return {
+        ...newOrder,
+        id: `PREVIEW-${Date.now()}`,
+        tracking_code: `WU-PREVIEW-${Math.floor(1000 + Math.random() * 9000)}`,
+        status_timeline: [
+          {
+            step: 1,
+            title: 'ENCOMENDA SIMULADA (PREVIEW)',
+            description: 'Fluxo testado com sucesso no modo Preview. Nenhum dado gravado no banco de dados.',
+            timestamp: now,
+            completed: true,
+            active: true,
+          },
+        ],
+      };
+    }
 
     setOrders((prev) => [newOrder, ...prev]);
 
@@ -2205,6 +2551,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const scheduleDeliveryDate = async (orderId: string, date: string, timeWindow?: string): Promise<boolean> => {
+    if (isPreviewMode) {
+      return true;
+    }
     const now = new Date().toISOString();
     let updatedOrderForRemote: Order | null = null;
 
@@ -2317,6 +2666,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     collectionName?: string,
     reqLanguage?: string
   ): Promise<boolean> => {
+    if (isPreviewMode) {
+      return true;
+    }
     const now = new Date().toISOString();
     const newReq: RestockRequest = {
       id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `req_${Date.now()}`,
@@ -2475,6 +2827,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         supabaseStatus,
         refreshSupabase: syncWithSupabase,
         isSyncing,
+        isPreviewMode,
+        setIsPreviewMode,
+        hasUnpublishedChanges,
+        publishDraft,
+        isPublishing,
+        lastPublishedAt,
       }}
     >
       {children}

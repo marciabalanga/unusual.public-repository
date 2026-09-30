@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Trash2, Sparkles, Image as ImageIcon, Link as LinkIcon, Instagram, Layers, Compass } from 'lucide-react';
+import { X, Plus, Trash2, Sparkles, Image as ImageIcon, Link as LinkIcon, Instagram, Layers, Compass, ArrowUp, ArrowDown, Copy, AlertTriangle } from 'lucide-react';
 import { CustomContent, CustomContentItem } from '../../types';
 import { ImageGalleryManager } from './image-gallery-manager';
 import { SingleImageUploader } from './image-uploader';
@@ -7,6 +7,7 @@ import { SingleImageUploader } from './image-uploader';
 interface CustomContentEditorModalProps {
   content: CustomContent;
   onSave: (savedContent: CustomContent, options?: { addToPageBuilder?: boolean; addToMenu?: boolean; menuLabel?: string }) => Promise<void> | void;
+  onDelete?: (id: string) => Promise<void> | void;
   onClose: () => void;
   showToast: (msg: string) => void;
 }
@@ -14,6 +15,7 @@ interface CustomContentEditorModalProps {
 export const CustomContentEditorModal: React.FC<CustomContentEditorModalProps> = ({
   content,
   onSave,
+  onDelete,
   onClose,
   showToast,
 }) => {
@@ -27,6 +29,8 @@ export const CustomContentEditorModal: React.FC<CustomContentEditorModalProps> =
   const [addToMenu, setAddToMenu] = useState(false);
   const [menuLabel, setMenuLabel] = useState(content.title || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const updateItem = (index: number, field: keyof CustomContentItem, value: any) => {
     setFormData((prev) => {
@@ -55,11 +59,66 @@ export const CustomContentEditorModal: React.FC<CustomContentEditorModalProps> =
     }));
   };
 
+  const duplicateItem = (index: number) => {
+    setFormData((prev) => {
+      const current = [...(prev.items || [])];
+      const target = current[index];
+      if (!target) return prev;
+      const clone: CustomContentItem = {
+        ...target,
+        id: `item-${Date.now()}`,
+        name: `${target.name || 'Modelo'} (Cópia)`,
+      };
+      current.splice(index + 1, 0, clone);
+      return { ...prev, items: current };
+    });
+    showToast('Ficha de modelo duplicada.');
+  };
+
+  const moveItemUp = (index: number) => {
+    if (index === 0) return;
+    setFormData((prev) => {
+      const current = [...(prev.items || [])];
+      const temp = current[index];
+      current[index] = current[index - 1];
+      current[index - 1] = temp;
+      return { ...prev, items: current };
+    });
+  };
+
+  const moveItemDown = (index: number) => {
+    setFormData((prev) => {
+      const current = [...(prev.items || [])];
+      if (index >= current.length - 1) return prev;
+      const temp = current[index];
+      current[index] = current[index + 1];
+      current[index + 1] = temp;
+      return { ...prev, items: current };
+    });
+  };
+
   const removeItem = (index: number) => {
     setFormData((prev) => ({
       ...prev,
       items: (prev.items || []).filter((_, i) => i !== index),
     }));
+    showToast('Ficha de modelo removida.');
+  };
+
+  const handleDeleteContent = async () => {
+    if (!content.id || !onDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDelete(content.id);
+      showToast(`Conteúdo "${formData.title}" eliminado com sucesso.`);
+      onClose();
+    } catch (e) {
+      console.error(e);
+      showToast('Erro ao eliminar conteúdo.');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   const handleSave = async () => {
@@ -286,14 +345,42 @@ export const CustomContentEditorModal: React.FC<CustomContentEditorModalProps> =
                       <span className="text-[10px] font-mono text-neutral-400 font-bold uppercase">
                         #{idx + 1} — {item.name || 'Modelo Sem Nome'}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(idx)}
-                        className="text-[#666666] hover:text-red-400 p-1 transition-colors"
-                        title="Remover modelo"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => moveItemUp(idx)}
+                          disabled={idx === 0}
+                          className="p-1 text-[#666666] hover:text-white disabled:opacity-20 transition-colors"
+                          title="Mover para cima"
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveItemDown(idx)}
+                          disabled={idx === (formData.items?.length || 0) - 1}
+                          className="p-1 text-[#666666] hover:text-white disabled:opacity-20 transition-colors"
+                          title="Mover para baixo"
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => duplicateItem(idx)}
+                          className="p-1 text-[#666666] hover:text-amber-300 transition-colors"
+                          title="Duplicar modelo"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeItem(idx)}
+                          className="text-[#666666] hover:text-red-400 p-1 transition-colors"
+                          title="Remover modelo"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -463,14 +550,53 @@ export const CustomContentEditorModal: React.FC<CustomContentEditorModalProps> =
         </div>
 
         {/* Footer Actions */}
-        <div className="pt-4 border-t border-[#1c1c1c] flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-[#181818] hover:bg-[#252525] text-neutral-300 rounded font-mono text-xs uppercase"
-          >
-            Cancelar
-          </button>
+        <div className="pt-4 border-t border-[#1c1c1c] flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-[#181818] hover:bg-[#252525] text-neutral-300 rounded font-mono text-xs uppercase"
+            >
+              Cancelar
+            </button>
+
+            {content.id && onDelete && (
+              <>
+                {!showDeleteConfirm ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="px-3 py-2 bg-red-950/40 hover:bg-red-950/80 text-red-300 border border-red-900/60 rounded text-xs font-sans uppercase transition-colors flex items-center gap-1.5"
+                    title="Eliminar este conteúdo"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Eliminar Ficha</span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 bg-red-950/80 border border-red-800 px-3 py-1.5 rounded animate-in fade-in">
+                    <span className="text-[11px] text-red-200 font-sans font-medium">
+                      Eliminar definitivamente?
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isDeleting}
+                      onClick={handleDeleteContent}
+                      className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase rounded transition-colors"
+                    >
+                      {isDeleting ? 'A eliminar...' : 'Sim, Eliminar'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="px-2 py-1 text-neutral-400 hover:text-white text-xs uppercase"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
 
           <button
             type="button"
