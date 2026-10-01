@@ -87,7 +87,7 @@ export const SingleImageUploader: React.FC<SingleImageUploaderProps> = ({
       }
       onChange(finalUrl);
     } catch (err) {
-      alert('Não foi possível processar a imagem. Tente outro ficheiro.');
+      console.warn('Erro ao processar imagem para upload:', err);
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -149,22 +149,42 @@ export const SingleImageUploader: React.FC<SingleImageUploaderProps> = ({
       {/* Preview Card */}
       <div className="relative group bg-[#111111] border border-[#222222] rounded-md overflow-hidden">
         {value && value.trim() !== '' ? (
-          <div className={`relative w-full ${aspectRatio} bg-[#0c0c0c] flex items-center justify-center`}>
-            <img src={value} alt="Preview" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-4">
+          <div>
+            <div className={`relative w-full ${aspectRatio} bg-[#0c0c0c] flex items-center justify-center`}>
+              <img src={value} alt="Preview" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-4">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3 py-1.5 bg-white text-black text-[11px] font-bold tracking-wider uppercase rounded hover:bg-neutral-200 transition-colors"
+                >
+                  Substituir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChange('')}
+                  className="px-3 py-1.5 bg-red-950/80 text-red-300 border border-red-800 text-[11px] font-bold tracking-wider uppercase rounded hover:bg-red-900 transition-colors"
+                >
+                  Remover
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center justify-between px-2.5 py-1.5 bg-[#141414] border-t border-[#222222] text-[10px] font-mono">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1.5 bg-white text-black text-[11px] font-bold tracking-wider uppercase rounded hover:bg-neutral-200 transition-colors"
+                className="text-neutral-300 hover:text-white flex items-center gap-1 font-semibold uppercase"
               >
-                Substituir
+                <Upload className="w-2.5 h-2.5 text-amber-400" />
+                <span>Trocar Foto</span>
               </button>
               <button
                 type="button"
                 onClick={() => onChange('')}
-                className="px-3 py-1.5 bg-red-950/80 text-red-300 border border-red-800 text-[11px] font-bold tracking-wider uppercase rounded hover:bg-red-900 transition-colors"
+                className="text-red-400 hover:text-red-300 flex items-center gap-1 uppercase"
               >
-                Remover
+                <Trash2 className="w-2.5 h-2.5" />
+                <span>Remover</span>
               </button>
             </div>
           </div>

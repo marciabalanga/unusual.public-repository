@@ -1285,7 +1285,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const updated: Product = {
       ...product,
       lifecycle,
-      badge: lifecycle === 'time_capsule' ? 'ESGOTADO' : product.badge === 'ESGOTADO' ? 'NOVO' : product.badge,
+      badge: product.badge,
       updated_at: new Date().toISOString(),
     };
     await saveProduct(updated);

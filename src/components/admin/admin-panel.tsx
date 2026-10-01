@@ -437,6 +437,9 @@ export const AdminPanel: React.FC = () => {
             <button
               type="button"
               onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.history.pushState(null, '', '/preview');
+                }
                 setIsPreviewMode(true);
                 scrollToTop(true);
                 setActiveTab('store');
@@ -2792,7 +2795,13 @@ export const AdminPanel: React.FC = () => {
                     <div>
                       <label className="block uppercase text-[#888888] mb-1">Badge Visual</label>
                       <select
-                        value={editingProduct.badge || ''}
+                        value={
+                          editingProduct.badge
+                            ? editingProduct.badge.toUpperCase() === 'AGUARDANDO VAGA'
+                              ? 'AGUARDANDO VAGA'
+                              : editingProduct.badge
+                            : ''
+                        }
                         onChange={(e) => setEditingProduct({ ...editingProduct, badge: e.target.value || null })}
                         className="w-full px-3 py-2 bg-[#141414] border border-[#292929] rounded text-white"
                       >
@@ -2800,8 +2809,11 @@ export const AdminPanel: React.FC = () => {
                         <option value="NOVO">NOVO</option>
                         <option value="EDIÇÃO LIMITADA">EDIÇÃO LIMITADA</option>
                         <option value="ESGOTADO">ESGOTADO</option>
-                        <option value="Aguardando Vaga">Aguardando Vaga</option>
+                        <option value="AGUARDANDO VAGA">AGUARDANDO VAGA</option>
                       </select>
+                      <span className="text-[10px] text-[#666666] block mt-1">
+                        Em inglês, "AGUARDANDO VAGA" é apresentado como "COMING BACK SOON".
+                      </span>
                     </div>
 
                     <div>
@@ -2925,10 +2937,10 @@ export const AdminPanel: React.FC = () => {
                               <Clock className={`w-4 h-4 ${editingProduct.enable_pre_order ? 'text-amber-400' : 'text-[#666666]'}`} />
                               <div>
                                 <span className="text-white text-xs font-bold uppercase tracking-wider block">
-                                  ENABLE PRE-ORDER BUTTON
+                                  PRÉ-ORDER
                                 </span>
                                 <span className="text-[10px] text-[#888888] block">
-                                  {editingProduct.enable_pre_order ? 'ATIVO NO FRONTEND' : 'DESLIGADO'}
+                                  {editingProduct.enable_pre_order ? 'ATIVADO' : 'DESATIVADO'}
                                 </span>
                               </div>
                             </div>
@@ -2946,7 +2958,7 @@ export const AdminPanel: React.FC = () => {
                                   : 'bg-[#1f1f1f] text-[#777777] hover:text-white border border-[#2e2e2e]'
                               }`}
                             >
-                              {editingProduct.enable_pre_order ? 'ON' : 'OFF'}
+                              {editingProduct.enable_pre_order ? 'Ativado' : 'Desativado'}
                             </button>
                           </div>
 

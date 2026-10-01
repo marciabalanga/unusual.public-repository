@@ -345,13 +345,14 @@ export const CustomContentEditorModal: React.FC<CustomContentEditorModalProps> =
                       <span className="text-[10px] font-mono text-neutral-400 font-bold uppercase">
                         #{idx + 1} — {item.name || 'Modelo Sem Nome'}
                       </span>
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => moveItemUp(idx)}
                           disabled={idx === 0}
-                          className="p-1 text-[#666666] hover:text-white disabled:opacity-20 transition-colors"
+                          className="p-1.5 bg-[#141414] hover:bg-[#222222] border border-[#262626] rounded text-[#888888] hover:text-white disabled:opacity-20 transition-colors"
                           title="Mover para cima"
+                          aria-label="Mover modelo para cima"
                         >
                           <ArrowUp className="w-3.5 h-3.5" />
                         </button>
@@ -359,26 +360,29 @@ export const CustomContentEditorModal: React.FC<CustomContentEditorModalProps> =
                           type="button"
                           onClick={() => moveItemDown(idx)}
                           disabled={idx === (formData.items?.length || 0) - 1}
-                          className="p-1 text-[#666666] hover:text-white disabled:opacity-20 transition-colors"
+                          className="p-1.5 bg-[#141414] hover:bg-[#222222] border border-[#262626] rounded text-[#888888] hover:text-white disabled:opacity-20 transition-colors"
                           title="Mover para baixo"
+                          aria-label="Mover modelo para baixo"
                         >
                           <ArrowDown className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
                           onClick={() => duplicateItem(idx)}
-                          className="p-1 text-[#666666] hover:text-amber-300 transition-colors"
+                          className="p-1.5 bg-[#141414] hover:bg-[#222222] border border-[#262626] rounded text-[#888888] hover:text-amber-300 transition-colors"
                           title="Duplicar modelo"
+                          aria-label="Duplicar ficha de modelo"
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
                           onClick={() => removeItem(idx)}
-                          className="text-[#666666] hover:text-red-400 p-1 transition-colors"
+                          className="p-1.5 bg-[#141414] hover:bg-red-950/60 border border-[#262626] hover:border-red-900/60 rounded text-[#888888] hover:text-red-400 transition-colors"
                           title="Remover modelo"
+                          aria-label="Remover ficha de modelo"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>

@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
 import { Clock, ArrowLeft, Eye, Archive } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { formatAOA, isComingBackSoonBadge } from '../lib/format';
+import { formatAOA, isComingBackSoonBadge, getProductBadgeDisplay } from '../lib/format';
 import { Product } from '../types';
 import { scrollToTop } from '../lib/scroll';
 
 export const TimeCapsuleView: React.FC = () => {
-  const { timeCapsuleProducts, setSelectedProductSlug, setActiveTab, settings } = useStore();
+  const { timeCapsuleProducts, setSelectedProductSlug, setActiveTab, settings, language } = useStore();
 
   useEffect(() => {
     scrollToTop(true);
@@ -70,21 +70,37 @@ export const TimeCapsuleView: React.FC = () => {
                     PRE-ORDER
                   </span>
                 )}
-                {isComingBackSoonBadge(product.badge) ? (
-                  <span className="text-[8px] font-mono font-bold tracking-[0.18em] px-2 py-0.5 rounded bg-black/80 text-amber-300 border border-amber-500/40 uppercase">
-                    COMING BACK SOON
-                    {product.pre_order_estimated_delivery ? ` • ${product.pre_order_estimated_delivery}` : ''}
-                  </span>
-                ) : product.enable_request_restock !== false && settings.enable_request_restock_button !== false ? (
-                  <span className="text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded bg-[#161616] text-amber-300 border border-amber-500/30 uppercase flex items-center gap-1.5 shadow-md">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                    REQUEST RESTOCK
-                  </span>
-                ) : (
-                  <span className="text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded bg-red-950/80 text-red-300 border border-red-800 uppercase">
-                    ARQUIVADO • ESGOTADO
-                  </span>
-                )}
+                {(() => {
+                  const badgeText = getProductBadgeDisplay(product.badge, language);
+                  if (badgeText) {
+                    return (
+                      <span
+                        className={`text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase shadow-md ${
+                          product.badge?.toUpperCase() === 'ESGOTADO'
+                            ? 'bg-red-950/80 text-red-300 border border-red-800'
+                            : product.badge?.toUpperCase() === 'AGUARDANDO VAGA'
+                            ? 'bg-black/80 text-amber-300 border border-amber-500/40 font-mono text-[8px] tracking-[0.18em]'
+                            : 'bg-white text-black'
+                        }`}
+                      >
+                        {badgeText}
+                      </span>
+                    );
+                  }
+                  if (product.enable_request_restock !== false && settings.enable_request_restock_button !== false) {
+                    return (
+                      <span className="text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded bg-[#161616] text-amber-300 border border-amber-500/30 uppercase flex items-center gap-1.5 shadow-md">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        REQUEST RESTOCK
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded bg-red-950/80 text-red-300 border border-red-800 uppercase">
+                      ARQUIVADO • ESGOTADO
+                    </span>
+                  );
+                })()}
               </div>
             </div>
 

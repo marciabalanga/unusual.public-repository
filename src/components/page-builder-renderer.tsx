@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowRight, Sparkles, Clock, Eye, ShieldCheck, ChevronRight, ChevronLeft, ShoppingBag, Archive, Heart } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { formatAOA, isComingBackSoonBadge } from '../lib/format';
+import { formatAOA, isComingBackSoonBadge, getProductBadgeDisplay } from '../lib/format';
 import { Product } from '../types';
 import { scrollToTop } from '../lib/scroll';
 import heroMobileImg from '../assets/images/hero_hoodie_model_1789188901010.jpg';
@@ -17,6 +17,7 @@ export const PageBuilderRenderer: React.FC = () => {
     isInWishlist,
     toggleWishlist,
     settings,
+    language,
     t,
   } = useStore();
 
@@ -262,7 +263,7 @@ export const PageBuilderRenderer: React.FC = () => {
                         <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
                           {(() => {
                             const isPreOrder = Boolean(product.enable_pre_order && settings.enable_pre_order_button !== false);
-                            const isComingBackSoon = isComingBackSoonBadge(product.badge);
+                            const badgeText = getProductBadgeDisplay(product.badge, language);
 
                             return (
                               <>
@@ -271,21 +272,17 @@ export const PageBuilderRenderer: React.FC = () => {
                                     {t('badge_pre_order', 'PRE-ORDER')}
                                   </span>
                                 )}
-                                {isComingBackSoon && (
-                                  <span className="text-[8px] font-mono font-bold tracking-[0.18em] px-2 py-0.5 rounded uppercase bg-black/80 text-amber-300 border border-amber-500/40 backdrop-blur-sm">
-                                    {t('badge_coming_back_soon', 'COMING BACK SOON')}
-                                    {product.pre_order_estimated_delivery ? ` • ${product.pre_order_estimated_delivery}` : ''}
-                                  </span>
-                                )}
-                                {!isPreOrder && !isComingBackSoon && product.badge && (
+                                {badgeText && (
                                   <span
-                                    className={`text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase ${
-                                      product.badge === 'ESGOTADO'
+                                    className={`text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase shadow-md ${
+                                      product.badge?.toUpperCase() === 'ESGOTADO'
                                         ? 'bg-red-950 text-red-300 border border-red-800'
+                                        : product.badge?.toUpperCase() === 'AGUARDANDO VAGA'
+                                        ? 'bg-black/85 text-amber-300 border border-amber-500/40 backdrop-blur-sm'
                                         : 'bg-white text-black'
                                     }`}
                                   >
-                                    {product.badge}
+                                    {badgeText}
                                   </span>
                                 )}
                               </>

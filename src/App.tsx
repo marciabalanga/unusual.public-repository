@@ -56,7 +56,7 @@ const MainContent: React.FC = () => {
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
   const [deliveryScheduleOrder, setDeliveryScheduleOrder] = useState<Order | null>(null);
   const [isSplashActive, setIsSplashActive] = useState<boolean>(() => {
-    // Skip splash screen if already navigating directly to admin or delivery choice
+    // Skip splash screen if already navigating directly to admin, preview, or delivery choice
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.toLowerCase();
       const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
@@ -64,11 +64,18 @@ const MainContent: React.FC = () => {
         path === '/admin' ||
         hash === '#admin' ||
         hash === '#/admin' ||
+        path === '/preview' ||
+        hash === '#preview' ||
         path.startsWith('/choose-delivery-date') ||
         hash.includes('choose-delivery-date')
       ) {
         return false;
       }
+      try {
+        if (localStorage.getItem('wu_is_preview_mode_v1') === 'true') {
+          return false;
+        }
+      } catch {}
     }
     return true;
   });
@@ -129,13 +136,7 @@ const MainContent: React.FC = () => {
         }
       }
 
-      if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
-        setActiveTab('admin');
-        setIsSplashActive(false);
-        return;
-      }
-
-      if (path === '/preview' || hash === '#preview' || hash === '#/preview') {
+      if (path === '/preview' || hash === '#preview' || hash === '#/preview' || isPreviewMode) {
         if (isAuthenticated) {
           setIsPreviewMode(true);
           setActiveTab('store');
@@ -146,6 +147,17 @@ const MainContent: React.FC = () => {
           setIsSplashActive(false);
           return;
         }
+      }
+
+      if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
+        if (isPreviewMode) {
+          setActiveTab('store');
+          setIsSplashActive(false);
+          return;
+        }
+        setActiveTab('admin');
+        setIsSplashActive(false);
+        return;
       }
 
       if (path === '/capsule' || hash === '#capsule' || hash === '#/capsule') {
@@ -197,7 +209,7 @@ const MainContent: React.FC = () => {
       window.removeEventListener('popstate', handleUrlCheck);
       window.removeEventListener('hashchange', handleUrlCheck);
     };
-  }, [activeTab, setActiveTab, getOrderByTrackingCode, setDeliveryDateOrderCode]);
+  }, [setActiveTab, getOrderByTrackingCode, setDeliveryDateOrderCode, isAuthenticated, isPreviewMode]);
 
   // Garantia Universal: sempre que a aba ou o produto selecionado mudar,
   // reposiciona imediatamente a janela no topo absoluto (Y = 0),
@@ -364,6 +376,9 @@ const MainContent: React.FC = () => {
         {isPreviewMode && (
           <PreviewTopBar
             onReturnToAdmin={() => {
+              if (typeof window !== 'undefined') {
+                window.history.pushState(null, '', '/admin');
+              }
               setIsPreviewMode(false);
               setActiveTab('admin');
               scrollToTop(true);

@@ -2,7 +2,7 @@ export type Language = 'pt' | 'en';
 
 export type ProductLifecycle = 'active_drop' | 'time_capsule';
 
-export type ProductBadge = 'NOVO' | 'ESGOTADO' | 'EDIÇÃO LIMITADA' | 'Aguardando Vaga' | string;
+export type ProductBadge = 'NOVO' | 'EDIÇÃO LIMITADA' | 'ESGOTADO' | 'AGUARDANDO VAGA' | string;
 
 export interface ProductSize {
   size: 'XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL';

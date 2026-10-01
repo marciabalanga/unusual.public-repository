@@ -13,7 +13,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { formatAOA, isComingBackSoonBadge } from '../lib/format';
+import { formatAOA, isComingBackSoonBadge, getProductBadgeDisplay } from '../lib/format';
 import { Product } from '../types';
 import { scrollToTop } from '../lib/scroll';
 import { PreOrderModal } from './pre-order-modal';
@@ -202,29 +202,22 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
               <ShoppingBag className="w-16 h-16 text-[#333333]" />
             )}
             {(() => {
-              const isComingBackSoon = isComingBackSoonBadge(product.badge);
-              if (isComingBackSoon) {
-                return (
-                  <span className="absolute top-4 left-4 text-[9px] font-mono font-bold tracking-[0.18em] px-2.5 py-1 rounded uppercase z-10 bg-black/85 text-amber-300 border border-amber-500/40 backdrop-blur-sm shadow-xl">
-                    {t('badge_coming_back_soon', 'COMING BACK SOON')}
-                    {product.pre_order_estimated_delivery ? ` • ${product.pre_order_estimated_delivery}` : ''}
-                  </span>
-                );
-              }
-              if (product.badge) {
-                return (
-                  <span
-                    className={`absolute top-4 left-4 text-[10px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase z-10 ${
-                      product.badge === 'ESGOTADO'
-                        ? 'bg-red-950 text-red-300 border border-red-800'
-                        : 'bg-white text-black'
-                    }`}
-                  >
-                    {product.badge}
-                  </span>
-                );
-              }
-              return null;
+              const badgeText = getProductBadgeDisplay(product.badge, language);
+              if (!badgeText) return null;
+
+              return (
+                <span
+                  className={`absolute top-4 left-4 text-[10px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase z-10 shadow-xl ${
+                    product.badge?.toUpperCase() === 'ESGOTADO'
+                      ? 'bg-red-950 text-red-300 border border-red-800'
+                      : product.badge?.toUpperCase() === 'AGUARDANDO VAGA'
+                      ? 'bg-black/85 text-amber-300 border border-amber-500/40 backdrop-blur-sm'
+                      : 'bg-white text-black'
+                  }`}
+                >
+                  {badgeText}
+                </span>
+              );
             })()}
 
             {/* BOTÃO DE FAVORITOS (HEART ICON EM DESTAQUE NÍTIDO & VIDRO FOSCO) */}
@@ -404,12 +397,12 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
 
           {/* Add to Cart Button or Pre-Order / Restock Buttons */}
           <div className="space-y-3 pt-2">
-            {/* Coming Back Soon Indicator: ONLY displayed when badge is AGUARDANDO VAGA or ESGOTADO */}
+            {/* Indicator: ONLY displayed when badge is AGUARDANDO VAGA */}
             {isComingBackSoonBadge(product.badge) && (
               <div className="flex items-center gap-2 px-3.5 py-2.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono">
                 <Clock className="w-3.5 h-3.5 shrink-0" />
                 <span className="font-bold uppercase tracking-wider">
-                  {t('badge_coming_back_soon', 'COMING BACK SOON')}
+                  {language === 'en' ? 'COMING BACK SOON' : 'AGUARDANDO VAGA'}
                 </span>
                 {product.pre_order_estimated_delivery && (
                   <span className="text-[#888888] text-[11px] ml-auto">
