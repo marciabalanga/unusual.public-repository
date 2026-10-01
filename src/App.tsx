@@ -137,16 +137,10 @@ const MainContent: React.FC = () => {
       }
 
       if (path === '/preview' || hash === '#preview' || hash === '#/preview' || isPreviewMode) {
-        if (isAuthenticated) {
-          setIsPreviewMode(true);
-          setActiveTab('store');
-          setIsSplashActive(false);
-          return;
-        } else {
-          setActiveTab('admin');
-          setIsSplashActive(false);
-          return;
-        }
+        setIsPreviewMode(true);
+        setActiveTab('store');
+        setIsSplashActive(false);
+        return;
       }
 
       if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
@@ -217,13 +211,6 @@ const MainContent: React.FC = () => {
   useEffect(() => {
     scrollToTop(true);
   }, [activeTab, selectedProductSlug]);
-
-  // Segurança do Preview: visitantes não autenticados nunca acedem a dados em rascunho
-  useEffect(() => {
-    if (!isAuthenticated && isPreviewMode) {
-      setIsPreviewMode(false);
-    }
-  }, [isAuthenticated, isPreviewMode, setIsPreviewMode]);
 
   // Sincronização Dinâmica do Ícone (Favicon / Apple Touch Icon) e Redes Sociais com o Logótipo da Marca
   useEffect(() => {
@@ -365,10 +352,10 @@ const MainContent: React.FC = () => {
         <SplashScreen onComplete={() => setIsSplashActive(false)} />
       )}
 
-      {/* 02 — HOME (REVELADA APÓS A ENTRADA COM TRANSIÇÃO SUAVE DE OPACIDADE) */}
+      {/* 02 — HOME (REVELADA APÓS A ENTRADA) */}
       <div
         id="main-content"
-        className={`min-h-screen flex flex-col justify-between transition-opacity duration-1000 ${
+        className={`min-h-screen flex flex-col justify-between ${
           isSplashActive ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'
         }`}
       >

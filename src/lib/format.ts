@@ -52,3 +52,9 @@ export function getProductBadgeDisplay(badge?: string | null, language: 'pt' | '
 
   return clean;
 }
+
+export function getProductReturnDateDisplay(product?: { badge?: string | null; return_date?: string } | null): string | null {
+  if (!product || !isComingBackSoonBadge(product.badge)) return null;
+  if (!product.return_date || product.return_date.trim() === '') return null;
+  return product.return_date.trim();
+}

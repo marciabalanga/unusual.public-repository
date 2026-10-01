@@ -45,6 +45,7 @@ export interface Product {
   pre_order_max_quantity?: number;
   pre_order_custom_notice?: string;
   coming_soon_badge?: boolean;
+  return_date?: string;
   enable_request_restock?: boolean;
 }
 

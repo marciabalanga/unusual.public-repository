@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, X, ArrowRight, Tag, ShoppingBag } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { formatAOA, isComingBackSoonBadge, getProductBadgeDisplay } from '../lib/format';
+import { formatAOA, isComingBackSoonBadge, getProductBadgeDisplay, getProductReturnDateDisplay } from '../lib/format';
 import { Product } from '../types';
 import { scrollToTop } from '../lib/scroll';
 
@@ -154,6 +154,7 @@ export const SearchModal: React.FC = () => {
                       {(() => {
                         const badgeText = getProductBadgeDisplay(product.badge, language);
                         if (!badgeText) return null;
+                        const returnDate = getProductReturnDateDisplay(product);
                         return (
                           <span
                             className={`text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider font-semibold ${
@@ -164,7 +165,7 @@ export const SearchModal: React.FC = () => {
                                 : 'bg-white text-black'
                             }`}
                           >
-                            {badgeText}
+                            {returnDate ? `${badgeText} • ${returnDate}` : badgeText}
                           </span>
                         );
                       })()}

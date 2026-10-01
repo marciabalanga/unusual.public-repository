@@ -624,7 +624,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       pre_order_max_quantity: p.pre_order_max_quantity !== undefined ? p.pre_order_max_quantity : null,
       pre_order_custom_notice: p.pre_order_custom_notice || null,
       coming_soon_badge: Boolean(p.coming_soon_badge),
-      enable_request_restock: p.enable_request_restock !== false,
+      return_date: p.return_date || null,
+      enable_request_restock: Boolean(p.enable_request_restock),
       user_details: p.details || '',
       fit_guide: p.fit_guide || '',
     };
@@ -666,15 +667,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return {
       ...p,
       details: userDetails,
-      enable_pre_order: meta.enable_pre_order !== undefined ? meta.enable_pre_order : Boolean(p.enable_pre_order),
+      enable_pre_order: meta.enable_pre_order !== undefined ? Boolean(meta.enable_pre_order) : Boolean(p.enable_pre_order),
       pre_order_price_aoa: meta.pre_order_price_aoa !== undefined ? meta.pre_order_price_aoa : p.pre_order_price_aoa,
       pre_order_estimated_delivery: meta.pre_order_estimated_delivery !== undefined ? meta.pre_order_estimated_delivery : p.pre_order_estimated_delivery,
       pre_order_start_date: meta.pre_order_start_date !== undefined ? meta.pre_order_start_date : p.pre_order_start_date,
       pre_order_end_date: meta.pre_order_end_date !== undefined ? meta.pre_order_end_date : p.pre_order_end_date,
       pre_order_max_quantity: meta.pre_order_max_quantity !== undefined ? meta.pre_order_max_quantity : p.pre_order_max_quantity,
       pre_order_custom_notice: meta.pre_order_custom_notice !== undefined ? meta.pre_order_custom_notice : p.pre_order_custom_notice,
-      coming_soon_badge: meta.coming_soon_badge !== undefined ? meta.coming_soon_badge : Boolean(p.coming_soon_badge),
-      enable_request_restock: meta.enable_request_restock !== undefined ? meta.enable_request_restock : (p.enable_request_restock !== false),
+      coming_soon_badge: meta.coming_soon_badge !== undefined ? Boolean(meta.coming_soon_badge) : Boolean(p.coming_soon_badge),
+      return_date: meta.return_date || p.return_date || undefined,
+      enable_request_restock: meta.enable_request_restock !== undefined ? Boolean(meta.enable_request_restock) : Boolean(p.enable_request_restock),
       fit_guide: meta.fit_guide || p.fit_guide || p.size_guide,
     };
   }, []);
@@ -1876,7 +1878,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Cart Management
   const addToCart = (product: Product, size: string, color: string, quantity = 1) => {
-    const isPreOrder = Boolean(product.enable_pre_order && settings.enable_pre_order_button !== false);
+    const isPreOrder = Boolean(
+      product.enable_pre_order &&
+      settings.enable_pre_order_button !== false &&
+      product.badge?.toUpperCase() === 'NOVO'
+    );
 
     // Validação estrita de stock: impede adicionar ao saco itens normais esgotados (mas permite pre-orders)
     if (!isPreOrder) {

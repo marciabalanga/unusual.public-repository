@@ -449,7 +449,8 @@ CREATE TABLE IF NOT EXISTS public.products (
   pre_order_max_quantity INTEGER,
   pre_order_custom_notice TEXT,
   coming_soon_badge BOOLEAN DEFAULT false,
-  enable_request_restock BOOLEAN DEFAULT true,
+  return_date TEXT,
+  enable_request_restock BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -716,7 +717,8 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS pre_order_price_aoa NUMERIC
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS pre_order_estimated_delivery TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS pre_order_custom_notice TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS coming_soon_badge BOOLEAN DEFAULT false;
-ALTER TABLE public.products ADD COLUMN IF NOT EXISTS enable_request_restock BOOLEAN DEFAULT true;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS return_date TEXT;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS enable_request_restock BOOLEAN DEFAULT false;
 
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS site_logo_url TEXT;
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS logo_url TEXT;

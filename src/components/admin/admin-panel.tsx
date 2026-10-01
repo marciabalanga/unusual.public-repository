@@ -437,12 +437,12 @@ export const AdminPanel: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                if (typeof window !== 'undefined') {
-                  window.history.pushState(null, '', '/preview');
-                }
                 setIsPreviewMode(true);
                 scrollToTop(true);
                 setActiveTab('store');
+                if (typeof window !== 'undefined') {
+                  window.history.pushState(null, '', '/preview');
+                }
               }}
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#181818] hover:bg-white hover:text-black text-white text-xs font-sans tracking-wider uppercase rounded border border-[#2c2c2c] transition-all font-semibold shadow-md"
               title="Abrir versão de PREVIEW da loja com as alterações em rascunho (navegar como cliente)"
@@ -2326,53 +2326,59 @@ export const AdminPanel: React.FC = () => {
                       </button>
                     </div>
 
-                    {/* Pre-Order Quick Toggle */}
+                    {/* Pre-Order Quick Toggle (Apenas permitido para peças com badge NOVO) */}
                     <div className="flex items-center justify-between">
                       <span className="text-[#777777] text-[11px] flex items-center gap-1">
                         <Clock className="w-3 h-3 text-amber-400" />
                         <span>Pre-Order:</span>
                       </span>
-                      <button
-                        onClick={async () => {
-                          const nextState = !product.enable_pre_order;
-                          const updated = { ...product, enable_pre_order: nextState };
-                          await saveProduct(updated);
-                          showToast(`Pre-Order ${nextState ? 'ATIVADO' : 'DESATIVADO'} para "${product.name}"`);
-                        }}
-                        className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
-                          product.enable_pre_order
-                            ? 'bg-amber-400 text-black font-bold'
-                            : 'bg-[#1a1a1a] text-[#777777] hover:text-white border border-[#262626]'
-                        }`}
-                      >
-                        {product.enable_pre_order ? 'Pre-Order ON' : 'Pre-Order OFF'}
-                      </button>
-                    </div>
-
-                    {/* Request Restock Quick Toggle */}
-                    {product.lifecycle === 'time_capsule' && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-[#777777] text-[11px] flex items-center gap-1">
-                          <BellRing className="w-3 h-3 text-amber-300" />
-                          <span>Restock:</span>
-                        </span>
+                      {product.badge?.toUpperCase() === 'NOVO' ? (
                         <button
+                          type="button"
                           onClick={async () => {
-                            const nextState = product.enable_request_restock === false ? true : false;
-                            const updated = { ...product, enable_request_restock: nextState };
+                            const nextState = !product.enable_pre_order;
+                            const updated = { ...product, enable_pre_order: nextState };
                             await saveProduct(updated);
-                            showToast(`Request Restock ${nextState ? 'ATIVADO' : 'DESATIVADO'} para "${product.name}"`);
+                            showToast(`Pre-Order ${nextState ? 'ATIVADO' : 'DESATIVADO'} para "${product.name}"`);
                           }}
                           className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
-                            product.enable_request_restock !== false
-                              ? 'bg-white text-black font-bold'
+                            product.enable_pre_order
+                              ? 'bg-amber-400 text-black font-bold'
                               : 'bg-[#1a1a1a] text-[#777777] hover:text-white border border-[#262626]'
                           }`}
                         >
-                          {product.enable_request_restock !== false ? 'Restock ON' : 'Restock OFF'}
+                          {product.enable_pre_order ? 'Pre-Order ON' : 'Pre-Order OFF'}
                         </button>
-                      </div>
-                    )}
+                      ) : (
+                        <span className="text-[10px] text-[#555555] font-mono" title="Apenas permitido para peças com badge NOVO">
+                          Requer NOVO
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Request Restock Quick Toggle (Totalmente independente de badge ou cápsula) */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#777777] text-[11px] flex items-center gap-1">
+                        <BellRing className="w-3 h-3 text-amber-300" />
+                        <span>Restock:</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const nextState = !product.enable_request_restock;
+                          const updated = { ...product, enable_request_restock: nextState };
+                          await saveProduct(updated);
+                          showToast(`Request Restock ${nextState ? 'ATIVADO' : 'DESATIVADO'} para "${product.name}"`);
+                        }}
+                        className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
+                          product.enable_request_restock
+                            ? 'bg-white text-black font-bold'
+                            : 'bg-[#1a1a1a] text-[#777777] hover:text-white border border-[#262626]'
+                        }`}
+                      >
+                        {product.enable_request_restock ? 'Restock ON' : 'Restock OFF'}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Action buttons */}
@@ -2802,7 +2808,16 @@ export const AdminPanel: React.FC = () => {
                               : editingProduct.badge
                             : ''
                         }
-                        onChange={(e) => setEditingProduct({ ...editingProduct, badge: e.target.value || null })}
+                        onChange={(e) => {
+                          const nextBadge = e.target.value || null;
+                          const isNovo = nextBadge?.toUpperCase() === 'NOVO';
+                          setEditingProduct({
+                            ...editingProduct,
+                            badge: nextBadge,
+                            // Pré-order é permitido EXCLUSIVAMENTE para peças com badge NOVO
+                            enable_pre_order: isNovo ? editingProduct.enable_pre_order : false,
+                          });
+                        }}
                         className="w-full px-3 py-2 bg-[#141414] border border-[#292929] rounded text-white"
                       >
                         <option value="">Sem Badge</option>
@@ -2815,6 +2830,31 @@ export const AdminPanel: React.FC = () => {
                         Em inglês, "AGUARDANDO VAGA" é apresentado como "COMING BACK SOON".
                       </span>
                     </div>
+
+                    {/* CONFIGURAÇÃO ESPECÍFICA DE DATA DE RETORNO: Apenas desbloqueada quando badge = AGUARDANDO VAGA */}
+                    {editingProduct.badge?.toUpperCase() === 'AGUARDANDO VAGA' && (
+                      <div className="sm:col-span-2 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg space-y-1.5 animate-in fade-in">
+                        <label className="block uppercase text-amber-300 text-xs font-bold tracking-wider flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-amber-400" />
+                          <span>DATA DE RETORNO (OPCIONAL)</span>
+                        </label>
+                        <p className="text-[11px] text-[#999999] leading-relaxed">
+                          A data NÃO é obrigatória. Se definida (ex: "15–25 Outubro"), a loja pública mostrará "COMING BACK SOON / AGUARDANDO VAGA" acompanhado da data. Se deixada em branco, mostrará apenas "COMING BACK SOON / AGUARDANDO VAGA".
+                        </p>
+                        <input
+                          type="text"
+                          value={editingProduct.return_date || ''}
+                          onChange={(e) =>
+                            setEditingProduct({
+                              ...editingProduct,
+                              return_date: e.target.value,
+                            })
+                          }
+                          placeholder="ex: 15–25 Outubro"
+                          className="w-full px-3 py-2 bg-[#0d0d0d] border border-amber-500/40 rounded text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
+                        />
+                      </div>
+                    )}
 
                     <div>
                       <label className="block uppercase text-[#888888] mb-1">Ciclo de Vida</label>
@@ -2926,21 +2966,121 @@ export const AdminPanel: React.FC = () => {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                        {/* 1. ENABLE PRE-ORDER BUTTON */}
+                        {/* 1. ENABLE PRE-ORDER BUTTON (Apenas permitido para peças com badge NOVO) */}
+                        {editingProduct.badge?.toUpperCase() === 'NOVO' ? (
+                          <div className={`p-3.5 rounded-lg border transition-all ${
+                            editingProduct.enable_pre_order
+                              ? 'bg-amber-500/10 border-amber-400/60'
+                              : 'bg-[#141414] border-[#262626]'
+                          }`}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Clock className={`w-4 h-4 ${editingProduct.enable_pre_order ? 'text-amber-400' : 'text-[#666666]'}`} />
+                                <div>
+                                  <span className="text-white text-xs font-bold uppercase tracking-wider block">
+                                    PRÉ-ORDER
+                                  </span>
+                                  <span className="text-[10px] text-[#888888] block">
+                                    {editingProduct.enable_pre_order ? 'ATIVADO' : 'DESATIVADO'}
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingProduct({
+                                    ...editingProduct,
+                                    enable_pre_order: !editingProduct.enable_pre_order,
+                                  });
+                                }}
+                                className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-wider transition-colors ${
+                                  editingProduct.enable_pre_order
+                                    ? 'bg-amber-400 text-black shadow-md'
+                                    : 'bg-[#1f1f1f] text-[#777777] hover:text-white border border-[#2e2e2e]'
+                                }`}
+                              >
+                                {editingProduct.enable_pre_order ? 'Ativado' : 'Desativado'}
+                              </button>
+                            </div>
+
+                            <p className="text-[11px] text-[#888888] mt-2 leading-relaxed">
+                              Quando ativado, a loja pública apresenta o botão <strong className="text-white">[ PRE-ORDER ]</strong>. O badge permanece "NOVO" e não é alterado pelo Pré-order.
+                            </p>
+
+                            {editingProduct.enable_pre_order && (
+                              <div className="space-y-2.5 mt-3 pt-3 border-t border-amber-500/20">
+                                <div>
+                                  <label className="block text-[10px] uppercase tracking-wider text-amber-300/80 mb-1 font-mono">
+                                    Previsão de Entrega
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={editingProduct.pre_order_estimated_delivery || ''}
+                                    onChange={(e) =>
+                                      setEditingProduct({
+                                        ...editingProduct,
+                                        pre_order_estimated_delivery: e.target.value,
+                                      })
+                                    }
+                                    placeholder="ex: 15–25 Outubro"
+                                    className="w-full px-2.5 py-1.5 bg-[#0a0a0a] border border-amber-500/30 rounded text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[10px] uppercase tracking-wider text-amber-300/80 mb-1 font-mono">
+                                    Aviso Personalizado de Produção (Opcional)
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={editingProduct.pre_order_custom_notice || ''}
+                                    onChange={(e) =>
+                                      setEditingProduct({
+                                        ...editingProduct,
+                                        pre_order_custom_notice: e.target.value,
+                                      })
+                                    }
+                                    placeholder="ex: Peça produzida sob encomenda no atelier"
+                                    className="w-full px-2.5 py-1.5 bg-[#0a0a0a] border border-amber-500/30 rounded text-white text-xs font-sans focus:border-amber-400 focus:outline-none"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="p-3.5 rounded-lg border bg-[#121212] border-[#222222] flex flex-col justify-between">
+                            <div className="flex items-center gap-2 text-[#777777]">
+                              <Clock className="w-4 h-4 text-[#555555]" />
+                              <div>
+                                <span className="text-[#888888] text-xs font-bold uppercase tracking-wider block">
+                                  PRÉ-ORDER (BLOQUEADO)
+                                </span>
+                                <span className="text-[10px] text-[#555555] block">
+                                  Requer Badge "NOVO"
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-[11px] text-[#666666] mt-2 leading-relaxed">
+                              O Pré-order só pode ser ativado em peças com o badge <strong>NOVO</strong>. Não é permitido para Esgotado, Edição Limitada, Aguardando Vaga ou Sem Badge.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* 2. ENABLE REQUEST RESTOCK BUTTON (Totalmente independente de badge e Time Capsule) */}
                         <div className={`p-3.5 rounded-lg border transition-all ${
-                          editingProduct.enable_pre_order
+                          editingProduct.enable_request_restock
                             ? 'bg-amber-500/10 border-amber-400/60'
                             : 'bg-[#141414] border-[#262626]'
                         }`}>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <Clock className={`w-4 h-4 ${editingProduct.enable_pre_order ? 'text-amber-400' : 'text-[#666666]'}`} />
+                              <BellRing className={`w-4 h-4 ${editingProduct.enable_request_restock ? 'text-amber-300' : 'text-[#666666]'}`} />
                               <div>
                                 <span className="text-white text-xs font-bold uppercase tracking-wider block">
-                                  PRÉ-ORDER
+                                  REQUEST RESTOCK
                                 </span>
                                 <span className="text-[10px] text-[#888888] block">
-                                  {editingProduct.enable_pre_order ? 'ATIVADO' : 'DESATIVADO'}
+                                  {editingProduct.enable_request_restock ? 'ATIVADO (ON)' : 'DESATIVADO (OFF)'}
                                 </span>
                               </div>
                             </div>
@@ -2949,125 +3089,36 @@ export const AdminPanel: React.FC = () => {
                               onClick={() => {
                                 setEditingProduct({
                                   ...editingProduct,
-                                  enable_pre_order: !editingProduct.enable_pre_order,
+                                  enable_request_restock: !editingProduct.enable_request_restock,
                                 });
                               }}
                               className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-wider transition-colors ${
-                                editingProduct.enable_pre_order
+                                editingProduct.enable_request_restock
                                   ? 'bg-amber-400 text-black shadow-md'
                                   : 'bg-[#1f1f1f] text-[#777777] hover:text-white border border-[#2e2e2e]'
                               }`}
                             >
-                              {editingProduct.enable_pre_order ? 'Ativado' : 'Desativado'}
+                              {editingProduct.enable_request_restock ? 'Ativado' : 'Desativado'}
                             </button>
                           </div>
 
                           <p className="text-[11px] text-[#888888] mt-2 leading-relaxed">
-                            Quando ON, a peça mostra o botão <strong className="text-white">[ PRE-ORDER ]</strong> na loja pública e abre o fluxo completo de encomenda real com pagamento.
+                            Configuração manual independente. Quando <strong>ATIVADO</strong>, exibe na loja pública a secção de apelo ("Would you like this collection to return?") e o botão de registo de interesse.
                           </p>
 
-                          {editingProduct.enable_pre_order && (
-                            <div className="space-y-2.5 mt-3 pt-3 border-t border-amber-500/20">
-                              <div>
-                                <label className="block text-[10px] uppercase tracking-wider text-amber-300/80 mb-1 font-mono">
-                                  Previsão de Entrega
-                                </label>
-                                <input
-                                  type="text"
-                                  value={editingProduct.pre_order_estimated_delivery || ''}
-                                  onChange={(e) =>
-                                    setEditingProduct({
-                                      ...editingProduct,
-                                      pre_order_estimated_delivery: e.target.value,
-                                    })
-                                  }
-                                  placeholder="ex: 15–25 Outubro"
-                                  className="w-full px-2.5 py-1.5 bg-[#0a0a0a] border border-amber-500/30 rounded text-white text-xs font-mono focus:border-amber-400 focus:outline-none"
-                                />
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] uppercase tracking-wider text-amber-300/80 mb-1 font-mono">
-                                  Aviso Personalizado de Produção (Opcional)
-                                </label>
-                                <input
-                                  type="text"
-                                  value={editingProduct.pre_order_custom_notice || ''}
-                                  onChange={(e) =>
-                                    setEditingProduct({
-                                      ...editingProduct,
-                                      pre_order_custom_notice: e.target.value,
-                                    })
-                                  }
-                                  placeholder="ex: Peça produzida sob encomenda no atelier"
-                                  className="w-full px-2.5 py-1.5 bg-[#0a0a0a] border border-amber-500/30 rounded text-white text-xs font-sans focus:border-amber-400 focus:outline-none"
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* 2. ENABLE REQUEST RESTOCK BUTTON */}
-                        <div className={`p-3.5 rounded-lg border transition-all ${
-                          editingProduct.enable_request_restock !== false
-                            ? 'bg-[#161616] border-[#333333]'
-                            : 'bg-[#141414] border-[#222222] opacity-60'
-                        }`}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <BellRing className={`w-4 h-4 ${editingProduct.enable_request_restock !== false ? 'text-amber-300' : 'text-[#666666]'}`} />
-                              <div>
-                                <span className="text-white text-xs font-bold uppercase tracking-wider block">
-                                  ENABLE REQUEST RESTOCK BUTTON
-                                </span>
-                                <span className="text-[10px] text-[#888888] block">
-                                  {editingProduct.enable_request_restock !== false ? 'ATIVO NO FRONTEND' : 'DESLIGADO'}
-                                </span>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingProduct({
-                                  ...editingProduct,
-                                  enable_request_restock: editingProduct.enable_request_restock === false ? true : false,
-                                });
-                              }}
-                              className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-wider transition-colors ${
-                                editingProduct.enable_request_restock !== false
-                                  ? 'bg-white text-black shadow-md'
-                                  : 'bg-[#1f1f1f] text-[#777777] hover:text-white border border-[#2e2e2e]'
-                              }`}
-                            >
-                              {editingProduct.enable_request_restock !== false ? 'ON' : 'OFF'}
-                            </button>
-                          </div>
-
-                          <p className="text-[11px] text-[#888888] mt-2 leading-relaxed">
-                            Mede o interesse do público sem tamanhos ou pagamentos. Guarda o nome e WhatsApp na base de dados para avaliação da procura.
-                          </p>
-
-                          {/* Regra de Contexto Visual */}
                           <div className="mt-3 pt-2 border-t border-[#222222] text-[10px] font-sans">
-                            {editingProduct.lifecycle !== 'time_capsule' ? (
-                              <div className="p-2 rounded bg-amber-950/40 border border-amber-800/60 text-amber-300 flex items-start gap-1.5">
-                                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                                <span>
-                                  <strong>REGRA DE CONTEXTO:</strong> Produto está no <em>Drop Ativo</em>. O botão [ REQUEST RESTOCK ] só aparece quando a peça estiver na <em>Cápsula do Tempo</em>.
-                                </span>
-                              </div>
-                            ) : editingProduct.enable_pre_order ? (
-                              <div className="p-2 rounded bg-purple-950/40 border border-purple-800/60 text-purple-300 flex items-start gap-1.5">
-                                <Clock className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                                <span>
-                                  <strong>PRIORIDADE:</strong> Pre-Order está ON. Como o Pre-Order representa produção real, o botão [ PRE-ORDER ] tem prioridade e o Restock fica oculto.
-                                </span>
-                              </div>
-                            ) : (
+                            {editingProduct.enable_request_restock ? (
                               <div className="p-2 rounded bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 flex items-start gap-1.5">
                                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                                 <span>
-                                  <strong>VISÍVEL NA CÁPSULA:</strong> O botão [ REQUEST RESTOCK ] será exibido no frontend para medir o interesse do público.
+                                  <strong>ATIVO:</strong> O bloco e botão [ REQUEST RESTOCK ] serão apresentados na página desta peça.
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="p-2 rounded bg-[#181818] border border-[#292929] text-[#777777] flex items-start gap-1.5">
+                                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                <span>
+                                  <strong>DESATIVADO:</strong> Nenhum bloco ou botão de Request Restock será apresentado na loja pública para esta peça.
                                 </span>
                               </div>
                             )}
