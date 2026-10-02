@@ -2279,6 +2279,7 @@ export const AdminPanel: React.FC = () => {
                         {product.badge && (
                           <span className="text-[9px] bg-[#222222] text-[#cccccc] px-1.5 py-0.5 rounded uppercase">
                             {product.badge}
+                            {product.badge.toUpperCase() === 'AGUARDANDO VAGA' && product.return_date ? ` • ${product.return_date}` : ''}
                           </span>
                         )}
                       </div>

@@ -66,45 +66,23 @@ export const TimeCapsuleView: React.FC = () => {
               )}
               <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
                 {(() => {
-                  const isPreOrder = Boolean(
-                    product.badge?.toUpperCase() === 'NOVO' &&
-                    product.enable_pre_order &&
-                    settings.enable_pre_order_button !== false
-                  );
                   const badgeText = getProductBadgeDisplay(product.badge, language);
                   const returnDate = getProductReturnDateDisplay(product);
-                  const isRestock = Boolean(
-                    product.enable_request_restock &&
-                    settings.enable_request_restock_button !== false
-                  );
+
+                  if (!badgeText) return null;
 
                   return (
-                    <>
-                      {isPreOrder && (
-                        <span className="text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded bg-amber-400 text-black uppercase shadow-lg">
-                          PRE-ORDER
-                        </span>
-                      )}
-                      {badgeText && (
-                        <span
-                          className={`text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase shadow-md ${
-                            product.badge?.toUpperCase() === 'ESGOTADO'
-                              ? 'bg-red-950/80 text-red-300 border border-red-800'
-                              : product.badge?.toUpperCase() === 'AGUARDANDO VAGA'
-                              ? 'bg-black/80 text-amber-300 border border-amber-500/40 font-mono text-[8px] tracking-[0.18em]'
-                              : 'bg-white text-black'
-                          }`}
-                        >
-                          {returnDate ? `${badgeText} • ${returnDate}` : badgeText}
-                        </span>
-                      )}
-                      {isRestock && (
-                        <span className="text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded bg-[#161616] text-amber-300 border border-amber-500/30 uppercase flex items-center gap-1.5 shadow-md">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                          REQUEST RESTOCK
-                        </span>
-                      )}
-                    </>
+                    <span
+                      className={`text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase shadow-md ${
+                        product.badge?.toUpperCase() === 'ESGOTADO'
+                          ? 'bg-red-950/80 text-red-300 border border-red-800'
+                          : product.badge?.toUpperCase() === 'AGUARDANDO VAGA'
+                          ? 'bg-black/80 text-amber-300 border border-amber-500/40 font-mono text-[8px] tracking-[0.18em]'
+                          : 'bg-white text-black'
+                      }`}
+                    >
+                      {returnDate ? `${badgeText} • ${returnDate}` : badgeText}
+                    </span>
                   );
                 })()}
               </div>
