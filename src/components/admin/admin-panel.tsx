@@ -140,13 +140,28 @@ export const AdminPanel: React.FC = () => {
   useEffect(() => {
     if (!isSettingsDirty) {
       setSettingsForm(settings);
+    } else {
+      // Always keep site_logo_url and logo_url in sync with global settings
+      if (settings.site_logo_url && settings.site_logo_url !== settingsForm.site_logo_url) {
+        setSettingsForm((prev) => ({
+          ...prev,
+          site_logo_url: settings.site_logo_url,
+          logo_url: settings.logo_url,
+        }));
+      }
     }
   }, [settings, isSettingsDirty]);
 
   const handleSaveSettingsForm = async () => {
     setIsSavingSettings(true);
     try {
-      await saveSettings(settingsForm);
+      const toSave: SiteSettings = {
+        ...settingsForm,
+        // Guarantee latest brand logo is never overwritten
+        site_logo_url: settings.site_logo_url || settingsForm.site_logo_url,
+        logo_url: settings.logo_url || settingsForm.logo_url,
+      };
+      await saveSettings(toSave);
       setIsSettingsDirty(false);
       showToast('Configurações e dados de pagamento guardados com sucesso!');
     } catch (err) {

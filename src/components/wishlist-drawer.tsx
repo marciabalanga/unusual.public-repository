@@ -14,6 +14,7 @@ export const WishlistDrawer: React.FC = () => {
     addToCart,
     setSelectedProductSlug,
     setActiveTab,
+    isPreviewMode,
   } = useStore();
 
   if (!isWishlistOpen) return null;
@@ -25,6 +26,12 @@ export const WishlistDrawer: React.FC = () => {
     setSelectedProductSlug(slug);
     setActiveTab('product_detail');
     setIsWishlistOpen(false);
+    try {
+      const url = isPreviewMode
+        ? `/preview?product=${encodeURIComponent(slug)}`
+        : `/peca/${encodeURIComponent(slug)}`;
+      window.history.pushState({ productSlug: slug, tab: 'product_detail' }, '', url);
+    } catch {}
   };
 
   const handleQuickAdd = (e: React.MouseEvent, product: any) => {

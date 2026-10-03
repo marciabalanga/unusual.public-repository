@@ -36,7 +36,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
   onBack,
   onOpenPreOrderCheckout,
 }) => {
-  const { addToCart, toggleWishlist, isInWishlist, t, settings, language } = useStore();
+  const { addToCart, toggleWishlist, isInWishlist, t, settings, language, setIsCartOpen, isPreviewMode } = useStore();
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
@@ -160,6 +160,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
 
     addToCart(product, selectedSize, selectedColor, quantity);
     setIsAdded(true);
+    setIsCartOpen(true);
     setTimeout(() => setIsAdded(false), 2000);
   };
 
@@ -176,6 +177,10 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
       <button
         onClick={() => {
           scrollToTop(true);
+          try {
+            const backUrl = isPreviewMode ? '/preview' : '/';
+            window.history.pushState(null, '', backUrl);
+          } catch {}
           onBack();
         }}
         className="inline-flex items-center gap-2 text-xs font-sans uppercase tracking-[0.25em] text-[#888888] hover:text-white transition-colors mb-8 group"

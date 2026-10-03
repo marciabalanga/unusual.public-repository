@@ -8,25 +8,25 @@
   "theme_color": "#080808",
   "icons": [
     {
-      "src": "/brand-icon.svg?v=20260928",
+      "src": "/brand-icon.svg?v=20261002b",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/brand-touch-icon.png?v=20260928",
+      "src": "/brand-touch-icon.png?v=20261002b",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/brand-favicon.png?v=20260928",
+      "src": "/brand-favicon.png?v=20261002b",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/brand-favicon.png?v=20260928",
+      "src": "/brand-favicon.png?v=20261002b",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"

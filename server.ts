@@ -2,6 +2,8 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
+import potrace from 'potrace';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -165,22 +167,57 @@ async function startServer() {
     try {
       const { image } = req.body || {};
       if (image && typeof image === 'string') {
-        const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
-        const buffer = Buffer.from(base64Data, 'base64');
+        const isSvg = image.includes('image/svg+xml') || image.trim().startsWith('<svg');
         const publicLogo = path.resolve(__dirname, 'public/logo.png');
         const brandDir = path.resolve(__dirname, 'public/brand');
         if (!fs.existsSync(brandDir)) fs.mkdirSync(brandDir, { recursive: true });
         const brandLogo = path.resolve(brandDir, 'wu-official-logo.png');
+        const brandSquare = path.resolve(brandDir, 'wu-square-1024.png');
+        const brandMonogram = path.resolve(brandDir, 'wu-monogram.png');
 
-        fs.writeFileSync(publicLogo, buffer);
-        fs.writeFileSync(brandLogo, buffer);
+        if (isSvg) {
+          let svgContent = '';
+          if (image.includes('base64,')) {
+            const b64 = image.split('base64,')[1];
+            svgContent = Buffer.from(b64, 'base64').toString('utf-8');
+          } else if (image.includes('data:image/svg+xml')) {
+            svgContent = decodeURIComponent(image.split('data:image/svg+xml,')[1] || image.split('data:image/svg+xml;utf8,')[1] || image);
+          } else {
+            svgContent = image;
+          }
+
+          const dynamicSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" fill="none" aria-label="UNUSUAL">\n  <style>\n    .logo-path { fill: #000000; }\n    @media (prefers-color-scheme: dark) {\n      .logo-path { fill: #ffffff; }\n    }\n  </style>\n  ${svgContent.replace(/<\/?svg[^>]*>/gi, '')}\n</svg>\n`;
+          const monoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" fill="currentColor" aria-label="UNUSUAL">\n  ${svgContent.replace(/<\/?svg[^>]*>/gi, '')}\n</svg>\n`;
+
+          fs.writeFileSync(path.resolve(__dirname, 'public/brand-icon.svg'), dynamicSvg);
+          fs.writeFileSync(path.resolve(__dirname, 'public/icon.svg'), dynamicSvg);
+          fs.writeFileSync(path.resolve(__dirname, 'public/brand/brand-logo.svg'), monoSvg);
+          fs.writeFileSync(path.resolve(__dirname, 'public/brand/wu-logo.svg'), monoSvg);
+
+          // Convert SVG to PNG master
+          try {
+            execSync(`convert -background transparent -density 300 "${path.resolve(__dirname, 'public/brand-icon.svg')}" -resize 400x400 "${publicLogo}"`);
+            fs.copyFileSync(publicLogo, brandLogo);
+          } catch (e) {
+            console.warn('[server] SVG to PNG conversion warning:', e);
+          }
+        } else {
+          const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+          const buffer = Buffer.from(base64Data, 'base64');
+
+          fs.writeFileSync(publicLogo, buffer);
+          fs.writeFileSync(brandLogo, buffer);
+        }
+
+        // Copy high-resolution PNGs to all Apple touch icon and favicon paths
         fs.copyFileSync(publicLogo, path.resolve(__dirname, 'public/apple-touch-icon.png'));
+        fs.copyFileSync(publicLogo, path.resolve(__dirname, 'public/apple-touch-icon-precomposed.png'));
         fs.copyFileSync(publicLogo, path.resolve(__dirname, 'public/brand-touch-icon.png'));
         fs.copyFileSync(publicLogo, path.resolve(__dirname, 'public/brand-favicon.png'));
+        fs.copyFileSync(publicLogo, brandSquare);
+        fs.copyFileSync(publicLogo, brandMonogram);
 
         try {
-          const { execSync } = require('child_process');
-          const potrace = require('potrace');
           const ogPreview = path.resolve(__dirname, 'public/og-preview.png');
           const brandOg = path.resolve(__dirname, 'public/brand/wu-og-preview.png');
           const favIco = path.resolve(__dirname, 'public/favicon.ico');
@@ -188,51 +225,78 @@ async function startServer() {
           execSync(`cp "${ogPreview}" "${brandOg}"`);
           execSync(`convert "${publicLogo}" -background transparent \\( -clone 0 -resize 16x16 \\) \\( -clone 0 -resize 32x32 \\) \\( -clone 0 -resize 48x48 \\) -delete 0 "${favIco}"`);
 
-          const tempMask = path.resolve(__dirname, 'public/temp-mask.png');
-          execSync(`convert "${publicLogo}" -alpha extract -negate "${tempMask}"`);
-          potrace.trace(tempMask, { threshold: 128, optTolerance: 0.05, turdSize: 1 }, (pErr: any, svgStr: string) => {
-            if (!pErr && svgStr) {
-              const m = svgStr.match(/d="([^"]+)"/);
-              if (m) {
-                const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" fill="none" aria-label="UNUSUAL">\n  <style>\n    .logo-path { fill: #000000; }\n    @media (prefers-color-scheme: dark) {\n      .logo-path { fill: #ffffff; }\n    }\n  </style>\n  <path class="logo-path" fill-rule="evenodd" clip-rule="evenodd" d="${m[1]}" />\n</svg>\n`;
-                const monoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" fill="currentColor" aria-label="UNUSUAL">\n  <path fill-rule="evenodd" clip-rule="evenodd" d="${m[1]}" />\n</svg>\n`;
-                fs.writeFileSync(path.resolve(__dirname, 'public/brand-icon.svg'), iconSvg);
-                fs.writeFileSync(path.resolve(__dirname, 'public/icon.svg'), iconSvg);
-                fs.writeFileSync(path.resolve(__dirname, 'public/brand/brand-logo.svg'), monoSvg);
-                fs.writeFileSync(path.resolve(__dirname, 'public/brand/wu-logo.svg'), monoSvg);
+          if (!isSvg) {
+            const tempMask = path.resolve(__dirname, 'public/temp-mask.png');
+            execSync(`convert "${publicLogo}" -alpha extract -negate "${tempMask}"`);
+            potrace.trace(tempMask, { threshold: 128, optTolerance: 0.05, turdSize: 1 }, (pErr: any, svgStr: string) => {
+              if (!pErr && svgStr) {
+                const m = svgStr.match(/d="([^"]+)"/);
+                if (m) {
+                  const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" fill="none" aria-label="UNUSUAL">\n  <style>\n    .logo-path { fill: #000000; }\n    @media (prefers-color-scheme: dark) {\n      .logo-path { fill: #ffffff; }\n    }\n  </style>\n  <path class="logo-path" fill-rule="evenodd" clip-rule="evenodd" d="${m[1]}" />\n</svg>\n`;
+                  const monoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" fill="currentColor" aria-label="UNUSUAL">\n  <path fill-rule="evenodd" clip-rule="evenodd" d="${m[1]}" />\n</svg>\n`;
+                  fs.writeFileSync(path.resolve(__dirname, 'public/brand-icon.svg'), iconSvg);
+                  fs.writeFileSync(path.resolve(__dirname, 'public/icon.svg'), iconSvg);
+                  fs.writeFileSync(path.resolve(__dirname, 'public/brand/brand-logo.svg'), monoSvg);
+                  fs.writeFileSync(path.resolve(__dirname, 'public/brand/wu-logo.svg'), monoSvg);
+                }
               }
-            }
-          });
+            });
+          }
         } catch (genErr) {
           console.warn('[server] Warning generating derived preview/favicon:', genErr);
         }
 
+        // Update persistent store_state.json so /api/store-state immediately reflects the new logo
+        try {
+          const state = readStoredState();
+          const timestamp = new Date().toISOString();
+          if (!state.draft.settings) state.draft.settings = {};
+          if (!state.published.settings) state.published.settings = {};
+          state.draft.settings.site_logo_url = image;
+          state.draft.settings.logo_url = image;
+          state.draft.settings.updated_at = timestamp;
+          state.published.settings.site_logo_url = image;
+          state.published.settings.logo_url = image;
+          state.published.settings.updated_at = timestamp;
+          state.updated_at = timestamp;
+          writeStoredState(state);
+        } catch (stateErr) {
+          console.warn('[server] Warning updating store_state with new logo:', stateErr);
+        }
+
         const distDir = path.resolve(__dirname, 'dist');
         if (fs.existsSync(distDir)) {
-          fs.writeFileSync(path.resolve(distDir, 'logo.png'), buffer);
-          fs.copyFileSync(publicLogo, path.resolve(distDir, 'apple-touch-icon.png'));
-          fs.copyFileSync(publicLogo, path.resolve(distDir, 'brand-touch-icon.png'));
-          fs.copyFileSync(publicLogo, path.resolve(distDir, 'brand-favicon.png'));
-          if (fs.existsSync(path.resolve(__dirname, 'public/brand-icon.svg'))) {
-            fs.copyFileSync(path.resolve(__dirname, 'public/brand-icon.svg'), path.resolve(distDir, 'brand-icon.svg'));
-          }
-          if (fs.existsSync(path.resolve(__dirname, 'public/icon.svg'))) {
-            fs.copyFileSync(path.resolve(__dirname, 'public/icon.svg'), path.resolve(distDir, 'icon.svg'));
-          }
-          if (fs.existsSync(path.resolve(__dirname, 'public/og-preview.png'))) {
-            fs.copyFileSync(path.resolve(__dirname, 'public/og-preview.png'), path.resolve(distDir, 'og-preview.png'));
-          }
-          if (fs.existsSync(path.resolve(__dirname, 'public/favicon.ico'))) {
-            fs.copyFileSync(path.resolve(__dirname, 'public/favicon.ico'), path.resolve(distDir, 'favicon.ico'));
-          }
-          const distBrand = path.resolve(distDir, 'brand');
-          if (!fs.existsSync(distBrand)) fs.mkdirSync(distBrand, { recursive: true });
-          fs.writeFileSync(path.resolve(distBrand, 'wu-official-logo.png'), buffer);
-          if (fs.existsSync(path.resolve(__dirname, 'public/brand/brand-logo.svg'))) {
-            fs.copyFileSync(path.resolve(__dirname, 'public/brand/brand-logo.svg'), path.resolve(distBrand, 'brand-logo.svg'));
-          }
-          if (fs.existsSync(path.resolve(__dirname, 'public/brand/wu-logo.svg'))) {
-            fs.copyFileSync(path.resolve(__dirname, 'public/brand/wu-logo.svg'), path.resolve(distBrand, 'wu-logo.svg'));
+          try {
+            fs.copyFileSync(publicLogo, path.resolve(distDir, 'logo.png'));
+            fs.copyFileSync(publicLogo, path.resolve(distDir, 'apple-touch-icon.png'));
+            fs.copyFileSync(publicLogo, path.resolve(distDir, 'apple-touch-icon-precomposed.png'));
+            fs.copyFileSync(publicLogo, path.resolve(distDir, 'brand-touch-icon.png'));
+            fs.copyFileSync(publicLogo, path.resolve(distDir, 'brand-favicon.png'));
+            if (fs.existsSync(path.resolve(__dirname, 'public/brand-icon.svg'))) {
+              fs.copyFileSync(path.resolve(__dirname, 'public/brand-icon.svg'), path.resolve(distDir, 'brand-icon.svg'));
+            }
+            if (fs.existsSync(path.resolve(__dirname, 'public/icon.svg'))) {
+              fs.copyFileSync(path.resolve(__dirname, 'public/icon.svg'), path.resolve(distDir, 'icon.svg'));
+            }
+            if (fs.existsSync(path.resolve(__dirname, 'public/og-preview.png'))) {
+              fs.copyFileSync(path.resolve(__dirname, 'public/og-preview.png'), path.resolve(distDir, 'og-preview.png'));
+            }
+            if (fs.existsSync(path.resolve(__dirname, 'public/favicon.ico'))) {
+              fs.copyFileSync(path.resolve(__dirname, 'public/favicon.ico'), path.resolve(distDir, 'favicon.ico'));
+            }
+            const distBrand = path.resolve(distDir, 'brand');
+            if (!fs.existsSync(distBrand)) fs.mkdirSync(distBrand, { recursive: true });
+            fs.copyFileSync(brandLogo, path.resolve(distBrand, 'wu-official-logo.png'));
+            fs.copyFileSync(brandSquare, path.resolve(distBrand, 'wu-square-1024.png'));
+            fs.copyFileSync(brandMonogram, path.resolve(distBrand, 'wu-monogram.png'));
+            if (fs.existsSync(path.resolve(__dirname, 'public/brand/brand-logo.svg'))) {
+              fs.copyFileSync(path.resolve(__dirname, 'public/brand/brand-logo.svg'), path.resolve(distBrand, 'brand-logo.svg'));
+            }
+            if (fs.existsSync(path.resolve(__dirname, 'public/brand/wu-logo.svg'))) {
+              fs.copyFileSync(path.resolve(__dirname, 'public/brand/wu-logo.svg'), path.resolve(distBrand, 'wu-logo.svg'));
+            }
+          } catch (syncDistErr) {
+            console.warn('[server] Warning syncing to dist:', syncDistErr);
           }
         }
 
@@ -245,7 +309,13 @@ async function startServer() {
     }
   });
 
-  // Serve static public assets
+  // Serve static public assets with must-revalidate for brand icons
+  app.use((req, res, next) => {
+    if (req.path.match(/\.(ico|svg|png|webmanifest)$/i)) {
+      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
+    }
+    next();
+  });
   app.use(express.static(path.resolve(__dirname, 'public')));
 
   if (!isProduction) {

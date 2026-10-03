@@ -136,16 +136,34 @@ const MainContent: React.FC = () => {
         }
       }
 
-      if (path === '/preview' || hash === '#preview' || hash === '#/preview' || isPreviewMode) {
+      const previewProduct = searchParams.get('product') || searchParams.get('peca');
+      const isNavigatingToPreview = path === '/preview' || hash === '#preview' || hash === '#/preview';
+
+      if (isNavigatingToPreview) {
         setIsPreviewMode(true);
-        setActiveTab('store');
+        if (previewProduct) {
+          const matched = products.find(
+            (p) => p.slug?.toLowerCase() === previewProduct.toLowerCase()
+          );
+          if (matched) {
+            setSelectedProductSlug(matched.slug);
+            setActiveTab('product_detail');
+            setIsSplashActive(false);
+            return;
+          }
+        }
+        if (activeTab !== 'product_detail') {
+          setActiveTab('store');
+        }
         setIsSplashActive(false);
         return;
       }
 
       if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
         if (isPreviewMode) {
-          setActiveTab('store');
+          if (activeTab !== 'product_detail') {
+            setActiveTab('store');
+          }
           setIsSplashActive(false);
           return;
         }
@@ -192,7 +210,7 @@ const MainContent: React.FC = () => {
         }
       }
 
-      if (activeTab === 'admin') {
+      if (activeTab === 'admin' && !isPreviewMode) {
         setActiveTab('store');
       }
     };
@@ -203,7 +221,7 @@ const MainContent: React.FC = () => {
       window.removeEventListener('popstate', handleUrlCheck);
       window.removeEventListener('hashchange', handleUrlCheck);
     };
-  }, [setActiveTab, getOrderByTrackingCode, setDeliveryDateOrderCode, isAuthenticated, isPreviewMode]);
+  }, [setActiveTab, getOrderByTrackingCode, setDeliveryDateOrderCode, isAuthenticated, isPreviewMode, products]);
 
   // Garantia Universal: sempre que a aba ou o produto selecionado mudar,
   // reposiciona imediatamente a janela no topo absoluto (Y = 0),
@@ -214,12 +232,11 @@ const MainContent: React.FC = () => {
 
   // Sincronização Dinâmica do Ícone (Favicon / Apple Touch Icon) e Redes Sociais com o Logótipo da Marca
   useEffect(() => {
-    const rawLogo = settings.site_logo_url || settings.logo_url;
-    if (!rawLogo || rawLogo.trim() === '') return;
-
-    const absoluteLogoUrl = rawLogo.startsWith('http')
-      ? rawLogo
-      : `${window.location.origin}${rawLogo.startsWith('/') ? '' : '/'}${rawLogo}`;
+    const logoVersion = '20261002b';
+    const svgIconUrl = `/brand-icon.svg?v=${logoVersion}`;
+    const maskIconUrl = `/brand/brand-logo.svg?v=${logoVersion}`;
+    const touchIconUrl = `${window.location.origin}/brand-touch-icon.png?v=${logoVersion}`;
+    const faviconPngUrl = `${window.location.origin}/brand-favicon.png?v=${logoVersion}`;
 
     // 1. Atualizar ou injetar favicons (<link rel="icon"> e <link rel="apple-touch-icon">)
     // Preservar o ícone vetorial SVG "WU" que aparece no topo do Safari ao lado de voltar
@@ -234,11 +251,11 @@ const MainContent: React.FC = () => {
       if (type) link.type = type;
     };
 
-    updateOrCreateLink('link[rel="icon"][type="image/svg+xml"]', 'icon', '/brand-icon.svg?v=20260928', 'image/svg+xml');
-    updateOrCreateLink('link[rel="mask-icon"]', 'mask-icon', '/brand/brand-logo.svg?v=20260928');
-    updateOrCreateLink('link[rel="apple-touch-icon"]', 'apple-touch-icon', absoluteLogoUrl);
-    updateOrCreateLink('link[rel="icon"][type="image/png"]', 'icon', absoluteLogoUrl, 'image/png');
-    updateOrCreateLink('link[rel="shortcut icon"]', 'shortcut icon', absoluteLogoUrl);
+    updateOrCreateLink('link[rel="icon"][type="image/svg+xml"]', 'icon', svgIconUrl, 'image/svg+xml');
+    updateOrCreateLink('link[rel="mask-icon"]', 'mask-icon', maskIconUrl);
+    updateOrCreateLink('link[rel="apple-touch-icon"]', 'apple-touch-icon', touchIconUrl);
+    updateOrCreateLink('link[rel="icon"][type="image/png"]', 'icon', faviconPngUrl, 'image/png');
+    updateOrCreateLink('link[rel="shortcut icon"]', 'shortcut icon', faviconPngUrl);
 
     // 2. Definir título oficial e meta tags de partilha social (WhatsApp preview / OpenGraph / Twitter)
     document.title = 'UNUSUAL';
@@ -268,7 +285,7 @@ const MainContent: React.FC = () => {
 
   // Find selected product for detail view
   const selectedProduct = selectedProductSlug
-    ? products.find((p) => p.slug === selectedProductSlug) || products[0]
+    ? products.find((p) => p.slug?.toLowerCase() === selectedProductSlug.toLowerCase()) || products[0]
     : products[0];
 
   const handleOrderSuccess = (order: Order) => {

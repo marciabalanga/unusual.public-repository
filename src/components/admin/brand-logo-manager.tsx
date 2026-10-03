@@ -33,7 +33,7 @@ export const BrandLogoManager: React.FC<BrandLogoManagerProps> = ({ onSuccessToa
   const currentLogo =
     settings.site_logo_url && settings.site_logo_url.trim() !== ''
       ? settings.site_logo_url.trim()
-      : '/logo.png';
+      : '/brand-icon.svg?v=20261002b';
 
   const notify = (msg: string) => {
     setSaveStatus(msg);
@@ -403,15 +403,11 @@ export const BrandLogoManager: React.FC<BrandLogoManagerProps> = ({ onSuccessToa
                   : 'bg-neutral-100'
               }`}
             >
-              <img
+              <WULogo
+                size="lg"
                 src={currentLogo}
-                alt="Pré-visualização do Logótipo"
-                className="max-h-24 max-w-full w-auto object-contain transition-all"
-                onError={(e) => {
-                  if (e.currentTarget.src !== window.location.origin + '/logo.png') {
-                    e.currentTarget.src = '/logo.png';
-                  }
-                }}
+                className={previewBg === 'white' ? 'text-black' : 'text-white'}
+                imgClassName="max-h-24 max-w-full w-auto object-contain transition-all"
               />
             </div>
 

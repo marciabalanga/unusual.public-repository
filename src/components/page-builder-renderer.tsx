@@ -19,6 +19,7 @@ export const PageBuilderRenderer: React.FC = () => {
     settings,
     language,
     t,
+    isPreviewMode,
   } = useStore();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -33,6 +34,12 @@ export const PageBuilderRenderer: React.FC = () => {
     scrollToTop(true);
     setSelectedProductSlug(product.slug);
     setActiveTab('product_detail');
+    try {
+      const url = isPreviewMode
+        ? `/preview?product=${encodeURIComponent(product.slug)}`
+        : `/peca/${encodeURIComponent(product.slug)}`;
+      window.history.pushState({ productSlug: product.slug, tab: 'product_detail' }, '', url);
+    } catch {}
   };
 
   const categories = ['all', 'T-Shirts & Tops', 'Hoodies', 'Sweatshirts', 'Denim', 'Outerwear'];

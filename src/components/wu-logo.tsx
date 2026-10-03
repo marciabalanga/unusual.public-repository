@@ -9,6 +9,10 @@ export interface WULogoProps {
   src?: string;
 }
 
+// Official brand vector path (Wearing Unusual official symbol)
+export const BRAND_VECTOR_PATH =
+  'M 46.447 113.403 C 38.865 115.778, 29.541 121.486, 23.664 127.349 C 19.938 131.067, 16.654 135.621, 14.651 139.849 C 11.988 145.471, 11.500 147.660, 11.500 154 C 11.500 160.192, 11.989 162.496, 14.303 167.207 C 16.300 171.275, 19.305 174.865, 24.763 179.707 C 28.975 183.443, 33.478 187.625, 34.770 189 C 36.062 190.375, 37.983 193.300, 39.038 195.500 C 40.829 199.235, 40.958 202.152, 40.978 239.538 L 41 279.575 35.922 284.538 C 33.128 287.267, 30.175 290.770, 29.358 292.323 C 28.447 294.054, 28.118 296.262, 28.507 298.031 C 29.277 301.537, 35.236 307.001, 38.285 306.996 C 39.503 306.994, 41.990 306.084, 43.810 304.974 C 45.631 303.864, 47.656 303.279, 48.310 303.672 C 48.965 304.066, 54.900 308.425, 61.500 313.358 C 68.100 318.292, 74.850 323.153, 76.500 324.160 C 78.150 325.168, 81.075 325.994, 83 325.995 C 85.750 325.997, 89.393 324.058, 100 316.945 C 107.425 311.966, 114.751 307.224, 116.279 306.406 C 118.999 304.950, 119.210 305.042, 126.279 310.798 C 130.251 314.031, 136.362 318.774, 139.860 321.338 C 144.516 324.751, 147.142 326, 149.660 326 C 151.551 326, 154.392 325.331, 155.973 324.514 C 157.553 323.697, 172.044 314.683, 188.173 304.483 C 204.303 294.283, 218.062 285.190, 218.750 284.277 C 219.710 283.003, 220 271.442, 220 234.500 C 220 196.632, 220.277 186.004, 221.298 184.607 C 222.499 182.965, 222.903 183.138, 226.681 186.916 C 228.927 189.162, 231.611 191, 232.646 191 C 233.680 191, 236.867 189.424, 239.727 187.498 L 244.926 183.996 248.463 187.102 L 252 190.207 252 230.395 L 252 270.584 247.500 275 C 243.749 278.681, 243 280.042, 243 283.173 C 243 285.952, 243.811 287.854, 246.113 290.476 C 247.825 292.426, 255.363 298.846, 262.863 304.742 C 270.363 310.639, 279.177 317.609, 282.450 320.231 C 285.722 322.854, 289.322 324.984, 290.450 324.965 C 291.577 324.945, 293.420 324.383, 294.545 323.715 C 295.670 323.047, 302.064 318.337, 308.754 313.250 C 315.445 308.163, 321.119 304, 321.364 304 C 321.609 304, 323.240 306.535, 324.988 309.632 C 326.736 312.730, 329.592 316.606, 331.333 318.245 C 333.075 319.883, 336.876 322.338, 339.780 323.699 C 344.251 325.795, 345.537 326.009, 348.164 325.093 C 351.681 323.867, 385.098 301.654, 387.624 298.863 C 388.554 297.835, 389.273 295.364, 389.273 293.194 C 389.273 291.077, 388.470 288.120, 387.488 286.622 C 385.611 283.757, 381.203 281, 378.500 281 C 377.620 281, 375.551 281.698, 373.902 282.551 C 371.051 284.025, 370.808 283.988, 368.985 281.801 C 367.155 279.606, 367.065 277.338, 367.033 232.489 L 367 185.479 372.609 181.003 C 375.694 178.542, 378.844 175.634, 379.609 174.541 C 380.374 173.449, 381 171.035, 381 169.177 C 381 166.670, 380.124 164.924, 377.600 162.400 C 375.069 159.869, 373.344 159.006, 370.850 159.022 C 369.007 159.034, 366.400 159.890, 365.055 160.923 L 362.611 162.802 354.088 154.901 C 347.735 149.012, 344.864 147, 342.813 147 C 340.687 147, 336.192 150.422, 323.031 162.060 C 308.864 174.587, 306 177.576, 306 179.837 C 306 181.872, 307.755 184.295, 313 189.500 L 320 196.446 320 238.200 L 320 279.954 317.525 281.575 C 315.094 283.168, 314.929 283.088, 308.025 276.953 L 301 270.709 300.983 230.104 C 300.963 185.027, 300.501 180.472, 294.873 169.914 C 292.718 165.870, 289.307 161.799, 284.575 157.623 C 280.684 154.189, 276.202 150.394, 274.615 149.190 C 273.028 147.985, 270.496 147, 268.989 147 C 267.118 147, 262.055 150.018, 253.052 156.500 C 245.795 161.725, 239.485 166, 239.029 166 C 238.574 166, 235.222 163.300, 231.581 160 C 227.352 156.168, 224.092 154, 222.557 154 C 221.235 154, 218.816 155.125, 217.182 156.500 C 215.548 157.875, 213.932 159, 213.590 159 C 213.248 159, 209.679 156.300, 205.658 153 C 201.148 149.298, 197.412 147, 195.904 147 C 194.249 147, 188.350 151.203, 177.605 160.039 C 163.621 171.540, 161.542 172.926, 159.991 171.789 C 159.023 171.080, 152.263 165.398, 144.968 159.161 C 137.674 152.925, 130.696 147.363, 129.462 146.801 C 127.985 146.128, 126.620 146.113, 125.468 146.758 C 122.310 148.526, 92.259 175.449, 91.010 177.631 C 90.339 178.803, 90.057 180.603, 90.383 181.632 C 90.710 182.661, 94.132 185.909, 97.989 188.850 L 105 194.197 105 239.099 C 105 263.794, 104.751 284, 104.447 284 C 104.142 284, 100.814 281.512, 97.051 278.471 L 90.208 272.943 89.705 233.721 C 89.165 191.536, 88.700 187.161, 83.504 175.412 C 82.086 172.206, 79.189 167.283, 77.067 164.472 C 74.693 161.329, 69.664 156.934, 64.004 153.057 C 53.868 146.115, 51.607 142.906, 53.101 137.580 C 53.576 135.886, 55.210 133.459, 56.732 132.186 C 65.137 125.159, 66 124.181, 66 121.687 C 66 120.261, 65.500 117.998, 64.890 116.657 C 64.279 115.317, 62.683 113.721, 61.343 113.110 C 58.182 111.670, 51.564 111.801, 46.447 113.403 M 155.687 187.805 L 153 190.609 153 231.236 L 153 271.862 160.532 278.431 C 164.675 282.044, 168.500 285, 169.032 285 C 169.642 285, 170 268.241, 170 239.712 L 170 194.425 165.216 189.712 C 162.584 187.121, 159.968 185, 159.403 185 C 158.837 185, 157.165 186.262, 155.687 187.805';
+
 export const WULogo: React.FC<WULogoProps> = ({
   size = 'md',
   className = '',
@@ -18,23 +22,6 @@ export const WULogo: React.FC<WULogoProps> = ({
 }) => {
   const { settings } = useStore();
   const [imgError, setImgError] = useState(false);
-
-  // Reset imgError whenever the configured logo URL changes
-  useEffect(() => {
-    setImgError(false);
-  }, [settings.site_logo_url, settings.logo_url, src]);
-
-  // Read dynamically from prop -> global Supabase settings -> localStorage cache -> /logo.png
-  const cachedLogo = typeof window !== 'undefined' ? localStorage.getItem('wu_brand_logo_url') : null;
-  const sanitize = (val?: string | null) => (val && typeof val === 'string' && val.trim() !== '' ? val.trim() : null);
-  const activeSrc =
-    sanitize(src) ||
-    (imgError
-      ? '/logo.png'
-      : sanitize(settings.site_logo_url) ||
-        sanitize(settings.logo_url) ||
-        sanitize(cachedLogo !== '/logo.png' ? cachedLogo : null) ||
-        '/logo.png');
 
   // Strict editorial responsive sizing with aspect-ratio preservation
   const sizeClasses: Record<string, string> = {
@@ -49,25 +36,57 @@ export const WULogo: React.FC<WULogoProps> = ({
 
   const chosenSize = sizeClasses[size] || sizeClasses.md;
 
+  const rawConfiguredLogo = src || settings.site_logo_url || settings.logo_url;
+  const isDefaultVector =
+    !rawConfiguredLogo ||
+    rawConfiguredLogo === '/logo.png' ||
+    rawConfiguredLogo.startsWith('/brand-icon.svg') ||
+    rawConfiguredLogo.startsWith('/brand/brand-logo.svg') ||
+    rawConfiguredLogo.startsWith('/icon.svg');
+
+  useEffect(() => {
+    setImgError(false);
+  }, [rawConfiguredLogo]);
+
+  // If using official brand identity vector, render lossless SVG with currentColor & full transparency
+  if (isDefaultVector || imgError) {
+    return (
+      <div
+        className={`inline-flex items-center justify-center shrink-0 select-none ${className}`}
+        title={settings.store_name || 'Wearing Unusual'}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 400 400"
+          className={`w-auto object-contain transition-opacity duration-200 ${chosenSize} ${imgClassName}`}
+          aria-label={alt || settings.store_name || 'Wearing Unusual'}
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d={BRAND_VECTOR_PATH}
+            fill="currentColor"
+          />
+        </svg>
+      </div>
+    );
+  }
+
+  // If administrator uploaded a custom external URL or custom raster image, render responsive <img>
   return (
     <div
       className={`inline-flex items-center justify-center shrink-0 select-none ${className}`}
       title={settings.store_name || 'Wearing Unusual'}
     >
-      {/* Real image element reading dynamically from global Supabase settings */}
       <img
-        src={activeSrc}
+        src={rawConfiguredLogo}
         alt={alt || settings.store_name || 'Wearing Unusual'}
         className={`w-auto object-contain transition-opacity duration-200 ${chosenSize} ${imgClassName}`}
-        onError={() => {
-          if (!imgError) {
-            setImgError(true);
-          }
-        }}
+        onError={() => setImgError(true)}
         referrerPolicy="no-referrer"
         loading="eager"
       />
     </div>
   );
 };
-

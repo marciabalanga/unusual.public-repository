@@ -6,7 +6,7 @@ import { Product } from '../types';
 import { scrollToTop } from '../lib/scroll';
 
 export const TimeCapsuleView: React.FC = () => {
-  const { timeCapsuleProducts, setSelectedProductSlug, setActiveTab, settings, language } = useStore();
+  const { timeCapsuleProducts, setSelectedProductSlug, setActiveTab, settings, language, isPreviewMode } = useStore();
 
   useEffect(() => {
     scrollToTop(true);
@@ -16,6 +16,12 @@ export const TimeCapsuleView: React.FC = () => {
     scrollToTop(true);
     setSelectedProductSlug(product.slug);
     setActiveTab('product_detail');
+    try {
+      const url = isPreviewMode
+        ? `/preview?product=${encodeURIComponent(product.slug)}`
+        : `/peca/${encodeURIComponent(product.slug)}`;
+      window.history.pushState({ productSlug: product.slug, tab: 'product_detail' }, '', url);
+    } catch {}
   };
 
   return (

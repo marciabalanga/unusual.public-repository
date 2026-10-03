@@ -208,10 +208,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [publishedSettings, setPublishedSettings] = useState<SiteSettings>(() => {
     try {
+      const cachedLogo = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEYS.BRAND_LOGO) : null;
+      const cachedBio = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEYS.BRAND_BIO) : null;
+      const cachedLocation = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEYS.LOCATION_TEXT) : null;
+      const cachedInsta = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEYS.INSTAGRAM_HANDLE) : null;
       const pubSaved = localStorage.getItem(LOCAL_STORAGE_KEYS.PUBLISHED_SETTINGS);
-      if (pubSaved) return JSON.parse(pubSaved);
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.SETTINGS);
-      return saved ? { ...INITIAL_SETTINGS, ...JSON.parse(saved) } : INITIAL_SETTINGS;
+      const saved = pubSaved || localStorage.getItem(LOCAL_STORAGE_KEYS.SETTINGS);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const resolvedLogo =
+          (cachedLogo && cachedLogo !== '/logo.png' ? cachedLogo : null) ||
+          (parsed.site_logo_url && parsed.site_logo_url !== '/logo.png' ? parsed.site_logo_url : null) ||
+          (parsed.logo_url && parsed.logo_url !== '/logo.png' ? parsed.logo_url : null) ||
+          INITIAL_SETTINGS.site_logo_url ||
+          '/brand-icon.svg?v=20261002b';
+        return {
+          ...INITIAL_SETTINGS,
+          ...parsed,
+          ...(cachedBio ? { brand_bio: cachedBio } : {}),
+          ...(cachedLocation ? { location_text: cachedLocation } : {}),
+          ...(cachedInsta ? { instagram_handle: cachedInsta } : {}),
+          site_logo_url: resolvedLogo,
+          logo_url: resolvedLogo,
+        };
+      }
+      return INITIAL_SETTINGS;
     } catch {
       return INITIAL_SETTINGS;
     }
@@ -263,11 +284,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (saved) {
         const parsed = JSON.parse(saved);
         const resolvedLogo =
-          cachedLogo ||
-          parsed.site_logo_url ||
-          parsed.logo_url ||
+          (cachedLogo && cachedLogo !== '/logo.png' ? cachedLogo : null) ||
+          (parsed.site_logo_url && parsed.site_logo_url !== '/logo.png' ? parsed.site_logo_url : null) ||
+          (parsed.logo_url && parsed.logo_url !== '/logo.png' ? parsed.logo_url : null) ||
           INITIAL_SETTINGS.site_logo_url ||
-          '/logo.png';
+          '/brand-icon.svg?v=20261002b';
         return {
           ...INITIAL_SETTINGS,
           ...parsed,
@@ -422,8 +443,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
       const hash = window.location.hash.toLowerCase();
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('product') || params.get('peca') || path.startsWith('/peca/') || path.startsWith('/produto/')) {
+        return 'product_detail';
+      }
       if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
         return 'admin';
+      }
+      if (path === '/capsule' || hash === '#capsule' || hash === '#/capsule') {
+        return 'capsule';
+      }
+      if (path === '/track' || hash === '#track' || hash === '#/track') {
+        return 'track';
       }
       if (
         path.startsWith('/choose-delivery-date') ||
@@ -432,7 +463,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return 'choose_delivery_date';
       }
       const cleanSlug = path.replace(/^\/+|\/+$/g, '');
-      if (cleanSlug && cleanSlug !== 'admin' && !cleanSlug.startsWith('choose-delivery-date') && cleanSlug !== 'track' && cleanSlug !== 'capsule') {
+      if (
+        cleanSlug &&
+        cleanSlug !== 'admin' &&
+        cleanSlug !== 'preview' &&
+        cleanSlug !== 'store' &&
+        !cleanSlug.startsWith('choose-delivery-date') &&
+        cleanSlug !== 'track' &&
+        cleanSlug !== 'capsule'
+      ) {
         return 'custom_content';
       }
     }
@@ -469,7 +508,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setDraftDictionary(val);
   }, [setHasUnpublishedChanges]);
 
-  const [selectedProductSlug, setSelectedProductSlug] = useState<string | null>(null);
+  const [selectedProductSlug, setSelectedProductSlug] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('product') || params.get('peca');
+      if (q) return q.trim();
+      const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+      if (path.startsWith('peca/')) return decodeURIComponent(path.replace(/^peca\//i, '')).trim();
+      if (path.startsWith('produto/')) return decodeURIComponent(path.replace(/^produto\//i, '')).trim();
+    }
+    return null;
+  });
   const [trackingInput, setTrackingInput] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -691,13 +740,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (serverRes.ok) {
         const serverData = await serverRes.json();
         if (serverData && serverData.settings) {
+          const sLogo = serverData.settings.site_logo_url || serverData.settings.logo_url;
           setSettings((prev) => {
             const localTime = new Date(prev.updated_at || 0).getTime();
             const serverTime = new Date(serverData.settings.updated_at || 0).getTime();
             if (serverTime >= localTime) {
-              const merged = { ...prev, ...serverData.settings };
+              const currentValidLogo = (prev.site_logo_url && prev.site_logo_url !== '/logo.png') ? prev.site_logo_url : null;
+              const merged = {
+                ...prev,
+                ...serverData.settings,
+                site_logo_url: (sLogo && sLogo !== '/logo.png') ? sLogo : (currentValidLogo || prev.site_logo_url || '/brand-icon.svg?v=20261002b'),
+                logo_url: (sLogo && sLogo !== '/logo.png') ? sLogo : (currentValidLogo || prev.logo_url || '/brand-icon.svg?v=20261002b'),
+              };
+              setPublishedSettings(merged);
               try {
                 localStorage.setItem(LOCAL_STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
+                localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_SETTINGS, JSON.stringify(merged));
               } catch {}
               return merged;
             }
@@ -919,11 +977,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const cachedInsta = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEYS.INSTAGRAM_HANDLE) : null;
 
           const finalLogo =
-            remoteLogoUrl ||
-            prev.site_logo_url ||
-            prev.logo_url ||
-            (cached && cached !== '/logo.png' ? cached : undefined) ||
-            '/logo.png';
+            (remoteLogoUrl && remoteLogoUrl !== '/logo.png' ? remoteLogoUrl : null) ||
+            (prev.site_logo_url && prev.site_logo_url !== '/logo.png' ? prev.site_logo_url : null) ||
+            (prev.logo_url && prev.logo_url !== '/logo.png' ? prev.logo_url : null) ||
+            (cached && cached !== '/logo.png' ? cached : null) ||
+            INITIAL_SETTINGS.site_logo_url ||
+            '/brand-icon.svg?v=20261002b';
 
           const finalBrandBio =
             (r.brand_bio && typeof r.brand_bio === 'string' && r.brand_bio.trim())
@@ -978,7 +1037,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             ? mergedCustom.filter((c) => !deletedCustomSet.has(c.id) && !deletedCustomSet.has(c.slug))
             : [];
 
-          return {
+          const mergedResult: SiteSettings = {
             ...INITIAL_SETTINGS,
             ...prev,
             ...cleanRemote,
@@ -989,6 +1048,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             site_logo_url: finalLogo,
             logo_url: finalLogo,
           };
+
+          setPublishedSettings(mergedResult);
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEYS.SETTINGS, JSON.stringify(mergedResult));
+            localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_SETTINGS, JSON.stringify(mergedResult));
+            if (finalLogo && finalLogo !== '/logo.png') {
+              localStorage.setItem(LOCAL_STORAGE_KEYS.BRAND_LOGO, finalLogo);
+            }
+          } catch {}
+
+          return mergedResult;
         });
       }
 
@@ -1620,19 +1690,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updated_at: new Date().toISOString(),
     };
     setSettings(merged);
+    setPublishedSettings(merged);
     try {
       localStorage.setItem(LOCAL_STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
       localStorage.setItem(LOCAL_STORAGE_KEYS.DRAFT_SETTINGS, JSON.stringify(merged));
+      localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_SETTINGS, JSON.stringify(merged));
+      if (logoToUpdate && logoToUpdate !== '/logo.png') {
+        localStorage.setItem(LOCAL_STORAGE_KEYS.BRAND_LOGO, logoToUpdate);
+      }
     } catch {}
     setStoredItem(LOCAL_STORAGE_KEYS.SETTINGS, merged).catch(() => {});
     setStoredItem(LOCAL_STORAGE_KEYS.DRAFT_SETTINGS, merged).catch(() => {});
+    setStoredItem(LOCAL_STORAGE_KEYS.PUBLISHED_SETTINGS, merged).catch(() => {});
 
     // Instantly persist settings to server state (cross-browser / cross-device)
     try {
       await fetch('/api/store-state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings: merged }),
+        body: JSON.stringify({ settings: merged, publish: true }),
       });
     } catch (e) {
       console.warn('[ServerState] Falha ao persistir definições no servidor:', e);
