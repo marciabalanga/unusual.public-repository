@@ -37,53 +37,26 @@ export const WULogo: React.FC<WULogoProps> = ({
   const chosenSize = sizeClasses[size] || sizeClasses.md;
 
   const rawConfiguredLogo = src || settings.site_logo_url || settings.logo_url;
-  const isDefaultVector =
-    !rawConfiguredLogo ||
-    rawConfiguredLogo === '/logo.png' ||
-    rawConfiguredLogo.startsWith('/brand-icon.svg') ||
-    rawConfiguredLogo.startsWith('/brand/brand-logo.svg') ||
-    rawConfiguredLogo.startsWith('/icon.svg');
+  const targetSrc = rawConfiguredLogo && rawConfiguredLogo.trim() !== '' ? rawConfiguredLogo.trim() : '/logo.png';
 
   useEffect(() => {
     setImgError(false);
-  }, [rawConfiguredLogo]);
+  }, [targetSrc]);
 
-  // If using official brand identity vector, render lossless SVG with currentColor & full transparency
-  if (isDefaultVector || imgError) {
-    return (
-      <div
-        className={`inline-flex items-center justify-center shrink-0 select-none ${className}`}
-        title={settings.store_name || 'Wearing Unusual'}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 400 400"
-          className={`w-auto object-contain transition-opacity duration-200 ${chosenSize} ${imgClassName}`}
-          aria-label={alt || settings.store_name || 'Wearing Unusual'}
-          fill="currentColor"
-        >
-          <path
-            fillRule="evenodd"
-            clipRule="evenodd"
-            d={BRAND_VECTOR_PATH}
-            fill="currentColor"
-          />
-        </svg>
-      </div>
-    );
-  }
-
-  // If administrator uploaded a custom external URL or custom raster image, render responsive <img>
   return (
     <div
       className={`inline-flex items-center justify-center shrink-0 select-none ${className}`}
       title={settings.store_name || 'Wearing Unusual'}
     >
       <img
-        src={rawConfiguredLogo}
+        src={imgError ? '/logo.png' : targetSrc}
         alt={alt || settings.store_name || 'Wearing Unusual'}
         className={`w-auto object-contain transition-opacity duration-200 ${chosenSize} ${imgClassName}`}
-        onError={() => setImgError(true)}
+        onError={() => {
+          if (!imgError && targetSrc !== '/logo.png') {
+            setImgError(true);
+          }
+        }}
         referrerPolicy="no-referrer"
         loading="eager"
       />

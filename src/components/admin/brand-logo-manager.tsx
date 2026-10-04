@@ -33,7 +33,7 @@ export const BrandLogoManager: React.FC<BrandLogoManagerProps> = ({ onSuccessToa
   const currentLogo =
     settings.site_logo_url && settings.site_logo_url.trim() !== ''
       ? settings.site_logo_url.trim()
-      : '/brand-icon.svg?v=20261002b';
+      : '/logo.png';
 
   const notify = (msg: string) => {
     setSaveStatus(msg);
@@ -336,11 +336,11 @@ export const BrandLogoManager: React.FC<BrandLogoManagerProps> = ({ onSuccessToa
 
               <button
                 type="button"
-                onClick={() => handleResetToDefault('/brand/wu-logo.svg', 'Logo SVG Vetorial (/brand/wu-logo.svg)')}
+                onClick={() => handleResetToDefault('/brand-icon.svg', 'Logo SVG Adaptativo (/brand-icon.svg)')}
                 className="px-3 py-2 bg-[#161616] hover:bg-[#222222] border border-[#2c2c2c] rounded text-xs text-neutral-300 font-sans flex items-center gap-1.5 transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5 text-neutral-400" />
-                <span>Vetor SVG (/brand/wu-logo.svg)</span>
+                <span>Logo SVG Adaptativo (/brand-icon.svg)</span>
               </button>
             </div>
           </div>

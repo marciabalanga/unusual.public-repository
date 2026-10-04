@@ -209,39 +209,80 @@ async function startServer() {
           fs.writeFileSync(brandLogo, buffer);
         }
 
-        // Copy high-resolution PNGs to all Apple touch icon and favicon paths
-        fs.copyFileSync(publicLogo, path.resolve(__dirname, 'public/apple-touch-icon.png'));
-        fs.copyFileSync(publicLogo, path.resolve(__dirname, 'public/apple-touch-icon-precomposed.png'));
-        fs.copyFileSync(publicLogo, path.resolve(__dirname, 'public/brand-touch-icon.png'));
-        fs.copyFileSync(publicLogo, path.resolve(__dirname, 'public/brand-favicon.png'));
-        fs.copyFileSync(publicLogo, brandSquare);
-        fs.copyFileSync(publicLogo, brandMonogram);
-
         try {
+          const trimmedWhite = path.resolve(__dirname, 'public/temp-trimmed-white.png');
+          const trimmedBlack = path.resolve(__dirname, 'public/temp-trimmed-black.png');
+          const bg180 = path.resolve(__dirname, 'public/temp-bg180.png');
+          const fg140 = path.resolve(__dirname, 'public/temp-fg140.png');
+          const bg192 = path.resolve(__dirname, 'public/temp-bg192.png');
+          const fg150 = path.resolve(__dirname, 'public/temp-fg150.png');
+          const bg1200 = path.resolve(__dirname, 'public/temp-bg1200.png');
+          const fg500 = path.resolve(__dirname, 'public/temp-fg500.png');
+          const fav16 = path.resolve(__dirname, 'public/temp-fav16.png');
+          const fav32 = path.resolve(__dirname, 'public/temp-fav32.png');
+          const fav48 = path.resolve(__dirname, 'public/temp-fav48.png');
+
+          // 1. Trim master logo to get exact content bounds
+          execSync(`convert "${publicLogo}" -trim +repage "${trimmedWhite}"`);
+          execSync(`convert "${trimmedWhite}" -channel RGB -negate +channel "${trimmedBlack}"`);
+
+          // 2. Generate Apple Touch Icon (180x180) on solid brutalist background #080808
+          execSync(`convert -size 180x180 xc:"#080808" "${bg180}"`);
+          execSync(`convert "${trimmedWhite}" -resize 140x140 "${fg140}"`);
+          execSync(`composite -gravity center "${fg140}" "${bg180}" "${path.resolve(__dirname, 'public/apple-touch-icon.png')}"`);
+          fs.copyFileSync(path.resolve(__dirname, 'public/apple-touch-icon.png'), path.resolve(__dirname, 'public/apple-touch-icon-precomposed.png'));
+          fs.copyFileSync(path.resolve(__dirname, 'public/apple-touch-icon.png'), path.resolve(__dirname, 'public/brand-touch-icon.png'));
+          fs.copyFileSync(path.resolve(__dirname, 'public/apple-touch-icon.png'), brandSquare);
+          fs.copyFileSync(path.resolve(__dirname, 'public/apple-touch-icon.png'), brandMonogram);
+          fs.copyFileSync(path.resolve(__dirname, 'public/apple-touch-icon.png'), brandLogo);
+
+          // 3. Generate Favicons: 192x192, 32x32
+          execSync(`convert -size 192x192 xc:"#080808" "${bg192}"`);
+          execSync(`convert "${trimmedWhite}" -resize 150x150 "${fg150}"`);
+          execSync(`composite -gravity center "${fg150}" "${bg192}" "${path.resolve(__dirname, 'public/brand-favicon.png')}"`);
+
+          // 4. Generate multi-resolution favicon.ico
+          execSync(`convert "${path.resolve(__dirname, 'public/brand-favicon.png')}" -resize 16x16 "${fav16}"`);
+          execSync(`convert "${path.resolve(__dirname, 'public/brand-favicon.png')}" -resize 32x32 "${fav32}"`);
+          execSync(`convert "${path.resolve(__dirname, 'public/brand-favicon.png')}" -resize 48x48 "${fav48}"`);
+          execSync(`convert "${fav16}" "${fav32}" "${fav48}" "${path.resolve(__dirname, 'public/favicon.ico')}"`);
+
+          // 5. Generate high-resolution social preview (og-preview.png: 1200x630)
           const ogPreview = path.resolve(__dirname, 'public/og-preview.png');
           const brandOg = path.resolve(__dirname, 'public/brand/wu-og-preview.png');
-          const favIco = path.resolve(__dirname, 'public/favicon.ico');
-          execSync(`convert -size 1200x630 xc:'#000000' "${publicLogo}" -gravity center -composite -depth 8 "${ogPreview}"`);
-          execSync(`cp "${ogPreview}" "${brandOg}"`);
-          execSync(`convert "${publicLogo}" -background transparent \\( -clone 0 -resize 16x16 \\) \\( -clone 0 -resize 32x32 \\) \\( -clone 0 -resize 48x48 \\) -delete 0 "${favIco}"`);
+          execSync(`convert -size 1200x630 xc:"#080808" "${bg1200}"`);
+          execSync(`convert "${trimmedWhite}" -resize 500x300 "${fg500}"`);
+          execSync(`composite -gravity center "${fg500}" "${bg1200}" "${ogPreview}"`);
+          fs.copyFileSync(ogPreview, brandOg);
 
-          if (!isSvg) {
-            const tempMask = path.resolve(__dirname, 'public/temp-mask.png');
-            execSync(`convert "${publicLogo}" -alpha extract -negate "${tempMask}"`);
-            potrace.trace(tempMask, { threshold: 128, optTolerance: 0.05, turdSize: 1 }, (pErr: any, svgStr: string) => {
-              if (!pErr && svgStr) {
-                const m = svgStr.match(/d="([^"]+)"/);
-                if (m) {
-                  const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" fill="none" aria-label="UNUSUAL">\n  <style>\n    .logo-path { fill: #000000; }\n    @media (prefers-color-scheme: dark) {\n      .logo-path { fill: #ffffff; }\n    }\n  </style>\n  <path class="logo-path" fill-rule="evenodd" clip-rule="evenodd" d="${m[1]}" />\n</svg>\n`;
-                  const monoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" fill="currentColor" aria-label="UNUSUAL">\n  <path fill-rule="evenodd" clip-rule="evenodd" d="${m[1]}" />\n</svg>\n`;
-                  fs.writeFileSync(path.resolve(__dirname, 'public/brand-icon.svg'), iconSvg);
-                  fs.writeFileSync(path.resolve(__dirname, 'public/icon.svg'), iconSvg);
-                  fs.writeFileSync(path.resolve(__dirname, 'public/brand/brand-logo.svg'), monoSvg);
-                  fs.writeFileSync(path.resolve(__dirname, 'public/brand/wu-logo.svg'), monoSvg);
-                }
-              }
-            });
-          }
+          // 6. Generate adaptive brand-icon.svg & icon.svg
+          const whiteB64 = fs.readFileSync(trimmedWhite).toString('base64');
+          const blackB64 = fs.readFileSync(trimmedBlack).toString('base64');
+          const adaptiveSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="100%" height="100%" aria-label="UNUSUAL">
+  <style>
+    .theme-light { display: block; }
+    .theme-dark { display: none; }
+    @media (prefers-color-scheme: dark) {
+      .theme-light { display: none; }
+      .dark-theme { display: block; }
+      .theme-dark { display: block; }
+    }
+  </style>
+  <image class="theme-light" href="data:image/png;base64,${blackB64}" x="10" y="10" width="380" height="380" preserveAspectRatio="xMidYMid meet" />
+  <image class="theme-dark" href="data:image/png;base64,${whiteB64}" x="10" y="10" width="380" height="380" preserveAspectRatio="xMidYMid meet" />
+</svg>\n`;
+
+          fs.writeFileSync(path.resolve(__dirname, 'public/brand-icon.svg'), adaptiveSvg);
+          fs.writeFileSync(path.resolve(__dirname, 'public/icon.svg'), adaptiveSvg);
+          fs.writeFileSync(path.resolve(__dirname, 'public/brand/brand-logo.svg'), adaptiveSvg);
+          fs.writeFileSync(path.resolve(__dirname, 'public/brand/wu-logo.svg'), adaptiveSvg);
+
+          // Cleanup temp files
+          [trimmedWhite, trimmedBlack, bg180, fg140, bg192, fg150, bg1200, fg500, fav16, fav32, fav48].forEach((f) => {
+            if (fs.existsSync(f)) {
+              try { fs.unlinkSync(f); } catch {}
+            }
+          });
         } catch (genErr) {
           console.warn('[server] Warning generating derived preview/favicon:', genErr);
         }

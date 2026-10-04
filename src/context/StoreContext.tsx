@@ -217,11 +217,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (saved) {
         const parsed = JSON.parse(saved);
         const resolvedLogo =
-          (cachedLogo && cachedLogo !== '/logo.png' ? cachedLogo : null) ||
-          (parsed.site_logo_url && parsed.site_logo_url !== '/logo.png' ? parsed.site_logo_url : null) ||
-          (parsed.logo_url && parsed.logo_url !== '/logo.png' ? parsed.logo_url : null) ||
+          cachedLogo ||
+          parsed.site_logo_url ||
+          parsed.logo_url ||
           INITIAL_SETTINGS.site_logo_url ||
-          '/brand-icon.svg?v=20261002b';
+          '/logo.png';
         return {
           ...INITIAL_SETTINGS,
           ...parsed,
@@ -284,11 +284,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (saved) {
         const parsed = JSON.parse(saved);
         const resolvedLogo =
-          (cachedLogo && cachedLogo !== '/logo.png' ? cachedLogo : null) ||
-          (parsed.site_logo_url && parsed.site_logo_url !== '/logo.png' ? parsed.site_logo_url : null) ||
-          (parsed.logo_url && parsed.logo_url !== '/logo.png' ? parsed.logo_url : null) ||
+          cachedLogo ||
+          parsed.site_logo_url ||
+          parsed.logo_url ||
           INITIAL_SETTINGS.site_logo_url ||
-          '/brand-icon.svg?v=20261002b';
+          '/logo.png';
         return {
           ...INITIAL_SETTINGS,
           ...parsed,
@@ -745,12 +745,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             const localTime = new Date(prev.updated_at || 0).getTime();
             const serverTime = new Date(serverData.settings.updated_at || 0).getTime();
             if (serverTime >= localTime) {
-              const currentValidLogo = (prev.site_logo_url && prev.site_logo_url !== '/logo.png') ? prev.site_logo_url : null;
+              const currentValidLogo = prev.site_logo_url || prev.logo_url || null;
               const merged = {
                 ...prev,
                 ...serverData.settings,
-                site_logo_url: (sLogo && sLogo !== '/logo.png') ? sLogo : (currentValidLogo || prev.site_logo_url || '/brand-icon.svg?v=20261002b'),
-                logo_url: (sLogo && sLogo !== '/logo.png') ? sLogo : (currentValidLogo || prev.logo_url || '/brand-icon.svg?v=20261002b'),
+                site_logo_url: sLogo || currentValidLogo || '/logo.png',
+                logo_url: sLogo || currentValidLogo || '/logo.png',
               };
               setPublishedSettings(merged);
               try {
@@ -977,12 +977,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const cachedInsta = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEYS.INSTAGRAM_HANDLE) : null;
 
           const finalLogo =
-            (remoteLogoUrl && remoteLogoUrl !== '/logo.png' ? remoteLogoUrl : null) ||
-            (prev.site_logo_url && prev.site_logo_url !== '/logo.png' ? prev.site_logo_url : null) ||
-            (prev.logo_url && prev.logo_url !== '/logo.png' ? prev.logo_url : null) ||
-            (cached && cached !== '/logo.png' ? cached : null) ||
+            remoteLogoUrl ||
+            prev.site_logo_url ||
+            prev.logo_url ||
+            cached ||
             INITIAL_SETTINGS.site_logo_url ||
-            '/brand-icon.svg?v=20261002b';
+            '/logo.png';
 
           const finalBrandBio =
             (r.brand_bio && typeof r.brand_bio === 'string' && r.brand_bio.trim())

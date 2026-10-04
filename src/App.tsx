@@ -232,14 +232,13 @@ const MainContent: React.FC = () => {
 
   // Sincronização Dinâmica do Ícone (Favicon / Apple Touch Icon) e Redes Sociais com o Logótipo da Marca
   useEffect(() => {
-    const logoVersion = '20261002b';
+    const logoVersion = '20261003_v3';
     const svgIconUrl = `/brand-icon.svg?v=${logoVersion}`;
-    const maskIconUrl = `/brand/brand-logo.svg?v=${logoVersion}`;
-    const touchIconUrl = `${window.location.origin}/brand-touch-icon.png?v=${logoVersion}`;
+    const touchIconUrl = `${window.location.origin}/apple-touch-icon.png?v=${logoVersion}`;
     const faviconPngUrl = `${window.location.origin}/brand-favicon.png?v=${logoVersion}`;
+    const faviconIcoUrl = `${window.location.origin}/favicon.ico?v=${logoVersion}`;
 
     // 1. Atualizar ou injetar favicons (<link rel="icon"> e <link rel="apple-touch-icon">)
-    // Preservar o ícone vetorial SVG "WU" que aparece no topo do Safari ao lado de voltar
     const updateOrCreateLink = (selector: string, rel: string, href: string, type?: string) => {
       let link = document.querySelector(selector) as HTMLLinkElement | null;
       if (!link) {
@@ -252,10 +251,10 @@ const MainContent: React.FC = () => {
     };
 
     updateOrCreateLink('link[rel="icon"][type="image/svg+xml"]', 'icon', svgIconUrl, 'image/svg+xml');
-    updateOrCreateLink('link[rel="mask-icon"]', 'mask-icon', maskIconUrl);
     updateOrCreateLink('link[rel="apple-touch-icon"]', 'apple-touch-icon', touchIconUrl);
+    updateOrCreateLink('link[rel="apple-touch-icon-precomposed"]', 'apple-touch-icon-precomposed', touchIconUrl);
     updateOrCreateLink('link[rel="icon"][type="image/png"]', 'icon', faviconPngUrl, 'image/png');
-    updateOrCreateLink('link[rel="shortcut icon"]', 'shortcut icon', faviconPngUrl);
+    updateOrCreateLink('link[rel="shortcut icon"]', 'shortcut icon', faviconIcoUrl);
 
     // 2. Definir título oficial e meta tags de partilha social (WhatsApp preview / OpenGraph / Twitter)
     document.title = 'UNUSUAL';

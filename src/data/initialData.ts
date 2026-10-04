@@ -301,7 +301,7 @@ export const INITIAL_DICTIONARY: DictionaryEntry[] = [
 export const INITIAL_SETTINGS: SiteSettings = {
   id: 'global',
   store_name: 'WEARING UNUSUAL',
-  site_logo_url: '/brand-icon.svg?v=20261002b',
+  site_logo_url: '/logo.png',
   brand_bio: 'Wearing Unusual — Silhuetas brutalistas e rigor arquitetural desenhados e produzidos em Luanda, Angola. Edições limitadas sob demanda.',
   location_text: 'Luanda, Angola • Entregas em Toda a Cidade',
   contact_email: 'contato@wearingunusual.com',
