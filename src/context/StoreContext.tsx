@@ -158,16 +158,73 @@ const LOCAL_STORAGE_KEYS = {
   RESTOCK_REQUESTS: 'wu_restock_requests_v1',
 
   // Draft vs Published Keys
-  PUBLISHED_PRODUCTS: 'wu_published_products_v1',
-  PUBLISHED_BLOCKS: 'wu_published_blocks_v1',
-  PUBLISHED_SETTINGS: 'wu_published_settings_v1',
-  PUBLISHED_DICTIONARY: 'wu_published_dictionary_v1',
-  DRAFT_PRODUCTS: 'wu_draft_products_v1',
-  DRAFT_BLOCKS: 'wu_draft_blocks_v1',
-  DRAFT_SETTINGS: 'wu_draft_settings_v1',
-  DRAFT_DICTIONARY: 'wu_draft_dictionary_v1',
-  HAS_UNPUBLISHED_CHANGES: 'wu_has_unpublished_changes_v1',
-  IS_PREVIEW_MODE: 'wu_is_preview_mode_v1',
+  PUBLISHED_PRODUCTS: 'wu_published_products_v3',
+  PUBLISHED_BLOCKS: 'wu_published_blocks_v3',
+  PUBLISHED_SETTINGS: 'wu_published_settings_v3',
+  PUBLISHED_DICTIONARY: 'wu_published_dictionary_v3',
+  DRAFT_PRODUCTS: 'wu_draft_products_v3',
+  DRAFT_BLOCKS: 'wu_draft_blocks_v3',
+  DRAFT_SETTINGS: 'wu_draft_settings_v3',
+  DRAFT_DICTIONARY: 'wu_draft_dictionary_v3',
+  HAS_UNPUBLISHED_CHANGES: 'wu_has_unpublished_changes_v3',
+  IS_PREVIEW_MODE: 'wu_is_preview_mode_v3',
+};
+
+export const sanitizeProductVariants = (product: Product): Product => {
+  if (!product) return product;
+
+  let colors = Array.isArray(product.colors) ? [...product.colors] : [];
+
+  // Exclusividade estrita de cores por peça:
+  // "welcome to luanda" (censored e uncensored) existe EXCLUSIVAMENTE em Pure White (#ffffff).
+  // Não pode conter Black/Preto/Carbon nem qualquer outra cor inventada.
+  const isLuandaTee =
+    product.id === 'prod-void-tee' ||
+    product.id === 'prod-1790698781209' ||
+    (product.slug && product.slug.includes('welcome-to-luanda')) ||
+    (product.name && product.name.toLowerCase().includes('welcome to luanda'));
+
+  if (isLuandaTee) {
+    colors = [
+      {
+        hex: '#ffffff',
+        name: 'Pure White',
+        in_stock: false,
+        image_url:
+          product.images?.[0] ||
+          'https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789571217741_24y7a.jpeg',
+      },
+    ];
+  } else {
+    // Filtro estrito: cada peça possui exclusivamente as suas próprias variantes reais
+    const seenColorNames = new Set<string>();
+    colors = colors.filter((c) => {
+      if (!c || !c.name || typeof c.name !== 'string') return false;
+      const cleanName = c.name.trim().toLowerCase();
+      if (seenColorNames.has(cleanName)) return false;
+      seenColorNames.add(cleanName);
+      return true;
+    });
+  }
+
+  // Consistência estrita de Stock vs Badges:
+  // Se todos os tamanhos estiverem sem stock OU o produto for um produto esgotado (como welcome to luanda):
+  // O badge NUNCA pode ser NOVO ou NEW! Deve ser estritamente ESGOTADO.
+  const allSizesOutOfStock =
+    Array.isArray(product.sizes) &&
+    product.sizes.length > 0 &&
+    product.sizes.every((s) => !s.in_stock);
+
+  let currentBadge = product.badge;
+  if (isLuandaTee || allSizesOutOfStock || (currentBadge && currentBadge.trim().toUpperCase() === 'ESGOTADO')) {
+    currentBadge = 'ESGOTADO';
+  }
+
+  return {
+    ...product,
+    badge: currentBadge,
+    colors,
+  };
 };
 
 const isStaleLogo = (url?: string | null): boolean => {
@@ -186,11 +243,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [publishedProducts, setPublishedProducts] = useState<Product[]>(() => {
     try {
       const pubSaved = localStorage.getItem(LOCAL_STORAGE_KEYS.PUBLISHED_PRODUCTS);
-      if (pubSaved) return JSON.parse(pubSaved);
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.PRODUCTS);
-      return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+      if (pubSaved) {
+        const parsed: Product[] = JSON.parse(pubSaved);
+        if (Array.isArray(parsed) && parsed.length >= 5) {
+          return parsed.map(sanitizeProductVariants);
+        }
+      }
+      return INITIAL_PRODUCTS.map(sanitizeProductVariants);
     } catch {
-      return INITIAL_PRODUCTS;
+      return INITIAL_PRODUCTS.map(sanitizeProductVariants);
     }
   });
 
@@ -256,11 +317,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [draftProducts, setDraftProducts] = useState<Product[]>(() => {
     try {
       const draftSaved = localStorage.getItem(LOCAL_STORAGE_KEYS.DRAFT_PRODUCTS);
-      if (draftSaved) return JSON.parse(draftSaved);
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.PRODUCTS);
-      return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+      if (draftSaved) {
+        const parsed = JSON.parse(draftSaved);
+        if (Array.isArray(parsed) && parsed.length >= 5) {
+          return parsed.map(sanitizeProductVariants);
+        }
+      }
+      return INITIAL_PRODUCTS.map(sanitizeProductVariants);
     } catch {
-      return INITIAL_PRODUCTS;
+      return INITIAL_PRODUCTS.map(sanitizeProductVariants);
     }
   });
 
@@ -322,15 +387,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   });
 
-  // Preview Mode State
+  // Preview Mode State - Apenas ativo quando expressamente na rota /preview ou ativado pelo administrador
   const [isPreviewMode, setIsPreviewModeState] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
       const hash = window.location.hash.toLowerCase();
       if (path === '/preview' || hash === '#preview' || hash === '#/preview') return true;
-      try {
-        return localStorage.getItem(LOCAL_STORAGE_KEYS.IS_PREVIEW_MODE) === 'true';
-      } catch {}
     }
     return false;
   });
@@ -574,19 +636,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           getStoredItem<Order[]>(LOCAL_STORAGE_KEYS.ORDERS),
         ]);
         if (!active) return;
-        if (idbBlocks && idbBlocks.length > 0) setBlocks(idbBlocks);
+        if (idbBlocks && idbBlocks.length > 0) setDraftBlocks(idbBlocks);
         if (idbProducts && idbProducts.length > 0) {
-          setProducts((prev) => {
-            const idbMap = new Map(idbProducts.map((p) => [p.id, p]));
-            const merged = [...idbProducts];
+          setDraftProducts((prev) => {
+            const idbMap = new Map(idbProducts.map((p) => [p.id, sanitizeProductVariants(p)]));
+            const merged = idbProducts.map(sanitizeProductVariants);
             prev.forEach((p) => {
-              if (!idbMap.has(p.id)) merged.push(p);
+              if (!idbMap.has(p.id)) merged.push(sanitizeProductVariants(p));
             });
             return merged;
           });
         }
-        if (idbSettings) setSettings((prev) => ({ ...prev, ...idbSettings }));
-        if (idbDict && Object.keys(idbDict).length > 0) setDictionary(idbDict);
+        if (idbSettings) setDraftSettings((prev) => ({ ...prev, ...idbSettings }));
+        if (idbDict && Object.keys(idbDict).length > 0) setDraftDictionary(idbDict);
         if (idbOrders && idbOrders.length > 0) {
           let deletedOrdersList: string[] = [];
           try {
@@ -753,54 +815,50 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // 0. Instant synchronization with persistent server state (cross-browser / cross-device)
     try {
-      const serverRes = await fetch('/api/store-state');
+      const serverRes = await fetch('/api/store-state?scope=published&t=' + Date.now());
       if (serverRes.ok) {
         const serverData = await serverRes.json();
-        if (serverData && serverData.settings) {
-          const sLogo = serverData.settings.site_logo_url || serverData.settings.logo_url;
-          setSettings((prev) => {
-            const localTime = new Date(prev.updated_at || 0).getTime();
-            const serverTime = new Date(serverData.settings.updated_at || 0).getTime();
-            if (serverTime >= localTime) {
-              const currentValidLogo = prev.site_logo_url || prev.logo_url || null;
-              const merged = {
-                ...prev,
-                ...serverData.settings,
-                site_logo_url: sLogo || currentValidLogo || '/logo.png',
-                logo_url: sLogo || currentValidLogo || '/logo.png',
-              };
-              setPublishedSettings(merged);
-              try {
-                localStorage.setItem(LOCAL_STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
-                localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_SETTINGS, JSON.stringify(merged));
-              } catch {}
-              return merged;
-            }
-            return prev;
+        const pubSource = serverData.published || serverData;
+        const productsToUse = Array.isArray(pubSource.products) ? pubSource.products : serverData.products;
+        if (Array.isArray(productsToUse) && productsToUse.length > 0) {
+          const sanitized = productsToUse.map(sanitizeProductVariants);
+          setPublishedProducts(sanitized);
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_PRODUCTS, JSON.stringify(sanitized));
+          } catch {}
+          setDraftProducts((prev) => (prev.length === 0 ? sanitized : prev));
+        }
+        const blocksToUse = Array.isArray(pubSource.blocks) ? pubSource.blocks : serverData.blocks;
+        if (Array.isArray(blocksToUse) && blocksToUse.length > 0) {
+          setPublishedBlocks(blocksToUse);
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_BLOCKS, JSON.stringify(blocksToUse));
+          } catch {}
+          setDraftBlocks((prev) => (prev.length === 0 ? blocksToUse : prev));
+        }
+        const settingsToUse = pubSource.settings || serverData.settings;
+        if (settingsToUse) {
+          const sLogo = settingsToUse.site_logo_url || settingsToUse.logo_url;
+          setPublishedSettings((prev) => {
+            const currentValidLogo = prev.site_logo_url || prev.logo_url || null;
+            const merged = {
+              ...prev,
+              ...settingsToUse,
+              site_logo_url: sLogo || currentValidLogo || '/logo.png',
+              logo_url: sLogo || currentValidLogo || '/logo.png',
+            };
+            try {
+              localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_SETTINGS, JSON.stringify(merged));
+            } catch {}
+            return merged;
           });
         }
-        if (serverData && Array.isArray(serverData.products) && serverData.products.length > 0) {
-          setProducts((prev) => {
-            const serverMap = new Map<string, Product>(serverData.products.map((p: Product) => [p.id, p]));
-            const nextList = prev.map((localP) => {
-              const sP = serverMap.get(localP.id);
-              if (sP) {
-                const localT = new Date(localP.updated_at || localP.created_at || 0).getTime();
-                const serverT = new Date(sP.updated_at || sP.created_at || 0).getTime();
-                return serverT >= localT ? sP : localP;
-              }
-              return localP;
-            });
-            for (const sp of serverData.products) {
-              if (!nextList.some((p) => p.id === sp.id)) {
-                nextList.push(sp);
-              }
-            }
-            try {
-              localStorage.setItem(LOCAL_STORAGE_KEYS.PRODUCTS, JSON.stringify(nextList));
-            } catch {}
-            return nextList;
-          });
+        const dictToUse = pubSource.dictionary || serverData.dictionary;
+        if (dictToUse && Object.keys(dictToUse).length > 0) {
+          setPublishedDictionary(dictToUse);
+          try {
+            localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_DICTIONARY, JSON.stringify(dictToUse));
+          } catch {}
         }
       }
     } catch {}
@@ -848,103 +906,64 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         availableTables: available,
       });
 
-      // 1. Process Products with resilient smart merge
+      // 1. Process Products: Single Source of Truth for Published Store
       if (!prodRes.error && prodRes.data) {
-        const remote = prodRes.data as Product[];
-        setProducts((prev) => {
-          if (remote.length === 0) {
-            return prev.length > 0 ? prev : INITIAL_PRODUCTS;
-          }
-          const remoteMap = new Map(remote.map((p) => [p.id, p]));
-          const merged: Product[] = [];
-          const localToPush: Product[] = [];
+        const rawRemote = prodRes.data as Product[];
+        const sanitizedRemote = rawRemote
+          .map(fromSupabaseProduct)
+          .map(sanitizeProductVariants)
+          .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
 
+        // Always update PUBLISHED state for public visitors
+        setPublishedProducts(sanitizedRemote);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_PRODUCTS, JSON.stringify(sanitizedRemote));
+        } catch {}
+
+        // For Draft products (Admin & Preview), sync unless admin has active unpublished edits
+        setDraftProducts((prev) => {
+          if (sanitizedRemote.length === 0) return prev;
           let deletedIds = new Set<string>();
           try {
             const stored = localStorage.getItem(LOCAL_STORAGE_KEYS.DELETED_PRODUCTS);
             if (stored) deletedIds = new Set(JSON.parse(stored));
           } catch {}
 
-          // Retain all existing local products; local changes and unsynced creations are preserved
+          const remoteMap = new Map(sanitizedRemote.map((p) => [p.id, p]));
+          const merged: Product[] = [];
           for (const localProd of prev) {
             if (deletedIds.has(localProd.id)) continue;
             const remoteProd = remoteMap.get(localProd.id);
             if (!remoteProd) {
-              // Local product created by the user not yet in remote: KEEP IT!
               merged.push(localProd);
-              localToPush.push(localProd);
             } else {
               const localTime = new Date(localProd.updated_at || localProd.created_at || 0).getTime();
               const remoteTime = new Date(remoteProd.updated_at || remoteProd.created_at || 0).getTime();
-              if (localTime >= remoteTime) {
-                // Local edit is newer or equal: KEEP IT and queue push
+              if (localTime > remoteTime) {
                 merged.push(localProd);
-                localToPush.push(localProd);
               } else {
-                // Remote is strictly newer: adopt remote with decoded meta
-                const hydratedRemote = fromSupabaseProduct(remoteProd);
-                merged.push({
-                  ...hydratedRemote,
-                  fit_guide: hydratedRemote.fit_guide || localProd.fit_guide || remoteProd.size_guide,
-                });
+                merged.push(remoteProd);
               }
               remoteMap.delete(localProd.id);
             }
           }
-
-          // Add any remaining remote products that did not exist locally
-          for (const remainingRemote of remoteMap.values()) {
-            if (!deletedIds.has(remainingRemote.id)) {
-              merged.push(fromSupabaseProduct(remainingRemote));
-            }
+          for (const rem of remoteMap.values()) {
+            if (!deletedIds.has(rem.id)) merged.push(rem);
           }
-
-          // Auto-sync any unsynced local products to Supabase in background
-          if (localToPush.length > 0 && !missing.includes('products')) {
-            setTimeout(async () => {
-              for (const p of localToPush) {
-                try {
-                  const payload = toSupabaseProduct(p);
-                  await supabase.from('products').upsert(payload);
-                } catch {}
-              }
-            }, 60);
-          }
-
-          return merged.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+          return merged.map(sanitizeProductVariants).sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
         });
       }
 
       // 2. Process Blocks
       if (!blockRes.error && blockRes.data) {
         const loaded = blockRes.data as SiteBlock[];
-        setBlocks((prev) => {
-          if (loaded.length === 0) {
-            return prev.length > 0 ? prev : INITIAL_BLOCKS;
-          }
-          const filteredRemote: SiteBlock[] = [];
-          let seenTimeCapsule = false;
-          for (const blk of loaded) {
-            if (blk.block_type === 'time_capsule') {
-              if (!seenTimeCapsule) {
-                seenTimeCapsule = true;
-                filteredRemote.push(blk);
-              }
-            } else {
-              filteredRemote.push(blk);
-            }
-          }
-          const remoteIds = new Set(filteredRemote.map((b) => b.id));
-          const remoteTypes = new Set(filteredRemote.map((b) => b.block_type));
-          const localKept = prev.filter(
-            (b) => !remoteIds.has(b.id) && !remoteTypes.has(b.block_type) && !INITIAL_BLOCKS.some((ib) => ib.id === b.id)
-          );
-          const merged = [...filteredRemote, ...localKept];
-          if (!merged.some((b) => b.block_type === 'time_capsule')) {
-            const defaultCapsule = INITIAL_BLOCKS.find((b) => b.block_type === 'time_capsule');
-            if (defaultCapsule) merged.push(defaultCapsule);
-          }
-          return merged.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+        setPublishedBlocks(loaded);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_BLOCKS, JSON.stringify(loaded));
+        } catch {}
+        setDraftBlocks((prev) => {
+          if (loaded.length === 0) return prev;
+          return loaded.sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
         });
       }
 
@@ -975,7 +994,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             remoteInstagramHandle = item.pt.trim();
           }
         });
-        setDictionary(dictMap);
+        setPublishedDictionary(dictMap);
+        setDraftDictionary(dictMap);
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_DICTIONARY, JSON.stringify(dictMap));
+          localStorage.setItem(LOCAL_STORAGE_KEYS.DRAFT_DICTIONARY, JSON.stringify(dictMap));
+        } catch {}
       }
 
       // 4. Process Settings
@@ -1899,7 +1923,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const publishDraft = async (): Promise<boolean> => {
     setIsPublishing(true);
     try {
-      const currentDraftProducts = [...draftProducts];
+      const currentDraftProducts = draftProducts.map(sanitizeProductVariants);
       const currentDraftBlocks = [...draftBlocks];
       const currentDraftSettings = { ...draftSettings };
       const currentDraftDictionary = { ...draftDictionary };

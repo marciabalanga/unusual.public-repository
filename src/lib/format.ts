@@ -37,16 +37,16 @@ export function getProductBadgeDisplay(badge?: string | null, language: 'pt' | '
   const upper = clean.toUpperCase();
   if (!upper || upper === 'SEM BADGE' || upper === 'NONE') return null;
 
-  if (upper === 'AGUARDANDO VAGA') {
+  if (upper === 'AGUARDANDO VAGA' || upper === 'COMING BACK SOON') {
     return language === 'en' ? 'COMING BACK SOON' : 'AGUARDANDO VAGA';
   }
-  if (upper === 'ESGOTADO') {
+  if (upper === 'ESGOTADO' || upper === 'SOLD OUT') {
     return 'ESGOTADO';
   }
-  if (upper === 'EDIÇÃO LIMITADA' || upper === 'EDICAO LIMITADA') {
+  if (upper === 'EDIÇÃO LIMITADA' || upper === 'EDICAO LIMITADA' || upper === 'LIMITED EDITION') {
     return 'EDIÇÃO LIMITADA';
   }
-  if (upper === 'NOVO') {
+  if (upper === 'NOVO' || upper === 'NEW') {
     return 'NOVO';
   }
 

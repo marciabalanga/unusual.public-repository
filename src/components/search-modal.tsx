@@ -159,15 +159,20 @@ export const SearchModal: React.FC = () => {
                         {product.name}
                       </h4>
                       {(() => {
-                        const badgeText = getProductBadgeDisplay(product.badge, language);
+                        const isSoldOut =
+                          product.badge?.toUpperCase() === 'ESGOTADO' ||
+                          (product.sizes && product.sizes.length > 0 && product.sizes.every((s) => !s.in_stock));
+                        const effectiveBadge = isSoldOut ? 'ESGOTADO' : product.badge;
+
+                        const badgeText = getProductBadgeDisplay(effectiveBadge, language);
                         if (!badgeText) return null;
                         const returnDate = getProductReturnDateDisplay(product);
                         return (
                           <span
                             className={`text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider font-semibold ${
-                              product.badge?.toUpperCase() === 'ESGOTADO'
+                              effectiveBadge?.toUpperCase() === 'ESGOTADO'
                                 ? 'bg-red-950 text-red-300 border border-red-800'
-                                : product.badge?.toUpperCase() === 'AGUARDANDO VAGA'
+                                : effectiveBadge?.toUpperCase() === 'AGUARDANDO VAGA'
                                 ? 'bg-black text-amber-300 border border-amber-500/40 font-mono text-[8px]'
                                 : 'bg-white text-black'
                             }`}

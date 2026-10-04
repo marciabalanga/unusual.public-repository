@@ -72,7 +72,12 @@ export const TimeCapsuleView: React.FC = () => {
               )}
               <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
                 {(() => {
-                  const badgeText = getProductBadgeDisplay(product.badge, language);
+                  const isSoldOut =
+                    product.badge?.toUpperCase() === 'ESGOTADO' ||
+                    (product.sizes && product.sizes.length > 0 && product.sizes.every((s) => !s.in_stock));
+                  const effectiveBadge = isSoldOut ? 'ESGOTADO' : product.badge;
+
+                  const badgeText = getProductBadgeDisplay(effectiveBadge, language);
                   const returnDate = getProductReturnDateDisplay(product);
 
                   if (!badgeText) return null;
@@ -80,9 +85,9 @@ export const TimeCapsuleView: React.FC = () => {
                   return (
                     <span
                       className={`text-[9px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase shadow-md ${
-                        product.badge?.toUpperCase() === 'ESGOTADO'
+                        effectiveBadge?.toUpperCase() === 'ESGOTADO'
                           ? 'bg-red-950/80 text-red-300 border border-red-800'
-                          : product.badge?.toUpperCase() === 'AGUARDANDO VAGA'
+                          : effectiveBadge?.toUpperCase() === 'AGUARDANDO VAGA'
                           ? 'bg-black/80 text-amber-300 border border-amber-500/40 font-mono text-[8px] tracking-[0.18em]'
                           : 'bg-white text-black'
                       }`}

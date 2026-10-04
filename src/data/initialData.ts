@@ -2,60 +2,309 @@ import { Product, SiteBlock, DictionaryEntry, SiteSettings, CustomContent, SiteM
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
-    id: 'prod-void-tee',
-    slug: 'void-boxy-tee',
-    name: 'welcome to luanda censored t-shirt',
-    category: 'T-Shirts & Tops',
-    price_aoa: 18000,
-    description: 'T-shirt boxy estruturada em algodão pesado 280 GSM. Caimento reto oversized contemporâneo com gola canelada grossa e costura reforçada nos ombros.',
-    details: '100% Algodão Pesado Angolano 280 GSM. Corte Boxy drop-shoulder. Lavagem mineral em tom carbono desbotado. Fabricado e costurado artesanalmente em Luanda.',
-    size_guide: 'O modelo tem 1,84m e veste tamanho L para um caimento relaxado. Para um caimento mais justo, escolha um tamanho abaixo do habitual.',
-    images: [
-      '/assets/product_prod-void-tee_0.png'
+    "id": "prod-void-tee",
+    "slug": "welcome-to-luanda-censored-t-shirt-i2uw",
+    "name": "welcome to luanda censored t-shirt",
+    "category": "T-Shirts & Tops",
+    "price_aoa": 18000,
+    "description": "Um contraste na ilustração do tropical e do cultural urbano, que traz uma reinterpretação da essência da capital exibindo nas costas uma ilustração vintage da paisagem tropical.",
+    "details": "",
+    "size_guide": "Modelagem Oversized boxy estruturada com ombros descaídos.",
+    "fit_guide": "Modelagem Oversized boxy estruturada com ombros descaídos.",
+    "images": [
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789571217741_24y7a.jpeg"
     ],
-    sizes: [
-      { size: 'S', in_stock: true },
-      { size: 'M', in_stock: true },
-      { size: 'L', in_stock: true },
-      { size: 'XL', in_stock: true },
-      { size: 'XXL', in_stock: false },
+    "sizes": [
+      {
+        "size": "S",
+        "in_stock": false
+      },
+      {
+        "size": "M",
+        "in_stock": false
+      },
+      {
+        "size": "L",
+        "in_stock": false
+      },
+      {
+        "size": "XL",
+        "in_stock": false
+      },
+      {
+        "size": "XXL",
+        "in_stock": false
+      }
     ],
-    colors: [
-      { name: 'Bone White', hex: '#e3dfd8', in_stock: true },
-      { name: 'Carbon Black', hex: '#141414', in_stock: false }
+    "colors": [
+      {
+        "hex": "#ffffff",
+        "name": "Pure White",
+        "in_stock": false,
+        "image_url": "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789571217741_24y7a.jpeg"
+      }
     ],
-    badge: 'NOVO',
-    lifecycle: 'active_drop',
-    is_visible: true,
-    is_featured: true,
-    order_index: 1,
+    "badge": "ESGOTADO",
+    "lifecycle": "active_drop",
+    "is_visible": true,
+    "is_featured": true,
+    "order_index": 1,
+    "enable_pre_order": false,
+    "pre_order_price_aoa": null,
+    "pre_order_estimated_delivery": null,
+    "pre_order_start_date": null,
+    "pre_order_end_date": null,
+    "pre_order_max_quantity": null,
+    "pre_order_custom_notice": null,
+    "coming_soon_badge": false,
+    "return_date": null,
+    "enable_request_restock": false
   },
   {
-    id: 'prod-1789321105460',
-    slug: 'peca-mu03l54k-u79',
-    name: 'welcome to luanda uncensored t-shirt',
-    category: 'T-Shirts & Tops',
-    price_aoa: 18000,
-    description: 'Descrição técnica da peça em algodão pesado...',
-    details: '100% Algodão 300 GSM. Feito em Luanda.',
-    size_guide: 'Caimento oversized intencional. Punhos ajustados que assentam com precisão sobre o pulso.',
-    images: [
-      '/assets/product_prod-1789321105460_0.png'
+    "id": "prod-1789569730967",
+    "slug": "on-the-map-t-shirt-mfns",
+    "name": "”on the map” t-shirt",
+    "category": "T-Shirts & Tops",
+    "price_aoa": 0,
+    "description": "tipografia com o monograma e o slogan \"INSPIRED BY THE FEAR OF BEING AVERAGE\", com a silhueta em outline do mapa de Angola na parte traseira, encimada pelo logo da marca.",
+    "details": "",
+    "size_guide": "Modelagem Oversized boxy estruturada com ombros descaídos.",
+    "fit_guide": "Modelagem Oversized boxy estruturada com ombros descaídos.",
+    "images": [
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789569836974_w7soo.jpeg",
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789569863791_ygjqz.jpeg",
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789569882420_c6lvf.jpeg",
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789569892200_mfsjn.jpeg",
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789571057914_15785.jpeg"
     ],
-    sizes: [
-      { size: 'S', in_stock: true },
-      { size: 'M', in_stock: true },
-      { size: 'L', in_stock: true },
-      { size: 'XL', in_stock: true }
+    "sizes": [
+      {
+        "size": "S",
+        "in_stock": true
+      },
+      {
+        "size": "M",
+        "in_stock": true
+      },
+      {
+        "size": "L",
+        "in_stock": true
+      },
+      {
+        "size": "XL",
+        "in_stock": true
+      }
     ],
-    colors: [
-      { name: 'Carbon Black', hex: '#141414' }
+    "colors": [
+      {
+        "hex": "#141414",
+        "name": "Carbon Black",
+        "image_url": "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789569836974_w7soo.jpeg"
+      },
+      {
+        "hex": "#ffffff",
+        "name": "Pure White",
+        "image_url": "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789569892200_mfsjn.jpeg"
+      }
     ],
-    badge: 'NOVO',
-    lifecycle: 'active_drop',
-    is_visible: true,
-    is_featured: false,
-    order_index: 2,
+    "badge": "Aguardando Vaga",
+    "lifecycle": "time_capsule",
+    "is_visible": true,
+    "is_featured": false,
+    "order_index": 3,
+    "enable_pre_order": false,
+    "pre_order_price_aoa": null,
+    "pre_order_estimated_delivery": "15–25 Outubro",
+    "pre_order_start_date": null,
+    "pre_order_end_date": null,
+    "pre_order_max_quantity": null,
+    "pre_order_custom_notice": null,
+    "coming_soon_badge": false,
+    "return_date": null,
+    "enable_request_restock": false
+  },
+  {
+    "id": "prod-1789570314538",
+    "slug": "paranoia-t-shirt-z8hf",
+    "name": "“paranoia” t-shirt",
+    "category": "T-Shirts & Tops",
+    "price_aoa": 0,
+    "description": "Estética underground projectada através de uma tipografia fluída nas costas encimada pelo monograma.",
+    "details": "",
+    "size_guide": "Modelagem boxy estruturada com ombros descaídos.",
+    "fit_guide": "Modelagem boxy estruturada com ombros descaídos.",
+    "images": [
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789570418523_1fnc7.jpeg",
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789570570141_o2hqn.jpeg",
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789570582062_dcgpg.jpeg",
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789570655974_czlw7.jpeg"
+    ],
+    "sizes": [
+      {
+        "size": "S",
+        "in_stock": true
+      },
+      {
+        "size": "M",
+        "in_stock": true
+      },
+      {
+        "size": "L",
+        "in_stock": true
+      },
+      {
+        "size": "XL",
+        "in_stock": true
+      }
+    ],
+    "colors": [
+      {
+        "hex": "#141414",
+        "name": "Carbon Black",
+        "image_url": "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789570418523_1fnc7.jpeg"
+      },
+      {
+        "hex": "#fff5d7",
+        "name": "Bone White",
+        "image_url": "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789570570141_o2hqn.jpeg"
+      }
+    ],
+    "badge": "Aguardando Vaga",
+    "lifecycle": "time_capsule",
+    "is_visible": true,
+    "is_featured": false,
+    "order_index": 4,
+    "enable_pre_order": false,
+    "pre_order_price_aoa": null,
+    "pre_order_estimated_delivery": "15–25 Outubro",
+    "pre_order_start_date": null,
+    "pre_order_end_date": null,
+    "pre_order_max_quantity": null,
+    "pre_order_custom_notice": null,
+    "coming_soon_badge": false,
+    "return_date": null,
+    "enable_request_restock": false
+  },
+  {
+    "id": "prod-1789570730155",
+    "slug": "need-money-not-boys-cropped-shirt-baby-tee-al72",
+    "name": "”need money not boys” cropped shirt/baby tee",
+    "category": "T-Shirts & Tops",
+    "price_aoa": 0,
+    "description": "Need money not boys baby tee/cropped com estética Y2K, traseira Kiss Mark e um ajuste clássico e minimalista ao corpo.",
+    "details": "",
+    "size_guide": "Baby Tee ajustada/cropped ajustado ao corpo com caimento estruturado.",
+    "fit_guide": "Baby Tee ajustada/cropped ajustado ao corpo com caimento estruturado.",
+    "images": [
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789570820455_mps7u.jpeg",
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789570829190_4khnv.jpeg",
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789570858628_80a9a.jpeg",
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789570870809_iigev.jpeg"
+    ],
+    "sizes": [
+      {
+        "size": "S",
+        "in_stock": true
+      },
+      {
+        "size": "M",
+        "in_stock": true
+      },
+      {
+        "size": "L",
+        "in_stock": true
+      },
+      {
+        "size": "XL",
+        "in_stock": true
+      }
+    ],
+    "colors": [
+      {
+        "hex": "#141414",
+        "name": "Carbon Black",
+        "image_url": "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789570858628_80a9a.jpeg"
+      },
+      {
+        "hex": "#513400",
+        "name": "Espresso",
+        "image_url": "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789570820455_mps7u.jpeg"
+      },
+      {
+        "hex": "#ffffff",
+        "name": "Pure White",
+        "image_url": "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789570870809_iigev.jpeg"
+      }
+    ],
+    "badge": "EDIÇÃO LIMITADA",
+    "lifecycle": "time_capsule",
+    "is_visible": true,
+    "is_featured": false,
+    "order_index": 5,
+    "enable_pre_order": false,
+    "pre_order_price_aoa": null,
+    "pre_order_estimated_delivery": null,
+    "pre_order_start_date": null,
+    "pre_order_end_date": null,
+    "pre_order_max_quantity": null,
+    "pre_order_custom_notice": null,
+    "coming_soon_badge": false,
+    "return_date": null,
+    "enable_request_restock": true
+  },
+  {
+    "id": "prod-1790698781209",
+    "slug": "welcome-to-luanda-uncensored-t-shirt-362j",
+    "name": "welcome to luanda uncensored t-shirt",
+    "category": "T-Shirts & Tops",
+    "price_aoa": 18000,
+    "description": "Um contraste na ilustração do tropical e do cultural urbano, que traz uma reinterpretação da essência da capital exibindo nas costas uma ilustração vintage da paisagem tropical.",
+    "details": "\n",
+    "size_guide": "Modelagem boxy estruturada com ombros descaídos.",
+    "fit_guide": "Modelagem boxy estruturada com ombros descaídos.",
+    "images": [
+      "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1790699014834_dzhi2.jpeg"
+    ],
+    "sizes": [
+      {
+        "size": "S",
+        "in_stock": false
+      },
+      {
+        "size": "M",
+        "in_stock": false
+      },
+      {
+        "size": "L",
+        "in_stock": false
+      },
+      {
+        "size": "XL",
+        "in_stock": false
+      }
+    ],
+    "colors": [
+      {
+        "hex": "#ffffff",
+        "name": "Pure White",
+        "image_url": "https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1790699014834_dzhi2.jpeg"
+      }
+    ],
+    "badge": "ESGOTADO",
+    "lifecycle": "active_drop",
+    "is_visible": true,
+    "is_featured": false,
+    "order_index": 5,
+    "enable_pre_order": false,
+    "pre_order_price_aoa": null,
+    "pre_order_estimated_delivery": null,
+    "pre_order_start_date": null,
+    "pre_order_end_date": null,
+    "pre_order_max_quantity": null,
+    "pre_order_custom_notice": null,
+    "coming_soon_badge": false,
+    "return_date": null,
+    "enable_request_restock": false
   }
 ];
 

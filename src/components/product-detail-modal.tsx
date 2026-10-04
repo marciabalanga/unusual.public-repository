@@ -12,7 +12,7 @@ import {
   BellRing,
   Lock,
 } from 'lucide-react';
-import { useStore } from '../context/StoreContext';
+import { useStore, sanitizeProductVariants } from '../context/StoreContext';
 import { formatAOA, isComingBackSoonBadge, getProductBadgeDisplay, getProductReturnDateDisplay } from '../lib/format';
 import { Product } from '../types';
 import { scrollToTop } from '../lib/scroll';
@@ -50,11 +50,12 @@ const isLightColor = (hex?: string) => {
 };
 
 export const ProductDetailView: React.FC<ProductDetailProps> = ({
-  product,
+  product: rawProduct,
   onBack,
   onOpenPreOrderCheckout,
 }) => {
   const { addToCart, toggleWishlist, isInWishlist, t, settings, language, setIsCartOpen, isPreviewMode } = useStore();
+  const product = React.useMemo(() => sanitizeProductVariants(rawProduct), [rawProduct]);
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
@@ -88,21 +89,21 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
     product.lifecycle === 'time_capsule' ||
     (product.category && (product.category.toLowerCase().includes('capsul') || product.category.toLowerCase().includes('cápsul')));
 
-  const [selectedSize, setSelectedSize] = useState<string>(() => {
-    const isInitiallySoldOut =
-      product.badge === 'ESGOTADO' ||
-      product.lifecycle === 'time_capsule' ||
-      !product.sizes ||
-      product.sizes.length === 0 ||
-      product.sizes.every((s) => !s.in_stock);
+  const isSoldOut =
+    product.badge?.toUpperCase() === 'ESGOTADO' ||
+    product.lifecycle === 'time_capsule' ||
+    !product.sizes ||
+    product.sizes.length === 0 ||
+    product.sizes.every((s) => !s.in_stock);
 
-    if (isInitiallySoldOut) return '';
+  const [selectedSize, setSelectedSize] = useState<string>(() => {
+    if (isSoldOut) return '';
     const firstInStock = product.sizes.find((s) => s.in_stock);
     return firstInStock ? firstInStock.size : '';
   });
   const [selectedColor, setSelectedColor] = useState<string>(() => {
-    const firstInStock = product.colors.find((c) => c.in_stock !== false);
-    return firstInStock ? firstInStock.name : (product.colors[0]?.name || 'Carbon Black');
+    const firstInStock = !isSoldOut ? product.colors.find((c) => c.in_stock !== false) : null;
+    return firstInStock ? firstInStock.name : (product.colors[0]?.name || '');
   });
   const [quantity, setQuantity] = useState(1);
   const [isAdded, setIsAdded] = useState(false);
@@ -114,7 +115,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
   // Sincroniza estado quando o produto mudar e posiciona a visualização no topo absoluto
   useEffect(() => {
     scrollToTop(true);
-    const availableColor = product.colors.find((c) => c.in_stock !== false) || product.colors[0];
+    const availableColor = (!isSoldOut ? product.colors.find((c) => c.in_stock !== false) : null) || product.colors[0];
     if (availableColor?.image_url && availableColor.image_url.trim() !== '') {
       setActiveColorImage(availableColor.image_url.trim());
     } else if (validImages[0]) {
@@ -123,8 +124,8 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
       setActiveColorImage(null);
     }
     setSelectedImageIndex(0);
-    setSelectedColor(availableColor?.name || 'Carbon Black');
-  }, [product.id, product.slug]);
+    setSelectedColor(availableColor?.name || product.colors[0]?.name || '');
+  }, [product.id, product.slug, isSoldOut]);
 
   useEffect(() => {
     return () => {
@@ -135,7 +136,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
   // Vínculo bidirecional: Clique na cor ativa e troca a fotografia correspondente imediatamente
   const handleColorSelect = (colorName: string) => {
     const colorObj = product.colors.find((c) => c.name === colorName);
-    if (colorObj && colorObj.in_stock === false) {
+    if (!colorObj || colorObj.in_stock === false || isSoldOut) {
       return; // Impedir seleção dessa cor sem stock
     }
     setSelectedColor(colorName);
@@ -169,20 +170,13 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
     toastTimeoutRef.current = setTimeout(() => setShowToast(false), 2500);
   };
 
-  const isSoldOut =
-    product.badge === 'ESGOTADO' ||
-    product.lifecycle === 'time_capsule' ||
-    !product.sizes ||
-    product.sizes.length === 0 ||
-    product.sizes.every((s) => !s.in_stock);
-
   const handleAddToCart = () => {
     if (isSoldOut) return;
     const currentSizeObj = product.sizes.find((s) => s.size === selectedSize);
     if (currentSizeObj && !currentSizeObj.in_stock) return;
 
     const currentColorObj = product.colors.find((c) => c.name === selectedColor);
-    if (currentColorObj && currentColorObj.in_stock === false) {
+    if (!currentColorObj || currentColorObj.in_stock === false) {
       return; // Impedir que essa variante seja adicionada ao carrinho
     }
 
@@ -235,16 +229,17 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
               <ShoppingBag className="w-16 h-16 text-[#333333]" />
             )}
             {(() => {
-              const badgeText = getProductBadgeDisplay(product.badge, language);
+              const effectiveBadge = isSoldOut && product.lifecycle !== 'time_capsule' ? 'ESGOTADO' : product.badge;
+              const badgeText = getProductBadgeDisplay(effectiveBadge, language);
               if (!badgeText) return null;
               const returnDate = getProductReturnDateDisplay(product);
 
               return (
                 <span
                   className={`absolute top-4 left-4 text-[10px] font-sans font-bold tracking-[0.25em] px-2.5 py-1 rounded uppercase z-10 shadow-xl ${
-                    product.badge?.toUpperCase() === 'ESGOTADO'
+                    effectiveBadge?.toUpperCase() === 'ESGOTADO'
                       ? 'bg-red-950 text-red-300 border border-red-800'
-                      : product.badge?.toUpperCase() === 'AGUARDANDO VAGA'
+                      : effectiveBadge?.toUpperCase() === 'AGUARDANDO VAGA'
                       ? 'bg-black/85 text-amber-300 border border-amber-500/40 backdrop-blur-sm'
                       : 'bg-white text-black'
                   }`}
@@ -333,11 +328,11 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-sans">
                 <span className="text-[#888888] uppercase tracking-wider">COR SELECIONADA:</span>
-                <span className="text-white font-medium">{selectedColor}</span>
+                <span className="text-white font-medium">{selectedColor || product.colors[0]?.name || ''}</span>
               </div>
               <div className="flex items-center gap-3">
                 {product.colors.map((c) => {
-                  const isOutOfStock = c.in_stock === false;
+                  const isOutOfStock = c.in_stock === false || isSoldOut;
                   const isSelected = selectedColor === c.name;
                   const isLight = isLightColor(c.hex);
 
@@ -355,7 +350,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
                           : 'cursor-pointer ring-1 ring-[#333333] hover:ring-[#777777]'
                       }`}
                       style={{ backgroundColor: c.hex }}
-                      aria-label={c.name}
+                      aria-label={`${c.name}${isOutOfStock ? ' (Indisponível)' : ''}`}
                     >
                       {isOutOfStock ? (
                         <svg

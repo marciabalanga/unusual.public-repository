@@ -8,27 +8,51 @@
     <meta http-equiv="Expires" content="0" />
     <script>
       (function() {
-        var APP_VERSION = '20261004_v6';
+        var APP_VERSION = '20261004_v9';
         try {
           var v = localStorage.getItem('wu_build_version');
           if (v !== APP_VERSION) {
             localStorage.setItem('wu_build_version', APP_VERSION);
-            ['wu_brand_logo_v1', 'wu_published_settings_v1', 'wu_draft_settings_v1', 'wu_settings_v1'].forEach(function(k) {
-              try {
-                var item = localStorage.getItem(k);
-                if (item && (item.indexOf('brand-icon.svg') !== -1 || item.indexOf('wu-logo.svg') !== -1 || item.indexOf('20261002') !== -1)) {
-                  localStorage.removeItem(k);
+            try {
+              for (var i = localStorage.length - 1; i >= 0; i--) {
+                var k = localStorage.key(i);
+                if (k && (k.indexOf('wu_') === 0 || k.indexOf('product') !== -1 || k.indexOf('block') !== -1 || k.indexOf('store') !== -1)) {
+                  if (k !== 'wu_build_version' && k !== 'wu_cart_v1' && k !== 'wu_wishlist_v1') {
+                    localStorage.removeItem(k);
+                  }
                 }
-              } catch(e) {}
-            });
+              }
+            } catch(e) {}
+            try {
+              if (window.sessionStorage) sessionStorage.clear();
+            } catch(e) {}
+            try {
+              if (window.indexedDB && window.indexedDB.deleteDatabase) {
+                window.indexedDB.deleteDatabase('wearing_unusual_store');
+              }
+            } catch(e) {}
+            try {
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(regs) {
+                  for (var r of regs) { r.unregister(); }
+                });
+              }
+              if ('caches' in window) {
+                caches.keys().then(function(names) {
+                  for (var name of names) { caches.delete(name); }
+                });
+              }
+            } catch(e) {}
           }
         } catch(e) {}
       })();
     </script>
     <title>UNUSUAL</title>
     <meta name="description" content="Wearing Unusual – Inspired by the fear of being average." />
+    <link rel="canonical" href="https://wearingunusual.com/" />
     <meta property="og:site_name" content="UNUSUAL" />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://wearingunusual.com/" />
     <meta property="og:title" content="Wearing Unusual – Inspired by the fear of being average." />
     <meta property="og:description" content="Wearing Unusual – Inspired by the fear of being average." />
     <meta property="og:image" content="/og-preview.png" />
@@ -38,19 +62,20 @@
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="UNUSUAL" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://wearingunusual.com/" />
     <meta name="twitter:title" content="Wearing Unusual – Inspired by the fear of being average." />
     <meta name="twitter:description" content="Wearing Unusual – Inspired by the fear of being average." />
     <meta name="twitter:image" content="/og-preview.png" />
     <!-- Dynamic SVG Favicon adapting to device theme (Light / Dark mode) -->
-    <link rel="icon" href="/brand-icon.svg?v=20261003_v3" type="image/svg+xml" />
+    <link rel="icon" href="/brand-icon.svg?v=20261004_v9" type="image/svg+xml" />
     <!-- Apple Touch Icon & Safari Tab Switcher Overview -->
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20261003_v3" />
-    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png?v=20261003_v3" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20261004_v9" />
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png?v=20261004_v9" />
     <!-- Standard PNG Favicons -->
-    <link rel="icon" type="image/png" sizes="192x192" href="/brand-favicon.png?v=20261003_v3" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/brand-favicon.png?v=20261003_v3" />
-    <link rel="shortcut icon" href="/favicon.ico?v=20261003_v3" />
-    <link rel="manifest" href="/site.webmanifest?v=20261003_v3" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/brand-favicon.png?v=20261004_v9" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand-favicon.png?v=20261004_v9" />
+    <link rel="shortcut icon" href="/favicon.ico?v=20261004_v9" />
+    <link rel="manifest" href="/site.webmanifest?v=20261004_v9" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet" />

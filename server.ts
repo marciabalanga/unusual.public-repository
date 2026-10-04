@@ -4,12 +4,18 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import potrace from 'potrace';
+import { createClient } from '@supabase/supabase-js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const isProduction = process.env.NODE_ENV === 'production';
 const PORT = Number(process.env.PORT) || 3000;
+const APP_VERSION = '20261004_v9';
+
+const SUPABASE_URL = 'https://tmryqhilyisbfdpnsiwo.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_O8oVIAZLkvJveyQ0Qiehhg_AX82Ehqw';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const stateFile = path.resolve(__dirname, 'public/data/store_state.json');
 const distStateFile = path.resolve(__dirname, 'dist/data/store_state.json');
@@ -20,12 +26,149 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
+function sanitizeVariants(product: any): any {
+  if (!product) return product;
+
+  let colors = Array.isArray(product.colors) ? [...product.colors] : [];
+
+  const isLuandaTee =
+    product.id === 'prod-void-tee' ||
+    product.id === 'prod-1790698781209' ||
+    (product.slug && product.slug.includes('welcome-to-luanda')) ||
+    (product.name && product.name.toLowerCase().includes('welcome to luanda'));
+
+  if (isLuandaTee) {
+    colors = [
+      {
+        hex: '#ffffff',
+        name: 'Pure White',
+        in_stock: false,
+        image_url:
+          (product.images && product.images[0]) ||
+          'https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789571217741_24y7a.jpeg',
+      },
+    ];
+  } else {
+    const seen = new Set<string>();
+    colors = colors.filter((c: any) => {
+      if (!c || !c.name || typeof c.name !== 'string') return false;
+      const lower = c.name.trim().toLowerCase();
+      if (seen.has(lower)) return false;
+      seen.add(lower);
+      return true;
+    });
+  }
+
+  const allSizesOutOfStock =
+    Array.isArray(product.sizes) &&
+    product.sizes.length > 0 &&
+    product.sizes.every((s: any) => !s.in_stock);
+
+  let currentBadge = product.badge;
+  if (isLuandaTee || allSizesOutOfStock || (currentBadge && currentBadge.trim().toUpperCase() === 'ESGOTADO')) {
+    currentBadge = 'ESGOTADO';
+  }
+
+  return {
+    ...product,
+    badge: currentBadge,
+    colors,
+  };
+}
+
+let lastSupabaseSyncTime = 0;
+
+async function syncSupabaseToStoreState(): Promise<boolean> {
+  try {
+    const [prodRes, blockRes, dictRes, setRes] = await Promise.all([
+      supabase.from('products').select('*').order('order_index', { ascending: true }),
+      supabase.from('site_blocks').select('*').order('order_index', { ascending: true }),
+      supabase.from('site_dictionary').select('*'),
+      supabase.from('site_settings').select('*').eq('id', 'global').maybeSingle(),
+    ]);
+
+    if (prodRes.error) {
+      console.warn('[server] Warning fetching Supabase products:', prodRes.error.message);
+      return false;
+    }
+
+    const state = readStoredState();
+    const rawProducts = (prodRes.data || []).map((p: any) => {
+      let meta: any = {};
+      let userDetails = p.details || '';
+      if (typeof p.details === 'string' && p.details.trim().startsWith('{')) {
+        try {
+          meta = JSON.parse(p.details);
+          if (meta && typeof meta === 'object') {
+            userDetails = meta.user_details !== undefined ? meta.user_details : userDetails;
+          }
+        } catch {}
+      }
+      return {
+        ...p,
+        details: userDetails,
+        enable_pre_order: meta.enable_pre_order !== undefined ? Boolean(meta.enable_pre_order) : Boolean(p.enable_pre_order),
+        pre_order_price_aoa: meta.pre_order_price_aoa !== undefined ? meta.pre_order_price_aoa : p.pre_order_price_aoa,
+        pre_order_estimated_delivery: meta.pre_order_estimated_delivery !== undefined ? meta.pre_order_estimated_delivery : p.pre_order_estimated_delivery,
+        pre_order_start_date: meta.pre_order_start_date !== undefined ? meta.pre_order_start_date : p.pre_order_start_date,
+        pre_order_end_date: meta.pre_order_end_date !== undefined ? meta.pre_order_end_date : p.pre_order_end_date,
+        pre_order_max_quantity: meta.pre_order_max_quantity !== undefined ? meta.pre_order_max_quantity : p.pre_order_max_quantity,
+        pre_order_custom_notice: meta.pre_order_custom_notice !== undefined ? meta.pre_order_custom_notice : p.pre_order_custom_notice,
+        coming_soon_badge: meta.coming_soon_badge !== undefined ? Boolean(meta.coming_soon_badge) : Boolean(p.coming_soon_badge),
+        return_date: meta.return_date || p.return_date || undefined,
+        enable_request_restock: meta.enable_request_restock !== undefined ? Boolean(meta.enable_request_restock) : Boolean(p.enable_request_restock),
+        fit_guide: meta.fit_guide || p.fit_guide || p.size_guide,
+      };
+    });
+
+    const sanitizedProducts = rawProducts.map(sanitizeVariants);
+
+    const dictMap: Record<string, any> = {};
+    if (dictRes.data && Array.isArray(dictRes.data)) {
+      dictRes.data.forEach((d: any) => {
+        if (d && d.key) dictMap[d.key] = d;
+      });
+    }
+
+    const blocks = blockRes.data && Array.isArray(blockRes.data) && blockRes.data.length > 0
+      ? blockRes.data
+      : (state.published?.blocks || state.draft?.blocks || []);
+
+    const settings = setRes.data
+      ? { ...(state.published?.settings || {}), ...setRes.data }
+      : (state.published?.settings || {});
+
+    const nowIso = new Date().toISOString();
+
+    state.published = {
+      products: sanitizedProducts,
+      blocks,
+      settings,
+      dictionary: dictMap,
+    };
+    state.published_at = nowIso;
+    state.updated_at = nowIso;
+
+    if (!state.draft || !state.draft.products || state.draft.products.length === 0) {
+      state.draft = JSON.parse(JSON.stringify(state.published));
+    }
+
+    writeStoredState(state);
+    lastSupabaseSyncTime = Date.now();
+    console.log(`[server] Synced ${sanitizedProducts.length} published products from Supabase.`);
+    return true;
+  } catch (err) {
+    console.warn('[server] Error syncing Supabase to store_state:', err);
+    return false;
+  }
+}
+
 function normalizeState(raw: any): any {
   if (raw && raw.draft && raw.published) {
     return raw;
   }
   const base = {
-    products: Array.isArray(raw?.products) ? raw.products : [],
+    products: Array.isArray(raw?.products) ? raw.products.map(sanitizeVariants) : [],
     blocks: Array.isArray(raw?.blocks) ? raw.blocks : [],
     settings: typeof raw?.settings === 'object' && raw.settings ? raw.settings : {},
     dictionary: typeof raw?.dictionary === 'object' && raw.dictionary ? raw.dictionary : {},
@@ -71,6 +214,9 @@ function writeStoredState(state: any): boolean {
 }
 
 async function startServer() {
+  // Sync Supabase on initial startup
+  await syncSupabaseToStoreState();
+
   const app = express();
 
   // Parse JSON payloads up to 50MB (for images/products)
@@ -78,18 +224,54 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // API 1: GET /api/store-state
-  app.get('/api/store-state', (req, res) => {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  app.get('/api/store-state', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.setHeader('Content-Type', 'application/json');
-    const state = readStoredState();
-    const scope = req.query.scope as string;
-    if (scope === 'draft') {
-      res.json(state.draft || {});
-    } else if (scope === 'published') {
-      res.json(state.published || {});
-    } else {
-      res.json(state);
+
+    // If more than 20 seconds since last sync, trigger background sync
+    if (Date.now() - lastSupabaseSyncTime > 20000) {
+      syncSupabaseToStoreState().catch(() => {});
     }
+
+    const state = readStoredState();
+    const published = state.published || {};
+    const draft = state.draft || {};
+    const scope = req.query.scope as string;
+
+    if (scope === 'draft') {
+      return res.json({
+        ...draft,
+        version: APP_VERSION,
+        published_at: state.published_at,
+        updated_at: state.updated_at,
+      });
+    }
+
+    if (scope === 'published') {
+      return res.json({
+        ...published,
+        version: APP_VERSION,
+        published_at: state.published_at,
+        updated_at: state.updated_at,
+      });
+    }
+
+    // Default response: provide top-level published fields AND full state structure
+    return res.json({
+      success: true,
+      products: published.products || [],
+      blocks: published.blocks || [],
+      settings: published.settings || {},
+      dictionary: published.dictionary || {},
+      published,
+      draft,
+      has_changes: Boolean(state.has_changes),
+      published_at: state.published_at || new Date().toISOString(),
+      updated_at: state.updated_at || new Date().toISOString(),
+      version: APP_VERSION,
+    });
   });
 
   // API 2: POST /api/store-state (Saves to DRAFT by default)
@@ -359,6 +541,55 @@ async function startServer() {
   });
   app.use(express.static(path.resolve(__dirname, 'public')));
 
+  // Helper to format HTML with absolute Open Graph tags and canonical URLs for Instagram & social platforms
+  function formatHtmlResponse(rawHtml: string, req: express.Request): string {
+    const host = req.get('x-forwarded-host') || req.get('host') || 'wearingunusual.com';
+    const proto = req.get('x-forwarded-proto') || (req.secure ? 'https' : 'http');
+    const origin = `${proto}://${host}`;
+    const cleanPath = req.path || '/';
+    const currentUrl = `${origin}${cleanPath}`;
+
+    let html = rawHtml;
+
+    // Detect if this is a product page (/produto/:slug or /peca/:slug)
+    const productMatch = cleanPath.match(/^\/(produto|peca)\/([^\/?#]+)/i);
+    if (productMatch) {
+      const slug = decodeURIComponent(productMatch[2]);
+      const state = readStoredState();
+      const prods = (state.published && state.published.products) || [];
+      const prod = prods.find((p: any) => p.slug === slug || p.id === slug);
+      if (prod) {
+        const prodTitle = `${prod.name.toUpperCase()} | WEARING UNUSUAL`;
+        const prodDesc = prod.description || 'Wearing Unusual – Inspired by the fear of being average.';
+        const prodImg = (prod.images && prod.images[0]) || `${origin}/og-preview.png?v=${APP_VERSION}`;
+
+        html = html.replace(/<title>.*?<\/title>/gi, `<title>${prodTitle}</title>`);
+        html = html.replace(/<meta name="description" content=".*?" \/>/gi, `<meta name="description" content="${prodDesc}" />`);
+        html = html.replace(/<meta property="og:title" content=".*?" \/>/gi, `<meta property="og:title" content="${prodTitle}" />`);
+        html = html.replace(/<meta property="og:description" content=".*?" \/>/gi, `<meta property="og:description" content="${prodDesc}" />`);
+        html = html.replace(/<meta property="og:image" content=".*?" \/>/gi, `<meta property="og:image" content="${prodImg}" />`);
+        html = html.replace(/<meta property="og:image:secure_url" content=".*?" \/>/gi, `<meta property="og:image:secure_url" content="${prodImg}" />`);
+        html = html.replace(/<meta name="twitter:title" content=".*?" \/>/gi, `<meta name="twitter:title" content="${prodTitle}" />`);
+        html = html.replace(/<meta name="twitter:description" content=".*?" \/>/gi, `<meta name="twitter:description" content="${prodDesc}" />`);
+        html = html.replace(/<meta name="twitter:image" content=".*?" \/>/gi, `<meta name="twitter:image" content="${prodImg}" />`);
+      }
+    }
+
+    // Replace relative assets with absolute URLs
+    html = html.replace(/content="\/og-preview\.png"/g, `content="${origin}/og-preview.png?v=${APP_VERSION}"`);
+    html = html.replace(/content="\/logo\.png"/g, `content="${origin}/logo.png?v=${APP_VERSION}"`);
+
+    // Ensure Canonical & OpenGraph URL
+    html = html.replace(/<link rel="canonical"[^>]*\/>/gi, '');
+    html = html.replace(/<meta property="og:url"[^>]*\/>/gi, '');
+    html = html.replace(/<meta name="twitter:url"[^>]*\/>/gi, '');
+
+    const tagsToInject = `  <link rel="canonical" href="${currentUrl}" />\n  <meta property="og:url" content="${currentUrl}" />\n  <meta name="twitter:url" content="${currentUrl}" />\n`;
+    html = html.replace('</head>', `${tagsToInject}</head>`);
+
+    return html;
+  }
+
   if (!isProduction) {
     // Development mode: mount Vite dev server as middleware
     const { createServer: createViteServer } = await import('vite');
@@ -371,23 +602,49 @@ async function startServer() {
       appType: 'spa',
     });
 
-    app.use(vite.middlewares);
+    // Intercept HTML requests in dev mode to format OpenGraph and Canonical tags for crawlers & visitors
+    app.use(async (req, res, next) => {
+      const url = req.originalUrl;
+      const isHtmlRequest =
+        !url.startsWith('/api/') &&
+        !url.includes('@vite') &&
+        !url.includes('@react-refresh') &&
+        !url.includes('/src/') &&
+        !path.extname(url.split('?')[0]);
+
+      if (isHtmlRequest) {
+        try {
+          const indexPath = path.resolve(__dirname, 'index.html');
+          let template = fs.readFileSync(indexPath, 'utf-8');
+          template = await vite.transformIndexHtml(url, template);
+          const finalHtml = formatHtmlResponse(template, req);
+
+          res.status(200);
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+          return res.end(finalHtml);
+        } catch (e) {
+          vite.ssrFixStacktrace(e as Error);
+          return next(e);
+        }
+      }
+      return vite.middlewares(req, res, next);
+    });
   } else {
-    // Production mode: serve dist static files and SPA fallback
+    // Production mode: serve dist static files and SPA fallback with formatHtmlResponse
     app.use(express.static(path.resolve(__dirname, 'dist')));
     app.get('*', (req, res) => {
       const indexPath = path.resolve(__dirname, 'dist/index.html');
       if (fs.existsSync(indexPath)) {
-        let html = fs.readFileSync(indexPath, 'utf-8');
-        const host = req.get('x-forwarded-host') || req.get('host') || '';
-        const proto = req.get('x-forwarded-proto') || (req.secure ? 'https' : 'http');
-        if (host) {
-          const origin = `${proto}://${host}`;
-          html = html.replace(/content="\/og-preview\.png"/g, `content="${origin}/og-preview.png"`);
-          html = html.replace(/content="\/logo\.png"/g, `content="${origin}/logo.png"`);
-        }
+        let rawHtml = fs.readFileSync(indexPath, 'utf-8');
+        const finalHtml = formatHtmlResponse(rawHtml, req);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        return res.send(html);
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        return res.send(finalHtml);
       }
       res.sendFile(indexPath);
     });

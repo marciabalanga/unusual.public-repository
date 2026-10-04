@@ -9,7 +9,7 @@ import {
   Calendar,
   AlertCircle
 } from 'lucide-react';
-import { useStore } from '../context/StoreContext';
+import { useStore, sanitizeProductVariants } from '../context/StoreContext';
 import { formatAOA } from '../lib/format';
 import { Product } from '../types';
 import { WULogo } from './wu-logo';
@@ -50,12 +50,13 @@ const isLightColor = (hex?: string) => {
 export const PreOrderModal: React.FC<PreOrderModalProps> = ({
   isOpen,
   onClose,
-  product,
+  product: rawProduct,
   selectedSize: initialSize,
   selectedColor: initialColor,
   onProceedToCheckout,
 }) => {
   const { t, settings } = useStore();
+  const product = React.useMemo(() => sanitizeProductVariants(rawProduct), [rawProduct]);
 
   const availableSizes = product.sizes && product.sizes.length > 0
     ? product.sizes
@@ -75,7 +76,7 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
       if (match && match.in_stock !== false) return initialColor;
     }
     const firstInStock = product.colors?.find((c) => c.in_stock !== false);
-    return firstInStock?.name || product.colors?.[0]?.name || 'Preto';
+    return firstInStock?.name || product.colors?.[0]?.name || '';
   });
   const [quantity, setQuantity] = useState(1);
 
@@ -207,11 +208,11 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-[11px] uppercase tracking-widest text-[#888888] font-semibold">
-                COR:
+                COR SELECIONADA:
               </span>
-              <span className="text-white text-xs">{currentColor}</span>
+              <span className="text-white text-xs">{currentColor || product.colors[0]?.name || ''}</span>
             </div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-3">
               {product.colors.map((c) => {
                 const isOutOfStock = c.in_stock === false;
                 const isSelected = currentColor === c.name;
@@ -223,37 +224,40 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
                     type="button"
                     disabled={isOutOfStock}
                     onClick={() => !isOutOfStock && setCurrentColor(c.name)}
-                    className={`px-3 py-1.5 rounded text-xs font-sans uppercase border transition-all flex items-center gap-2 ${
+                    className={`relative w-7 h-7 rounded-full overflow-hidden transition-transform flex items-center justify-center ${
                       isOutOfStock
-                        ? 'cursor-not-allowed bg-[#141414] text-[#555555] border-[#222222]'
+                        ? 'cursor-not-allowed ring-1 ring-[#333333]'
                         : isSelected
-                        ? 'cursor-pointer bg-white text-black border-white font-bold'
-                        : 'cursor-pointer bg-[#141414] text-[#888888] border-[#222222] hover:text-white'
+                        ? 'cursor-pointer ring-2 ring-white scale-110 shadow-lg'
+                        : 'cursor-pointer ring-1 ring-[#333333] hover:ring-[#777777]'
                     }`}
+                    style={{ backgroundColor: c.hex }}
+                    aria-label={`${c.name}${isOutOfStock ? ' (Indisponível)' : ''}`}
                   >
-                    <span
-                      className="relative w-2.5 h-2.5 rounded-full overflow-hidden shrink-0 border border-black/40 flex items-center justify-center"
-                      style={{ backgroundColor: c.hex }}
-                    >
-                      {isOutOfStock && (
-                        <svg
-                          className="absolute inset-0 w-full h-full pointer-events-none"
-                          viewBox="0 0 10 10"
-                          fill="none"
-                        >
-                          <line
-                            x1="1.5"
-                            y1="8.5"
-                            x2="8.5"
-                            y2="1.5"
-                            stroke={isLight ? '#000000' : '#ffffff'}
-                            strokeWidth="1.2"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      )}
-                    </span>
-                    <span>{c.name}</span>
+                    {isOutOfStock ? (
+                      <svg
+                        className="absolute inset-0 w-full h-full pointer-events-none"
+                        viewBox="0 0 28 28"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <line
+                          x1="4"
+                          y1="24"
+                          x2="24"
+                          y2="4"
+                          stroke={isLight ? '#000000' : '#ffffff'}
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    ) : isSelected ? (
+                      <div
+                        className={`w-2 h-2 rounded-full ${
+                          isLight ? 'bg-black' : 'bg-white'
+                        }`}
+                      />
+                    ) : null}
                   </button>
                 );
               })}
