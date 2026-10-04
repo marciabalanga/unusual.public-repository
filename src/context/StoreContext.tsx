@@ -170,6 +170,17 @@ const LOCAL_STORAGE_KEYS = {
   IS_PREVIEW_MODE: 'wu_is_preview_mode_v1',
 };
 
+const isStaleLogo = (url?: string | null): boolean => {
+  if (!url) return true;
+  const lower = url.toLowerCase();
+  return (
+    lower.includes('brand-icon.svg') ||
+    lower.includes('brand-logo.svg') ||
+    lower.includes('wu-logo.svg') ||
+    lower.includes('20261002')
+  );
+};
+
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Published State (Live Store for Public Visitors)
   const [publishedProducts, setPublishedProducts] = useState<Product[]>(() => {
@@ -216,10 +227,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const saved = pubSaved || localStorage.getItem(LOCAL_STORAGE_KEYS.SETTINGS);
       if (saved) {
         const parsed = JSON.parse(saved);
+        const validCachedLogo = cachedLogo && !isStaleLogo(cachedLogo) ? cachedLogo : null;
+        const validParsedLogo = parsed.site_logo_url && !isStaleLogo(parsed.site_logo_url) ? parsed.site_logo_url : null;
+        const validParsedLogoUrl = parsed.logo_url && !isStaleLogo(parsed.logo_url) ? parsed.logo_url : null;
         const resolvedLogo =
-          cachedLogo ||
-          parsed.site_logo_url ||
-          parsed.logo_url ||
+          validCachedLogo ||
+          validParsedLogo ||
+          validParsedLogoUrl ||
           INITIAL_SETTINGS.site_logo_url ||
           '/logo.png';
         return {
@@ -283,10 +297,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const saved = draftSaved || localStorage.getItem(LOCAL_STORAGE_KEYS.SETTINGS);
       if (saved) {
         const parsed = JSON.parse(saved);
+        const validCachedLogo = cachedLogo && !isStaleLogo(cachedLogo) ? cachedLogo : null;
+        const validParsedLogo = parsed.site_logo_url && !isStaleLogo(parsed.site_logo_url) ? parsed.site_logo_url : null;
+        const validParsedLogoUrl = parsed.logo_url && !isStaleLogo(parsed.logo_url) ? parsed.logo_url : null;
         const resolvedLogo =
-          cachedLogo ||
-          parsed.site_logo_url ||
-          parsed.logo_url ||
+          validCachedLogo ||
+          validParsedLogo ||
+          validParsedLogoUrl ||
           INITIAL_SETTINGS.site_logo_url ||
           '/logo.png';
         return {
@@ -964,9 +981,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // 4. Process Settings
       if (!setRes.error && setRes.data) {
         const r = setRes.data as Record<string, unknown>;
-        if (r.logo_url && typeof r.logo_url === 'string' && r.logo_url.trim() && r.logo_url !== '/logo.png') {
+        if (r.logo_url && typeof r.logo_url === 'string' && r.logo_url.trim() && !isStaleLogo(r.logo_url)) {
           remoteLogoUrl = (r.logo_url as string).trim();
-        } else if (r.site_logo_url && typeof r.site_logo_url === 'string' && r.site_logo_url.trim() && r.site_logo_url !== '/logo.png') {
+        } else if (r.site_logo_url && typeof r.site_logo_url === 'string' && r.site_logo_url.trim() && !isStaleLogo(r.site_logo_url)) {
           remoteLogoUrl = (r.site_logo_url as string).trim();
         }
 
@@ -977,10 +994,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const cachedInsta = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEYS.INSTAGRAM_HANDLE) : null;
 
           const finalLogo =
-            remoteLogoUrl ||
-            prev.site_logo_url ||
-            prev.logo_url ||
-            cached ||
+            (remoteLogoUrl && !isStaleLogo(remoteLogoUrl) ? remoteLogoUrl : null) ||
+            (prev.site_logo_url && !isStaleLogo(prev.site_logo_url) ? prev.site_logo_url : null) ||
+            (prev.logo_url && !isStaleLogo(prev.logo_url) ? prev.logo_url : null) ||
+            (cached && !isStaleLogo(cached) ? cached : null) ||
             INITIAL_SETTINGS.site_logo_url ||
             '/logo.png';
 

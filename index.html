@@ -3,6 +3,28 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <script>
+      (function() {
+        var APP_VERSION = '20261004_v6';
+        try {
+          var v = localStorage.getItem('wu_build_version');
+          if (v !== APP_VERSION) {
+            localStorage.setItem('wu_build_version', APP_VERSION);
+            ['wu_brand_logo_v1', 'wu_published_settings_v1', 'wu_draft_settings_v1', 'wu_settings_v1'].forEach(function(k) {
+              try {
+                var item = localStorage.getItem(k);
+                if (item && (item.indexOf('brand-icon.svg') !== -1 || item.indexOf('wu-logo.svg') !== -1 || item.indexOf('20261002') !== -1)) {
+                  localStorage.removeItem(k);
+                }
+              } catch(e) {}
+            });
+          }
+        } catch(e) {}
+      })();
+    </script>
     <title>UNUSUAL</title>
     <meta name="description" content="Wearing Unusual – Inspired by the fear of being average." />
     <meta property="og:site_name" content="UNUSUAL" />
