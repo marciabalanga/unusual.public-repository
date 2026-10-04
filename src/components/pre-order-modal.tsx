@@ -29,6 +29,24 @@ interface PreOrderModalProps {
   }) => void;
 }
 
+const isLightColor = (hex?: string) => {
+  if (!hex) return false;
+  const cleanHex = hex.replace('#', '').trim();
+  if (cleanHex.length === 3) {
+    const r = parseInt(cleanHex[0] + cleanHex[0], 16);
+    const g = parseInt(cleanHex[1] + cleanHex[1], 16);
+    const b = parseInt(cleanHex[2] + cleanHex[2], 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 160;
+  }
+  if (cleanHex.length === 6) {
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 160;
+  }
+  return false;
+};
+
 export const PreOrderModal: React.FC<PreOrderModalProps> = ({
   isOpen,
   onClose,
@@ -51,9 +69,14 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
   const [currentSize, setCurrentSize] = useState<string>(
     initialSize || availableSizes[0]?.size || 'M'
   );
-  const [currentColor, setCurrentColor] = useState<string>(
-    initialColor || product.colors[0]?.name || 'Preto'
-  );
+  const [currentColor, setCurrentColor] = useState<string>(() => {
+    if (initialColor) {
+      const match = product.colors?.find((c) => c.name === initialColor);
+      if (match && match.in_stock !== false) return initialColor;
+    }
+    const firstInStock = product.colors?.find((c) => c.in_stock !== false);
+    return firstInStock?.name || product.colors?.[0]?.name || 'Preto';
+  });
   const [quantity, setQuantity] = useState(1);
 
   if (!isOpen) return null;
@@ -73,6 +96,9 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
   const whatsappContact = settings.whatsapp_number || '+244 937 765 130';
 
   const handleConfirm = () => {
+    const currentColorObj = product.colors?.find((c) => c.name === currentColor);
+    if (currentColorObj && currentColorObj.in_stock === false) return;
+
     onProceedToCheckout({
       product: {
         ...product,
@@ -186,24 +212,51 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
               <span className="text-white text-xs">{currentColor}</span>
             </div>
             <div className="flex items-center gap-2.5">
-              {product.colors.map((c) => (
-                <button
-                  key={c.name}
-                  type="button"
-                  onClick={() => setCurrentColor(c.name)}
-                  className={`px-3 py-1.5 rounded text-xs font-sans uppercase border transition-all flex items-center gap-2 ${
-                    currentColor === c.name
-                      ? 'bg-white text-black border-white font-bold'
-                      : 'bg-[#141414] text-[#888888] border-[#222222] hover:text-white'
-                  }`}
-                >
-                  <span
-                    className="w-2.5 h-2.5 rounded-full border border-black/40"
-                    style={{ backgroundColor: c.hex }}
-                  />
-                  <span>{c.name}</span>
-                </button>
-              ))}
+              {product.colors.map((c) => {
+                const isOutOfStock = c.in_stock === false;
+                const isSelected = currentColor === c.name;
+                const isLight = isLightColor(c.hex);
+
+                return (
+                  <button
+                    key={c.name}
+                    type="button"
+                    disabled={isOutOfStock}
+                    onClick={() => !isOutOfStock && setCurrentColor(c.name)}
+                    className={`px-3 py-1.5 rounded text-xs font-sans uppercase border transition-all flex items-center gap-2 ${
+                      isOutOfStock
+                        ? 'cursor-not-allowed bg-[#141414] text-[#555555] border-[#222222]'
+                        : isSelected
+                        ? 'cursor-pointer bg-white text-black border-white font-bold'
+                        : 'cursor-pointer bg-[#141414] text-[#888888] border-[#222222] hover:text-white'
+                    }`}
+                  >
+                    <span
+                      className="relative w-2.5 h-2.5 rounded-full overflow-hidden shrink-0 border border-black/40 flex items-center justify-center"
+                      style={{ backgroundColor: c.hex }}
+                    >
+                      {isOutOfStock && (
+                        <svg
+                          className="absolute inset-0 w-full h-full pointer-events-none"
+                          viewBox="0 0 10 10"
+                          fill="none"
+                        >
+                          <line
+                            x1="1.5"
+                            y1="8.5"
+                            x2="8.5"
+                            y2="1.5"
+                            stroke={isLight ? '#000000' : '#ffffff'}
+                            strokeWidth="1.2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      )}
+                    </span>
+                    <span>{c.name}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

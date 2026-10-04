@@ -1979,6 +1979,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.warn(`[StoreContext] Tentativa bloqueada de adicionar tamanho esgotado (${size}) ao saco: ${product.name}`);
         return;
       }
+
+      const matchedColor = product.colors?.find((c) => c.name === color);
+      if (matchedColor && matchedColor.in_stock === false) {
+        console.warn(`[StoreContext] Tentativa bloqueada de adicionar cor esgotada (${color}) ao saco: ${product.name}`);
+        return;
+      }
     }
 
     setCart((prev) => {

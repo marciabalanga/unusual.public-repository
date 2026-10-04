@@ -31,6 +31,24 @@ interface ProductDetailProps {
   }) => void;
 }
 
+const isLightColor = (hex?: string) => {
+  if (!hex) return false;
+  const cleanHex = hex.replace('#', '').trim();
+  if (cleanHex.length === 3) {
+    const r = parseInt(cleanHex[0] + cleanHex[0], 16);
+    const g = parseInt(cleanHex[1] + cleanHex[1], 16);
+    const b = parseInt(cleanHex[2] + cleanHex[2], 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 160;
+  }
+  if (cleanHex.length === 6) {
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 160;
+  }
+  return false;
+};
+
 export const ProductDetailView: React.FC<ProductDetailProps> = ({
   product,
   onBack,
@@ -82,7 +100,10 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
     const firstInStock = product.sizes.find((s) => s.in_stock);
     return firstInStock ? firstInStock.size : '';
   });
-  const [selectedColor, setSelectedColor] = useState<string>(product.colors[0]?.name || 'Carbon Black');
+  const [selectedColor, setSelectedColor] = useState<string>(() => {
+    const firstInStock = product.colors.find((c) => c.in_stock !== false);
+    return firstInStock ? firstInStock.name : (product.colors[0]?.name || 'Carbon Black');
+  });
   const [quantity, setQuantity] = useState(1);
   const [isAdded, setIsAdded] = useState(false);
   const [showSizeGuideModal, setShowSizeGuideModal] = useState(false);
@@ -93,16 +114,16 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
   // Sincroniza estado quando o produto mudar e posiciona a visualização no topo absoluto
   useEffect(() => {
     scrollToTop(true);
-    const firstColor = product.colors[0];
-    if (firstColor?.image_url && firstColor.image_url.trim() !== '') {
-      setActiveColorImage(firstColor.image_url.trim());
+    const availableColor = product.colors.find((c) => c.in_stock !== false) || product.colors[0];
+    if (availableColor?.image_url && availableColor.image_url.trim() !== '') {
+      setActiveColorImage(availableColor.image_url.trim());
     } else if (validImages[0]) {
       setActiveColorImage(validImages[0]);
     } else {
       setActiveColorImage(null);
     }
     setSelectedImageIndex(0);
-    setSelectedColor(product.colors[0]?.name || 'Carbon Black');
+    setSelectedColor(availableColor?.name || 'Carbon Black');
   }, [product.id, product.slug]);
 
   useEffect(() => {
@@ -113,9 +134,11 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
 
   // Vínculo bidirecional: Clique na cor ativa e troca a fotografia correspondente imediatamente
   const handleColorSelect = (colorName: string) => {
-    setSelectedColor(colorName);
     const colorObj = product.colors.find((c) => c.name === colorName);
-
+    if (colorObj && colorObj.in_stock === false) {
+      return; // Impedir seleção dessa cor sem stock
+    }
+    setSelectedColor(colorName);
     if (colorObj?.image_url && colorObj.image_url.trim() !== '') {
       const targetUrl = colorObj.image_url.trim();
       setActiveColorImage(targetUrl);
@@ -157,6 +180,11 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
     if (isSoldOut) return;
     const currentSizeObj = product.sizes.find((s) => s.size === selectedSize);
     if (currentSizeObj && !currentSizeObj.in_stock) return;
+
+    const currentColorObj = product.colors.find((c) => c.name === selectedColor);
+    if (currentColorObj && currentColorObj.in_stock === false) {
+      return; // Impedir que essa variante seja adicionada ao carrinho
+    }
 
     addToCart(product, selectedSize, selectedColor, quantity);
     setIsAdded(true);
@@ -308,29 +336,54 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
                 <span className="text-white font-medium">{selectedColor}</span>
               </div>
               <div className="flex items-center gap-3">
-                {product.colors.map((c) => (
-                  <button
-                    key={c.name}
-                    type="button"
-                    onClick={() => handleColorSelect(c.name)}
-                    className={`w-7 h-7 rounded-full transition-transform flex items-center justify-center cursor-pointer ${
-                      selectedColor === c.name ? 'ring-2 ring-white scale-110 shadow-lg' : 'ring-1 ring-[#333333] hover:ring-[#777777]'
-                    }`}
-                    style={{ backgroundColor: c.hex }}
-                    title={`${c.name} (Clique para ver a foto correspondente)`}
-                    aria-label={c.name}
-                  >
-                    {selectedColor === c.name && (
-                      <Check
-                        className={`w-3 h-3 ${
-                          c.hex.toLowerCase() === '#ffffff' || c.hex.toLowerCase() === '#e3dfd8'
-                            ? 'text-black'
-                            : 'text-white'
-                        }`}
-                      />
-                    )}
-                  </button>
-                ))}
+                {product.colors.map((c) => {
+                  const isOutOfStock = c.in_stock === false;
+                  const isSelected = selectedColor === c.name;
+                  const isLight = isLightColor(c.hex);
+
+                  return (
+                    <button
+                      key={c.name}
+                      type="button"
+                      disabled={isOutOfStock}
+                      onClick={() => !isOutOfStock && handleColorSelect(c.name)}
+                      className={`relative w-7 h-7 rounded-full overflow-hidden transition-transform flex items-center justify-center ${
+                        isOutOfStock
+                          ? 'cursor-not-allowed ring-1 ring-[#333333]'
+                          : isSelected
+                          ? 'cursor-pointer ring-2 ring-white scale-110 shadow-lg'
+                          : 'cursor-pointer ring-1 ring-[#333333] hover:ring-[#777777]'
+                      }`}
+                      style={{ backgroundColor: c.hex }}
+                      aria-label={c.name}
+                    >
+                      {isOutOfStock ? (
+                        <svg
+                          className="absolute inset-0 w-full h-full pointer-events-none"
+                          viewBox="0 0 28 28"
+                          fill="none"
+                          aria-hidden="true"
+                        >
+                          <line
+                            x1="4"
+                            y1="24"
+                            x2="24"
+                            y2="4"
+                            stroke={isLight ? '#000000' : '#ffffff'}
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      ) : isSelected ? (
+                        <Check
+                          className={`w-3 h-3 ${
+                            isLight ? 'text-black' : 'text-white'
+                          }`}
+                        />
+                      ) : null}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

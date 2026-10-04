@@ -3308,6 +3308,25 @@ export const AdminPanel: React.FC = () => {
                                 </div>
                               )}
 
+                              {/* Stock toggle for this color */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const nextColors = [...editingProduct.colors];
+                                  const isCurrentlyInStock = nextColors[cIdx].in_stock !== false;
+                                  nextColors[cIdx] = { ...nextColors[cIdx], in_stock: !isCurrentlyInStock };
+                                  setEditingProduct({ ...editingProduct, colors: nextColors });
+                                }}
+                                className={`px-2 py-1 rounded text-[10px] font-mono uppercase font-bold border transition-colors shrink-0 ${
+                                  c.in_stock !== false
+                                    ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800 hover:bg-emerald-900/80'
+                                    : 'bg-red-950/60 text-red-300 border-red-800 hover:bg-red-900/80'
+                                }`}
+                                title="Alternar disponibilidade de stock desta cor"
+                              >
+                                {c.in_stock !== false ? 'Em Stock' : 'Sem Stock'}
+                              </button>
+
                               <button
                                 type="button"
                                 onClick={() => {

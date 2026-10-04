@@ -50,7 +50,7 @@ export const WishlistDrawer: React.FC = () => {
     const firstInStockSize = product.sizes.find((s: any) => s.in_stock)?.size;
     if (!firstInStockSize) return;
 
-    const defaultColor = product.colors[0]?.name || 'Preto';
+    const defaultColor = product.colors?.find((c: any) => c.in_stock !== false)?.name || product.colors?.[0]?.name || 'Preto';
     addToCart(product, firstInStockSize, defaultColor, 1);
   };
 

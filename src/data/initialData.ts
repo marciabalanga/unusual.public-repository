@@ -21,7 +21,8 @@ export const INITIAL_PRODUCTS: Product[] = [
       { size: 'XXL', in_stock: false },
     ],
     colors: [
-      { name: 'Bone White', hex: '#e3dfd8' }
+      { name: 'Bone White', hex: '#e3dfd8', in_stock: true },
+      { name: 'Carbon Black', hex: '#141414', in_stock: false }
     ],
     badge: 'NOVO',
     lifecycle: 'active_drop',
