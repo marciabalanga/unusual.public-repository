@@ -2283,10 +2283,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Cart Management
   const addToCart = (product: Product, size: string, color: string, quantity = 1) => {
     const isPreOrder = Boolean(
-      product.enable_pre_order &&
-      settings.enable_pre_order_button !== false &&
-      product.badge?.toUpperCase() === 'NOVO'
-    );
+  product.enable_pre_order &&
+  settings.enable_pre_order_button !== false
+);
 
     // Validação estrita de stock: impede adicionar ao saco itens normais esgotados (mas permite pre-orders)
     if (!isPreOrder) {
