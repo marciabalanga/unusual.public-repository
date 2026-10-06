@@ -217,18 +217,9 @@ export const sanitizeProductVariants = (product: Product): Product => {
     });
   }
 
-  // Consistência estrita de Stock vs Badges:
-  // Se todos os tamanhos estiverem sem stock OU o produto for um produto esgotado (como welcome to luanda):
-  // O badge NUNCA pode ser NOVO ou NEW! Deve ser estritamente ESGOTADO.
-  const allSizesOutOfStock =
-    Array.isArray(product.sizes) &&
-    product.sizes.length > 0 &&
-    product.sizes.every((s) => !s.in_stock);
-
-  let currentBadge = product.badge;
-  if (isLuandaTee || allSizesOutOfStock || (currentBadge && currentBadge.trim().toUpperCase() === 'ESGOTADO')) {
-    currentBadge = 'ESGOTADO';
-  }
+    // O badge é controlado pelo Admin.
+  // O stock determina apenas a disponibilidade para compra.
+  const currentBadge = product.badge;
 
   return {
     ...product,
