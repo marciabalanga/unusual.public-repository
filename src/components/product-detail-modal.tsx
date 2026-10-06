@@ -89,12 +89,24 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
     product.lifecycle === 'time_capsule' ||
     (product.category && (product.category.toLowerCase().includes('capsul') || product.category.toLowerCase().includes('cápsul')));
 
-  const isSoldOut =
-    product.badge?.toUpperCase() === 'ESGOTADO' ||
-    product.lifecycle === 'time_capsule' ||
-    !product.sizes ||
-    product.sizes.length === 0 ||
-    product.sizes.every((s) => !s.in_stock);
+const hasSizes =
+  Array.isArray(product.sizes) && product.sizes.length > 0;
+
+const allSizesOutOfStock =
+  hasSizes && product.sizes.every((s) => !s.in_stock);
+
+const isBadgeSoldOut =
+  product.badge?.trim().toUpperCase() === 'ESGOTADO';
+
+const isPreOrderEnabled =
+  product.enable_pre_order === true &&
+  settings.enable_pre_order_button !== false;
+
+const isSoldOut =
+  isBadgeSoldOut ||
+  product.lifecycle === 'time_capsule' ||
+  !hasSizes ||
+  allSizesOutOfStock;
 
   const [selectedSize, setSelectedSize] = useState<string>(() => {
     if (isSoldOut) return '';
@@ -136,7 +148,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
   // Vínculo bidirecional: Clique na cor ativa e troca a fotografia correspondente imediatamente
   const handleColorSelect = (colorName: string) => {
     const colorObj = product.colors.find((c) => c.name === colorName);
-    if (!colorObj || colorObj.in_stock === false || isSoldOut) {
+    if (!colorObj || colorObj.in_stock === false) {
       return; // Impedir seleção dessa cor sem stock
     }
     setSelectedColor(colorName);
@@ -231,7 +243,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
               <ShoppingBag className="w-16 h-16 text-[#333333]" />
             )}
             {(() => {
-              const effectiveBadge = isSoldOut && product.lifecycle !== 'time_capsule' ? 'ESGOTADO' : product.badge;
+              const effectiveBadge = product.badge;
               const badgeText = getProductBadgeDisplay(effectiveBadge, language);
               if (!badgeText) return null;
               const returnDate = getProductReturnDateDisplay(product);
@@ -336,7 +348,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
               </div>
               <div className="flex items-center gap-3">
                 {product.colors.map((c) => {
-                  const isOutOfStock = c.in_stock === false || isSoldOut;
+                  const isOutOfStock = c.in_stock === false;
                   const isSelected = selectedColor === c.name;
                   const isLight = isLightColor(c.hex);
 
@@ -505,8 +517,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
               </div>
             )}
 
-            {/* 1. PRE-ORDER: Permitido EXCLUSIVAMENTE para produtos com badge NOVO e enable_pre_order ativo */}
-            {product.badge?.toUpperCase() === 'NOVO' && product.enable_pre_order && settings.enable_pre_order_button !== false ? (
+            {/* 1. PRE-ORDER: Controlado pelo toggle enable_pre_order do produto */}{isPreOrderEnabled ? (
               <div className="space-y-2.5">
                 {settings.checkout_locked ? (
                   <div className="p-3.5 bg-red-950/60 border border-red-800 rounded-lg text-center text-xs text-red-200 flex items-center justify-center gap-2 font-sans">
