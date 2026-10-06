@@ -220,7 +220,7 @@ export const CustomContentEditorModal: React.FC<CustomContentEditorModalProps> =
                       setMenuLabel(newTitle);
                     }
                   }}
-                  placeholder="Ex: UNUSUAL MODELS, LOOKBOOK, CAMPAIGN 01"
+                  placeholder="Ex: LOOKBOOK DROP 01, EDITORIAL, CAMPAIGN"
                   className="w-full px-3 py-2.5 bg-[#161616] border border-[#2a2a2a] rounded text-white font-bold text-sm tracking-wider"
                 />
                 <span className="text-[10px] text-neutral-500 mt-1 block">
@@ -236,7 +236,7 @@ export const CustomContentEditorModal: React.FC<CustomContentEditorModalProps> =
                   type="text"
                   value={formData.internal_name || ''}
                   onChange={(e) => setFormData((prev) => ({ ...prev, internal_name: e.target.value }))}
-                  placeholder="Ex: Model Portfolio, Editorial Verão"
+                  placeholder="Ex: Editorial Verão, Campanha Drop 02"
                   className="w-full px-3 py-2.5 bg-[#161616] border border-[#2a2a2a] rounded text-neutral-300"
                 />
                 <span className="text-[10px] text-neutral-500 mt-1 block">
@@ -259,12 +259,12 @@ export const CustomContentEditorModal: React.FC<CustomContentEditorModalProps> =
                       const clean = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
                       setFormData((prev) => ({ ...prev, slug: clean }));
                     }}
-                    placeholder="unusual-models"
+                    placeholder="editorial-drop-01"
                     className="w-full px-3 py-2.5 bg-[#161616] border border-[#2a2a2a] rounded-r text-amber-300 font-mono text-xs"
                   />
                 </div>
                 <span className="text-[10px] text-neutral-500 mt-1 block">
-                  URL pública segura. Ex: /{formData.slug || 'unusual-models'}
+                  URL pública segura. Ex: /{formData.slug || 'editorial'}
                 </span>
               </div>
 
@@ -312,7 +312,7 @@ export const CustomContentEditorModal: React.FC<CustomContentEditorModalProps> =
             />
           </div>
 
-          {/* Perfis de Modelos / Fichas de Conteúdo (UNUSUAL MODELS & Portfólios) */}
+          {/* Perfis de Modelos / Fichas de Conteúdo (Portfólios & Editoriais) */}
           <div className="p-4 bg-[#111111] border border-[#1f1f1f] rounded-lg space-y-4">
             <div className="flex items-center justify-between">
               <div>

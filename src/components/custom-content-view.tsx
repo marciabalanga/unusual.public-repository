@@ -9,7 +9,7 @@ interface CustomContentViewProps {
 }
 
 export const CustomContentView: React.FC<CustomContentViewProps> = ({ slug, onBack }) => {
-  const { customContents, settings } = useStore();
+  const { customContents, settings, language } = useStore();
 
   useEffect(() => {
     scrollToTop(true);
@@ -22,16 +22,22 @@ export const CustomContentView: React.FC<CustomContentViewProps> = ({ slug, onBa
   if (!content) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center">
-        <p className="text-neutral-500 font-mono text-sm uppercase">Conteúdo não encontrado.</p>
+        <p className="text-neutral-500 font-mono text-sm uppercase">
+          {language === 'en' ? 'Content not found.' : 'Conteúdo não encontrado.'}
+        </p>
         <button
           onClick={onBack}
-          className="mt-6 px-4 py-2 bg-white text-black font-mono text-xs uppercase font-bold rounded"
+          className="mt-6 px-4 py-2 bg-white text-black font-mono text-xs uppercase font-bold rounded cursor-pointer"
         >
-          Voltar à Loja
+          {language === 'en' ? 'Back to Store' : 'Voltar à Loja'}
         </button>
       </div>
     );
   }
+
+  const title = language === 'en' && content.title_en ? content.title_en : content.title;
+  const description = language === 'en' && content.description_en ? content.description_en : content.description;
+  const subtitle = language === 'en' && content.subtitle_en ? content.subtitle_en : content.subtitle;
 
   const models = content.items || [];
   const images = content.images || [];
@@ -43,10 +49,10 @@ export const CustomContentView: React.FC<CustomContentViewProps> = ({ slug, onBa
         <div className="flex items-center justify-between border-b border-[#181818] pb-4">
           <button
             onClick={onBack}
-            className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-neutral-400 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-neutral-400 hover:text-white transition-colors cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Voltar à Loja</span>
+            <span>{language === 'en' ? 'Back to Store' : 'Voltar à Loja'}</span>
           </button>
           <span className="text-[10px] font-mono uppercase tracking-[0.25em] text-neutral-600">
             {settings.store_name || 'WEARING UNUSUAL'} • EDITORIAL
@@ -55,30 +61,30 @@ export const CustomContentView: React.FC<CustomContentViewProps> = ({ slug, onBa
 
         {/* Hero / Header Section */}
         <div className="space-y-4 max-w-4xl">
-          {content.subtitle && (
+          {subtitle && (
             <span className="text-xs font-mono uppercase tracking-[0.3em] text-neutral-400 block">
-              {content.subtitle}
+              {subtitle}
             </span>
           )}
           <h1 className="font-display uppercase text-3xl sm:text-5xl lg:text-6xl text-white tracking-wider font-extrabold leading-none">
-            {content.title}
+            {title}
           </h1>
-          {content.description && (
+          {description && (
             <p className="text-sm sm:text-base text-neutral-400 font-sans leading-relaxed pt-2 max-w-2xl">
-              {content.description}
+              {description}
             </p>
           )}
         </div>
 
-        {/* Models Grid (if items exist, e.g. for UNUSUAL MODELS portfolio) */}
+        {/* Profiles Grid (if items exist, e.g. for editorial/casting portfolio) */}
         {models.length > 0 && (
           <div className="space-y-6">
             <div className="flex items-center justify-between border-b border-[#181818] pb-3">
               <h2 className="font-display uppercase text-lg text-white tracking-wider">
-                CASTING & PERFIS
+                {language === 'en' ? 'CASTING & PROFILES' : 'CASTING & PERFIS'}
               </h2>
               <span className="text-xs font-mono text-neutral-500">
-                {models.length} {models.length === 1 ? 'REGISTO' : 'REGISTOS'}
+                {models.length} {language === 'en' ? (models.length === 1 ? 'RECORD' : 'RECORDS') : (models.length === 1 ? 'REGISTO' : 'REGISTOS')}
               </span>
             </div>
 
@@ -97,7 +103,7 @@ export const CustomContentView: React.FC<CustomContentViewProps> = ({ slug, onBa
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-neutral-600 font-mono text-xs uppercase">
-                        Sem Foto
+                        {language === 'en' ? 'No Photo' : 'Sem Foto'}
                       </div>
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-transparent" />
@@ -122,7 +128,7 @@ export const CustomContentView: React.FC<CustomContentViewProps> = ({ slug, onBa
                       )}
                       {(model.instagram || model.social_link) && (
                         <div className="pt-3 border-t border-[#161616] flex items-center justify-between text-xs font-mono">
-                          <span className="text-neutral-500">REDES</span>
+                          <span className="text-neutral-500">{language === 'en' ? 'SOCIAL' : 'REDES'}</span>
                           <a
                             href={model.social_link || `https://instagram.com/${model.instagram?.replace(/^@/, '')}`}
                             target="_blank"
@@ -148,9 +154,11 @@ export const CustomContentView: React.FC<CustomContentViewProps> = ({ slug, onBa
           <div className="space-y-6 pt-6">
             <div className="flex items-center justify-between border-b border-[#181818] pb-3">
               <h2 className="font-display uppercase text-lg text-white tracking-wider">
-                GALERIA EDITORIAL
+                {language === 'en' ? 'EDITORIAL GALLERY' : 'GALERIA EDITORIAL'}
               </h2>
-              <span className="text-xs font-mono text-neutral-500">{images.length} FOTOS</span>
+              <span className="text-xs font-mono text-neutral-500">
+                {images.length} {language === 'en' ? 'PHOTOS' : 'FOTOS'}
+              </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -161,7 +169,7 @@ export const CustomContentView: React.FC<CustomContentViewProps> = ({ slug, onBa
                 >
                   <img
                     src={img}
-                    alt={`${content.title} - ${idx + 1}`}
+                    alt={`${title} - ${idx + 1}`}
                     className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 group-hover:scale-105"
                   />
                 </div>

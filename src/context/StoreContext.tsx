@@ -25,6 +25,7 @@ import {
 import { supabase, testSupabaseConnection, SupabaseHealth } from '../lib/supabase';
 import { generateTrackingCode } from '../lib/format';
 import { getStoredItem, setStoredItem, getPersistentLogo, setPersistentLogo } from '../lib/idb-storage';
+import { scrollToTop } from '../lib/scroll';
 
 interface StoreContextType {
   // Products (Motor 2)
@@ -61,6 +62,9 @@ interface StoreContextType {
   setLanguage: (lang: Language) => void;
   t: (key: string, fallback?: string) => string;
   saveDictionaryEntry: (entry: DictionaryEntry) => Promise<boolean>;
+  deleteDictionaryEntry: (key: string) => Promise<boolean>;
+  resetDictionaryToDefaults: () => Promise<boolean>;
+  getLocalizedProduct: (product: Product, lang?: Language) => Product;
 
   // Settings & Business Rules (Motor 4)
   settings: SiteSettings;
@@ -122,6 +126,12 @@ interface StoreContextType {
   setSelectedCustomSlug: (slug: string | null) => void;
   trackingInput: string;
   setTrackingInput: (code: string) => void;
+  navigateTo: (dest: {
+    tab: 'store' | 'capsule' | 'track' | 'admin' | 'product_detail' | 'custom_content' | 'wishlist' | 'cart';
+    slug?: string;
+    anchorId?: string;
+    code?: string;
+  }) => void;
 
   // Supabase Status
   supabaseStatus: SupabaseHealth;
@@ -238,6 +248,41 @@ const isStaleLogo = (url?: string | null): boolean => {
   );
 };
 
+export const isUnusualModelsBlock = (b: SiteBlock): boolean => {
+  if (!b) return false;
+  if (b.id === 'block_unusual_models') return true;
+  if (b.custom_content_id === 'custom-unusual-models') return true;
+  if (b.slug === 'unusual-models') return true;
+  const pName = (b.public_name || '').trim().toUpperCase();
+  if (pName === 'UNUSUAL MODELS') return true;
+  const title = (b.title || '').trim().toUpperCase();
+  if (title === 'UNUSUAL MODELS') return true;
+  const heading = (b.content?.heading || '').trim().toUpperCase();
+  if (heading === 'UNUSUAL MODELS') return true;
+  return false;
+};
+
+export const sanitizeBlocksList = (rawBlocks: SiteBlock[]): SiteBlock[] => {
+  if (!Array.isArray(rawBlocks)) return INITIAL_BLOCKS;
+  return rawBlocks.filter((b) => !isUnusualModelsBlock(b));
+};
+
+export const isUnusualModelsContent = (c: CustomContent): boolean => {
+  if (!c) return false;
+  if (c.id === 'custom-unusual-models' || c.slug === 'unusual-models') return true;
+  const title = (c.title || '').trim().toUpperCase();
+  if (title === 'UNUSUAL MODELS' || title.includes('UNUSUAL MODEL')) return true;
+  return false;
+};
+
+export const isUnusualModelsMenuItem = (m: SiteMenuItem): boolean => {
+  if (!m) return false;
+  if (m.target_id === 'custom-unusual-models' || m.target_id === 'unusual-models') return true;
+  const label = (m.label || '').trim().toUpperCase();
+  if (label === 'MODELS' || label === 'UNUSUAL MODELS') return true;
+  return false;
+};
+
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Published State (Live Store for Public Visitors)
   const [publishedProducts, setPublishedProducts] = useState<Product[]>(() => {
@@ -258,9 +303,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [publishedBlocks, setPublishedBlocks] = useState<SiteBlock[]>(() => {
     try {
       const pubSaved = localStorage.getItem(LOCAL_STORAGE_KEYS.PUBLISHED_BLOCKS);
-      if (pubSaved) return JSON.parse(pubSaved);
+      if (pubSaved) return sanitizeBlocksList(JSON.parse(pubSaved));
       const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.BLOCKS);
-      return saved ? JSON.parse(saved) : INITIAL_BLOCKS;
+      return saved ? sanitizeBlocksList(JSON.parse(saved)) : INITIAL_BLOCKS;
     } catch {
       return INITIAL_BLOCKS;
     }
@@ -332,9 +377,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [draftBlocks, setDraftBlocks] = useState<SiteBlock[]>(() => {
     try {
       const draftSaved = localStorage.getItem(LOCAL_STORAGE_KEYS.DRAFT_BLOCKS);
-      if (draftSaved) return JSON.parse(draftSaved);
+      if (draftSaved) return sanitizeBlocksList(JSON.parse(draftSaved));
       const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.BLOCKS);
-      return saved ? JSON.parse(saved) : INITIAL_BLOCKS;
+      return saved ? sanitizeBlocksList(JSON.parse(saved)) : INITIAL_BLOCKS;
     } catch {
       return INITIAL_BLOCKS;
     }
@@ -455,9 +500,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [deletedCustomIds, setDeletedCustomIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEYS.DELETED_CUSTOM_CONTENTS);
-      return saved ? JSON.parse(saved) : [];
+      const parsed: string[] = saved ? JSON.parse(saved) : [];
+      return Array.from(new Set([...parsed, 'custom-unusual-models', 'unusual-models']));
     } catch {
-      return [];
+      return ['custom-unusual-models', 'unusual-models'];
     }
   });
 
@@ -547,6 +593,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         cleanSlug !== 'admin' &&
         cleanSlug !== 'preview' &&
         cleanSlug !== 'store' &&
+        cleanSlug !== 'lookbook' &&
+        cleanSlug !== 'lookbook-section' &&
+        cleanSlug !== 'manifesto' &&
+        cleanSlug !== 'manifesto-section' &&
         !cleanSlug.startsWith('choose-delivery-date') &&
         cleanSlug !== 'track' &&
         cleanSlug !== 'capsule'
@@ -574,7 +624,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setBlocks = useCallback((val: React.SetStateAction<SiteBlock[]>) => {
     setHasUnpublishedChanges(true);
-    setDraftBlocks(val);
+    setDraftBlocks((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      return sanitizeBlocksList(next);
+    });
   }, [setHasUnpublishedChanges]);
 
   const setSettings = useCallback((val: React.SetStateAction<SiteSettings>) => {
@@ -600,6 +653,159 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
   const [trackingInput, setTrackingInput] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const navigateTo = useCallback(
+    (dest: {
+      tab: 'store' | 'capsule' | 'track' | 'admin' | 'product_detail' | 'custom_content' | 'wishlist' | 'cart';
+      slug?: string;
+      anchorId?: string;
+      code?: string;
+    }) => {
+      if (typeof window === 'undefined') return;
+
+      if (dest.tab === 'wishlist') {
+        setIsWishlistOpen(true);
+        return;
+      }
+      if (dest.tab === 'cart') {
+        setIsCartOpen(true);
+        return;
+      }
+
+      // Close all overlay drawers
+      setIsCartOpen(false);
+      setIsWishlistOpen(false);
+      setIsSearchOpen(false);
+
+      if (dest.tab === 'store') {
+        setSelectedProductSlug(null);
+        setSelectedCustomSlug(null);
+        setActiveTab('store');
+
+        const isPreview = isPreviewMode;
+        let targetUrl = '/';
+        const rawAnchor = dest.anchorId;
+        if (rawAnchor && rawAnchor !== 'drop-atual') {
+          if (rawAnchor === 'lookbook-section' || rawAnchor === 'lookbook') {
+            targetUrl = isPreview ? '/preview#lookbook-section' : '/lookbook';
+          } else if (rawAnchor === 'manifesto-section' || rawAnchor === 'manifesto') {
+            targetUrl = isPreview ? '/preview#manifesto-section' : '/manifesto';
+          } else {
+            targetUrl = isPreview ? `/preview#${rawAnchor}` : `/#${rawAnchor}`;
+          }
+        } else {
+          targetUrl = isPreview ? '/preview' : '/';
+        }
+
+        try {
+          window.history.pushState({ tab: 'store', anchorId: dest.anchorId }, '', targetUrl);
+          window.dispatchEvent(new PopStateEvent('popstate', { state: { tab: 'store', anchorId: dest.anchorId } }));
+        } catch {}
+
+        if (rawAnchor) {
+          setTimeout(() => {
+            const el =
+              document.getElementById(rawAnchor) ||
+              document.getElementById(
+                rawAnchor === 'lookbook' ? 'lookbook-section' :
+                rawAnchor === 'manifesto' ? 'manifesto-section' :
+                `${rawAnchor}-section`
+              );
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth' });
+            } else {
+              scrollToTop(true);
+            }
+          }, 120);
+        } else {
+          scrollToTop(true);
+        }
+        return;
+      }
+
+      if (dest.tab === 'capsule') {
+        setSelectedProductSlug(null);
+        setSelectedCustomSlug(null);
+        setActiveTab('capsule');
+
+        const targetUrl = isPreviewMode ? '/preview#capsule' : '/capsule';
+        try {
+          window.history.pushState({ tab: 'capsule' }, '', targetUrl);
+          window.dispatchEvent(new PopStateEvent('popstate', { state: { tab: 'capsule' } }));
+        } catch {}
+
+        scrollToTop(true);
+        return;
+      }
+
+      if (dest.tab === 'track') {
+        setSelectedProductSlug(null);
+        setSelectedCustomSlug(null);
+        setActiveTab('track');
+        if (dest.code) {
+          setTrackingInput(dest.code);
+        }
+
+        const targetUrl = isPreviewMode
+          ? (dest.code ? `/preview#track?code=${encodeURIComponent(dest.code)}` : '/preview#track')
+          : (dest.code ? `/track?code=${encodeURIComponent(dest.code)}` : '/track');
+        try {
+          window.history.pushState({ tab: 'track', code: dest.code }, '', targetUrl);
+          window.dispatchEvent(new PopStateEvent('popstate', { state: { tab: 'track', code: dest.code } }));
+        } catch {}
+
+        scrollToTop(true);
+        return;
+      }
+
+      if (dest.tab === 'custom_content') {
+        const slug = dest.slug || '';
+        setSelectedProductSlug(null);
+        setSelectedCustomSlug(slug);
+        setActiveTab('custom_content');
+
+        const targetUrl = isPreviewMode ? `/preview#${slug}` : `/${slug}`;
+        try {
+          window.history.pushState({ tab: 'custom_content', slug }, '', targetUrl);
+          window.dispatchEvent(new PopStateEvent('popstate', { state: { tab: 'custom_content', slug } }));
+        } catch {}
+
+        scrollToTop(true);
+        return;
+      }
+
+      if (dest.tab === 'product_detail') {
+        const slug = dest.slug || '';
+        setSelectedCustomSlug(null);
+        setSelectedProductSlug(slug);
+        setActiveTab('product_detail');
+
+        const targetUrl = isPreviewMode
+          ? `/preview?product=${encodeURIComponent(slug)}`
+          : `/peca/${encodeURIComponent(slug)}`;
+        try {
+          window.history.pushState({ tab: 'product_detail', slug }, '', targetUrl);
+          window.dispatchEvent(new PopStateEvent('popstate', { state: { tab: 'product_detail', slug } }));
+        } catch {}
+
+        scrollToTop(true);
+        return;
+      }
+
+      if (dest.tab === 'admin') {
+        setSelectedProductSlug(null);
+        setSelectedCustomSlug(null);
+        setActiveTab('admin');
+        try {
+          window.history.pushState({ tab: 'admin' }, '', '/admin');
+          window.dispatchEvent(new PopStateEvent('popstate', { state: { tab: 'admin' } }));
+        } catch {}
+        scrollToTop(true);
+        return;
+      }
+    },
+    [isPreviewMode, setActiveTab, setSelectedProductSlug, setSelectedCustomSlug, setTrackingInput, setIsCartOpen, setIsWishlistOpen, setIsSearchOpen]
+  );
 
   const [supabaseStatus, setSupabaseStatus] = useState<SupabaseHealth>({
     connected: false,
@@ -636,7 +842,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           getStoredItem<Order[]>(LOCAL_STORAGE_KEYS.ORDERS),
         ]);
         if (!active) return;
-        if (idbBlocks && idbBlocks.length > 0) setDraftBlocks(idbBlocks);
+        if (idbBlocks && idbBlocks.length > 0) setDraftBlocks(sanitizeBlocksList(idbBlocks));
         if (idbProducts && idbProducts.length > 0) {
           setDraftProducts((prev) => {
             const idbMap = new Map(idbProducts.map((p) => [p.id, sanitizeProductVariants(p)]));
@@ -747,15 +953,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       enable_pre_order: Boolean(p.enable_pre_order),
       pre_order_price_aoa: p.pre_order_price_aoa !== undefined ? p.pre_order_price_aoa : null,
       pre_order_estimated_delivery: p.pre_order_estimated_delivery || null,
+      pre_order_estimated_delivery_en: p.pre_order_estimated_delivery_en || null,
       pre_order_start_date: p.pre_order_start_date || null,
       pre_order_end_date: p.pre_order_end_date || null,
       pre_order_max_quantity: p.pre_order_max_quantity !== undefined ? p.pre_order_max_quantity : null,
       pre_order_custom_notice: p.pre_order_custom_notice || null,
+      pre_order_custom_notice_en: p.pre_order_custom_notice_en || null,
       coming_soon_badge: Boolean(p.coming_soon_badge),
       return_date: p.return_date || null,
       enable_request_restock: Boolean(p.enable_request_restock),
       user_details: p.details || '',
       fit_guide: p.fit_guide || '',
+      name_en: p.name_en || null,
+      category_en: p.category_en || null,
+      description_en: p.description_en || null,
+      details_en: p.details_en || null,
+      size_guide_en: p.size_guide_en || null,
+      fit_guide_en: p.fit_guide_en || null,
+      badge_en: p.badge_en || null,
     };
 
     return {
@@ -795,13 +1010,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return {
       ...p,
       details: userDetails,
+      name_en: meta.name_en !== undefined ? meta.name_en : p.name_en,
+      category_en: meta.category_en !== undefined ? meta.category_en : p.category_en,
+      description_en: meta.description_en !== undefined ? meta.description_en : p.description_en,
+      details_en: meta.details_en !== undefined ? meta.details_en : p.details_en,
+      size_guide_en: meta.size_guide_en !== undefined ? meta.size_guide_en : p.size_guide_en,
+      fit_guide_en: meta.fit_guide_en !== undefined ? meta.fit_guide_en : p.fit_guide_en,
+      badge_en: meta.badge_en !== undefined ? meta.badge_en : p.badge_en,
       enable_pre_order: meta.enable_pre_order !== undefined ? Boolean(meta.enable_pre_order) : Boolean(p.enable_pre_order),
       pre_order_price_aoa: meta.pre_order_price_aoa !== undefined ? meta.pre_order_price_aoa : p.pre_order_price_aoa,
       pre_order_estimated_delivery: meta.pre_order_estimated_delivery !== undefined ? meta.pre_order_estimated_delivery : p.pre_order_estimated_delivery,
+      pre_order_estimated_delivery_en: meta.pre_order_estimated_delivery_en !== undefined ? meta.pre_order_estimated_delivery_en : p.pre_order_estimated_delivery_en,
       pre_order_start_date: meta.pre_order_start_date !== undefined ? meta.pre_order_start_date : p.pre_order_start_date,
       pre_order_end_date: meta.pre_order_end_date !== undefined ? meta.pre_order_end_date : p.pre_order_end_date,
       pre_order_max_quantity: meta.pre_order_max_quantity !== undefined ? meta.pre_order_max_quantity : p.pre_order_max_quantity,
       pre_order_custom_notice: meta.pre_order_custom_notice !== undefined ? meta.pre_order_custom_notice : p.pre_order_custom_notice,
+      pre_order_custom_notice_en: meta.pre_order_custom_notice_en !== undefined ? meta.pre_order_custom_notice_en : p.pre_order_custom_notice_en,
       coming_soon_badge: meta.coming_soon_badge !== undefined ? Boolean(meta.coming_soon_badge) : Boolean(p.coming_soon_badge),
       return_date: meta.return_date || p.return_date || undefined,
       enable_request_restock: meta.enable_request_restock !== undefined ? Boolean(meta.enable_request_restock) : Boolean(p.enable_request_restock),
@@ -830,11 +1054,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         const blocksToUse = Array.isArray(pubSource.blocks) ? pubSource.blocks : serverData.blocks;
         if (Array.isArray(blocksToUse) && blocksToUse.length > 0) {
-          setPublishedBlocks(blocksToUse);
+          const sanitizedBlocks = sanitizeBlocksList(blocksToUse);
+          setPublishedBlocks(sanitizedBlocks);
           try {
-            localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_BLOCKS, JSON.stringify(blocksToUse));
+            localStorage.setItem(LOCAL_STORAGE_KEYS.PUBLISHED_BLOCKS, JSON.stringify(sanitizedBlocks));
           } catch {}
-          setDraftBlocks((prev) => (prev.length === 0 ? blocksToUse : prev));
+          setDraftBlocks((prev) => (prev.length === 0 ? sanitizedBlocks : sanitizeBlocksList(prev)));
         }
         const settingsToUse = pubSource.settings || serverData.settings;
         if (settingsToUse) {
@@ -1176,16 +1401,46 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     syncWithSupabase();
   }, [syncWithSupabase]);
 
-  // Translation helper
+  // Translation helper with strict graceful fallback
   const t = useCallback(
     (key: string, fallback?: string): string => {
       const entry = dictionary[key];
       if (entry) {
-        return language === 'en' ? entry.en : entry.pt;
+        const val = language === 'en' ? entry.en : entry.pt;
+        if (typeof val === 'string' && val.trim() !== '') {
+          return val;
+        }
+        const otherVal = language === 'en' ? entry.pt : entry.en;
+        if (typeof otherVal === 'string' && otherVal.trim() !== '') {
+          return otherVal;
+        }
       }
-      return fallback || key;
+      return fallback !== undefined ? fallback : key;
     },
     [dictionary, language]
+  );
+
+  // Localized product helper ensuring seamless PT / EN without duplicating database entries
+  const getLocalizedProduct = useCallback(
+    (p: Product, lang: Language = language): Product => {
+      if (!p) return p;
+      if (lang === 'en') {
+        return {
+          ...p,
+          name: p.name_en && p.name_en.trim() !== '' ? p.name_en : p.name,
+          category: p.category_en && p.category_en.trim() !== '' ? p.category_en : p.category,
+          description: p.description_en && p.description_en.trim() !== '' ? p.description_en : p.description,
+          details: p.details_en && p.details_en.trim() !== '' ? p.details_en : p.details,
+          size_guide: p.size_guide_en && p.size_guide_en.trim() !== '' ? p.size_guide_en : p.size_guide,
+          fit_guide: p.fit_guide_en && p.fit_guide_en.trim() !== '' ? p.fit_guide_en : p.fit_guide,
+          badge: p.badge_en && p.badge_en.trim() !== '' ? p.badge_en : p.badge,
+          pre_order_estimated_delivery: p.pre_order_estimated_delivery_en && p.pre_order_estimated_delivery_en.trim() !== '' ? p.pre_order_estimated_delivery_en : p.pre_order_estimated_delivery,
+          pre_order_custom_notice: p.pre_order_custom_notice_en && p.pre_order_custom_notice_en.trim() !== '' ? p.pre_order_custom_notice_en : p.pre_order_custom_notice,
+        };
+      }
+      return p;
+    },
+    [language]
   );
 
   // Active Drop vs Time Capsule memoization
@@ -1509,14 +1764,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return true;
   };
 
-  // Custom Contents (Reutilizáveis - UNUSUAL MODELS, Lookbooks, Campaigns, etc.)
+  // Custom Contents (Reutilizáveis - Lookbooks, Campaigns, etc.)
   const deletedCustomSet = useMemo(() => new Set(deletedCustomIds), [deletedCustomIds]);
 
   const customContents: CustomContent[] = useMemo(() => {
     const raw = Array.isArray(settings.custom_contents)
       ? settings.custom_contents
       : INITIAL_CUSTOM_CONTENTS;
-    return raw.filter((c) => !deletedCustomSet.has(c.id) && !deletedCustomSet.has(c.slug));
+    return raw.filter(
+      (c) =>
+        !deletedCustomSet.has(c.id) &&
+        !deletedCustomSet.has(c.slug) &&
+        !isUnusualModelsContent(c)
+    );
   }, [settings.custom_contents, deletedCustomSet]);
 
   const saveCustomContent = async (item: CustomContent): Promise<boolean> => {
@@ -1642,9 +1902,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Site Navigation Menu (Editável)
-  const menuItems: SiteMenuItem[] = Array.isArray(settings.menu_items)
-    ? settings.menu_items
-    : INITIAL_MENU_ITEMS;
+  const menuItems: SiteMenuItem[] = useMemo(() => {
+    const raw = Array.isArray(settings.menu_items)
+      ? settings.menu_items
+      : INITIAL_MENU_ITEMS;
+    return raw.filter((m) => !isUnusualModelsMenuItem(m));
+  }, [settings.menu_items]);
 
   const saveMenuItem = async (item: SiteMenuItem): Promise<boolean> => {
     setHasUnpublishedChanges(true);
@@ -1695,6 +1958,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       } catch {}
     }
+    return true;
+  };
+
+  const deleteDictionaryEntry = async (key: string): Promise<boolean> => {
+    setDictionary((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setHasUnpublishedChanges(true);
+
+    const canSync = supabaseStatus.connected && !supabaseStatus.missingTables.includes('site_dictionary');
+    if (canSync) {
+      try {
+        await supabase.from('site_dictionary').delete().eq('key', key);
+      } catch {}
+    }
+    return true;
+  };
+
+  const resetDictionaryToDefaults = async (): Promise<boolean> => {
+    const defaultMap: Record<string, DictionaryEntry> = {};
+    INITIAL_DICTIONARY.forEach((d) => (defaultMap[d.key] = d));
+    setDictionary(defaultMap);
+    setHasUnpublishedChanges(true);
     return true;
   };
 
@@ -1924,8 +2212,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsPublishing(true);
     try {
       const currentDraftProducts = draftProducts.map(sanitizeProductVariants);
-      const currentDraftBlocks = [...draftBlocks];
-      const currentDraftSettings = { ...draftSettings };
+      const currentDraftBlocks = sanitizeBlocksList(draftBlocks);
+      const currentDraftSettings = {
+        ...draftSettings,
+        custom_contents: Array.isArray(draftSettings.custom_contents)
+          ? draftSettings.custom_contents.filter((c) => !isUnusualModelsContent(c))
+          : [],
+        menu_items: Array.isArray(draftSettings.menu_items)
+          ? draftSettings.menu_items.filter((m) => !isUnusualModelsMenuItem(m))
+          : INITIAL_MENU_ITEMS,
+      };
       const currentDraftDictionary = { ...draftDictionary };
 
       // 1. Promote in client state
@@ -2904,6 +3200,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setLanguage,
         t,
         saveDictionaryEntry,
+        deleteDictionaryEntry,
+        resetDictionaryToDefaults,
+        getLocalizedProduct,
         settings,
         saveSettings,
         orders,
@@ -2953,6 +3252,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setSelectedCustomSlug,
         trackingInput,
         setTrackingInput,
+        navigateTo,
         supabaseStatus,
         refreshSupabase: syncWithSupabase,
         isSyncing,

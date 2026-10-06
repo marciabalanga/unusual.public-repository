@@ -55,8 +55,9 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
   selectedColor: initialColor,
   onProceedToCheckout,
 }) => {
-  const { t, settings } = useStore();
+  const { t, settings, language } = useStore();
   const product = React.useMemo(() => sanitizeProductVariants(rawProduct), [rawProduct]);
+  const productName = language === 'en' && product.name_en ? product.name_en : product.name;
 
   const availableSizes = product.sizes && product.sizes.length > 0
     ? product.sizes
@@ -142,7 +143,7 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
           </div>
 
           <h2 className="font-display font-bold uppercase text-xl sm:text-2xl text-white tracking-wider leading-tight">
-            {product.name} {t('preorder_modal_title_suffix', '— PRE-ORDER')}
+            {productName} {t('preorder_modal_title_suffix', '— PRE-ORDER')}
           </h2>
 
           <p className="text-xs sm:text-sm text-[#aaaaaa] font-sans leading-relaxed pt-1">
@@ -183,7 +184,7 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
         {/* Size Selection */}
         <div className="space-y-2">
           <label className="text-[11px] uppercase tracking-widest text-[#888888] font-semibold block">
-            SELECIONAR TAMANHO PARA PRODUÇÃO:
+            {language === 'en' ? 'SELECT SIZE FOR PRODUCTION:' : 'SELECIONAR TAMANHO PARA PRODUÇÃO:'}
           </label>
           <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
             {availableSizes.map((s) => (
@@ -208,7 +209,7 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-[11px] uppercase tracking-widest text-[#888888] font-semibold">
-                COR SELECIONADA:
+                {language === 'en' ? 'SELECTED COLOR:' : 'COR SELECIONADA:'}
               </span>
               <span className="text-white text-xs">{currentColor || product.colors[0]?.name || ''}</span>
             </div>
@@ -232,7 +233,7 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
                         : 'cursor-pointer ring-1 ring-[#333333] hover:ring-[#777777]'
                     }`}
                     style={{ backgroundColor: c.hex }}
-                    aria-label={`${c.name}${isOutOfStock ? ' (Indisponível)' : ''}`}
+                    aria-label={`${c.name}${isOutOfStock ? (language === 'en' ? ' (Unavailable)' : ' (Indisponível)') : ''}`}
                   >
                     {isOutOfStock ? (
                       <svg

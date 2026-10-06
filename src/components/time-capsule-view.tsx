@@ -6,7 +6,15 @@ import { Product } from '../types';
 import { scrollToTop } from '../lib/scroll';
 
 export const TimeCapsuleView: React.FC = () => {
-  const { timeCapsuleProducts, setSelectedProductSlug, setActiveTab, settings, language, isPreviewMode } = useStore();
+  const {
+    timeCapsuleProducts,
+    setSelectedProductSlug,
+    setActiveTab,
+    settings,
+    language,
+    isPreviewMode,
+    getLocalizedProduct,
+  } = useStore();
 
   useEffect(() => {
     scrollToTop(true);
@@ -32,29 +40,33 @@ export const TimeCapsuleView: React.FC = () => {
           scrollToTop(true);
           setActiveTab('store');
         }}
-        className="inline-flex items-center gap-2 text-xs font-sans uppercase tracking-[0.25em] text-[#888888] hover:text-white transition-colors"
+        className="inline-flex items-center gap-2 text-xs font-sans uppercase tracking-[0.25em] text-[#888888] hover:text-white transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-4 h-4" />
-        <span>VOLTAR AO DROP ATUAL</span>
+        <span>{language === 'en' ? 'BACK TO CURRENT DROP' : 'VOLTAR AO DROP ATUAL'}</span>
       </button>
 
       {/* Header */}
       <div className="text-center max-w-3xl mx-auto space-y-4">
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#141414] border border-[#2b2b2b] rounded-sm text-[10px] font-sans tracking-[0.35em] text-[#888888] uppercase">
           <Archive className="w-3.5 h-3.5" />
-          <span>MUSEU ARQUIVAL</span>
+          <span>{language === 'en' ? 'ARCHIVAL MUSEUM' : 'MUSEU ARQUIVAL'}</span>
         </div>
         <h1 className="font-display uppercase text-3xl sm:text-5xl text-white tracking-[0.16em]">
-          CÁPSULA DO TEMPO
+          {language === 'en' ? 'TIME CAPSULE' : 'CÁPSULA DO TEMPO'}
         </h1>
         <p className="text-xs sm:text-sm text-[#888888] font-sans leading-relaxed">
-          As peças da Cápsula do Tempo representam edições esgotadas e arquivadas permanentemente. Mantemos o registo fotográfico e técnico destas silhuetas como tributo à nossa evolução arquitetural em Luanda.
+          {language === 'en'
+            ? 'The pieces in the Time Capsule represent permanently archived sold-out editions. We maintain photographic and technical records of these silhouettes as a tribute to our architectural evolution in Luanda.'
+            : 'As peças da Cápsula do Tempo representam edições esgotadas e arquivadas permanentemente. Mantemos o registo fotográfico e técnico destas silhuetas como tributo à nossa evolução arquitetural em Luanda.'}
         </p>
       </div>
 
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-        {timeCapsuleProducts.map((product) => (
+        {timeCapsuleProducts.map((rawProduct) => {
+          const product = getLocalizedProduct(rawProduct);
+          return (
           <div
             key={product.id}
             onClick={() => handleProductClick(product)}
@@ -117,7 +129,8 @@ export const TimeCapsuleView: React.FC = () => {
               {product.description}
             </p>
           </div>
-        ))}
+        );
+        })}
       </div>
     </div>
   );

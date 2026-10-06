@@ -19,6 +19,7 @@ export const PageBuilderRenderer: React.FC = () => {
     settings,
     language,
     t,
+    getLocalizedProduct,
     isPreviewMode,
   } = useStore();
 
@@ -220,10 +221,14 @@ export const PageBuilderRenderer: React.FC = () => {
                 <div className="flex flex-col md:flex-row md:items-end justify-between border-b border-[#181818] pb-6 mb-8 sm:mb-10 gap-3">
                   <div>
                     <h2 className="font-display font-bold uppercase text-3xl sm:text-5xl text-white tracking-[0.06em]">
-                      {block.public_name || content.heading || 'DROP ATUAL'}
+                      {language === 'en'
+                        ? block.public_name_en || content.heading_en || block.public_name || content.heading || t('nav_drop', 'CURRENT DROP')
+                        : block.public_name || content.heading || t('nav_drop', 'DROP ATUAL')}
                     </h2>
                     <p className="text-xs sm:text-sm text-[#888888] font-sans tracking-wider mt-1.5">
-                      {content.subheading || 'Edição limitada. Produzido em Angola.'}
+                      {language === 'en'
+                        ? content.subheading_en || 'Limited edition. Made in Angola.'
+                        : content.subheading || 'Edição limitada. Produzido em Angola.'}
                     </p>
                   </div>
                 </div>
@@ -241,7 +246,9 @@ export const PageBuilderRenderer: React.FC = () => {
                             : 'bg-[#121212] text-[#888888] hover:text-white border border-[#222222]'
                         }`}
                       >
-                        {cat === 'all' ? 'TODAS AS PEÇAS' : cat.toUpperCase()}
+                        {cat === 'all'
+                          ? (language === 'en' ? 'ALL PIECES' : 'TODAS AS PEÇAS')
+                          : (language === 'en' && cat === 'Acessórios' ? 'ACCESSORIES' : cat.toUpperCase())}
                       </button>
                     ))}
                   </div>
@@ -249,7 +256,9 @@ export const PageBuilderRenderer: React.FC = () => {
 
                 {/* Products Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-12">
-                  {displayedDropProducts.map((product) => (
+                  {displayedDropProducts.map((rawProduct) => {
+                    const product = getLocalizedProduct(rawProduct);
+                    return (
                     <div
                       key={product.id}
                       onClick={() => handleProductClick(product)}
@@ -274,11 +283,6 @@ export const PageBuilderRenderer: React.FC = () => {
                               (product.sizes && product.sizes.length > 0 && product.sizes.every((s) => !s.in_stock));
                             const effectiveBadge = isSoldOut ? 'ESGOTADO' : product.badge;
 
-                            const isPreOrder = Boolean(
-                              effectiveBadge?.toUpperCase() === 'NOVO' &&
-                              product.enable_pre_order &&
-                              settings.enable_pre_order_button !== false
-                            );
                             const badgeText = getProductBadgeDisplay(effectiveBadge, language);
                             const returnDate = getProductReturnDateDisplay(product);
 
@@ -307,8 +311,8 @@ export const PageBuilderRenderer: React.FC = () => {
                             e.stopPropagation();
                             toggleWishlist(product.id);
                           }}
-                          aria-label={isInWishlist(product.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-                          title={isInWishlist(product.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                          aria-label={isInWishlist(product.id) ? (language === 'en' ? 'Remove from wishlist' : 'Remover dos favoritos') : (language === 'en' ? 'Add to wishlist' : 'Adicionar aos favoritos')}
+                          title={isInWishlist(product.id) ? (language === 'en' ? 'Remove from wishlist' : 'Remover dos favoritos') : (language === 'en' ? 'Add to wishlist' : 'Adicionar aos favoritos')}
                           className="absolute top-3 right-3 z-20 w-9 h-9 rounded-full bg-black/55 hover:bg-black/80 backdrop-blur-md border border-white/30 hover:border-white/60 flex items-center justify-center transition-all duration-200 shadow-xl active:scale-95 group/fav"
                         >
                           <Heart
@@ -324,7 +328,7 @@ export const PageBuilderRenderer: React.FC = () => {
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <span className="px-4 py-2 bg-white text-black text-[11px] font-sans tracking-[0.2em] uppercase font-bold rounded shadow-lg flex items-center gap-1.5">
                             <Eye className="w-3.5 h-3.5" />
-                            <span>VER DETALHES</span>
+                            <span>{t('btn_view_details', 'VER DETALHES')}</span>
                           </span>
                         </div>
                       </div>
@@ -344,7 +348,8 @@ export const PageBuilderRenderer: React.FC = () => {
                         </span>
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
                 </div>
               </section>
             );
@@ -357,6 +362,16 @@ export const PageBuilderRenderer: React.FC = () => {
             const validImages = (images || []).filter(
               (img: any) => Boolean(img && img.url && typeof img.url === 'string' && img.url.trim() !== '')
             );
+            const lookbookSubtitle = language === 'en'
+              ? (block.subtitle_en || 'VISUAL EDITORIAL')
+              : (block.subtitle || 'EDITORIAL VISUAL');
+            const lookbookTitle = language === 'en'
+              ? (block.public_name_en || content.heading_en || 'LOOKBOOK 01')
+              : (block.public_name || content.heading || 'LOOKBOOK 01');
+            const lookbookDesc = language === 'en'
+              ? (content.description_en || 'Visual documentation of garments across the night streets and raw concrete of Luanda.')
+              : (content.description || 'Documentação visual das peças nas ruas noturnas e no concreto de Luanda.');
+
             return (
               <section
                 key={block.id}
@@ -365,13 +380,13 @@ export const PageBuilderRenderer: React.FC = () => {
               >
                 <div className="text-center max-w-2xl mx-auto space-y-3 mb-12">
                   <span className="text-[10px] text-[#777777] font-sans tracking-[0.3em] uppercase">
-                    {block.subtitle || 'EDITORIAL VISUAL'}
+                    {lookbookSubtitle}
                   </span>
                   <h2 className="font-display uppercase text-2xl sm:text-4xl text-white tracking-[0.16em]">
-                    {block.public_name || content.heading || 'LOOKBOOK 01'}
+                    {lookbookTitle}
                   </h2>
                   <p className="text-xs sm:text-sm text-[#888888] font-sans leading-relaxed">
-                    {content.description || 'Documentação visual das peças nas ruas noturnas e no concreto de Luanda.'}
+                    {lookbookDesc}
                   </p>
                 </div>
 
@@ -403,10 +418,12 @@ export const PageBuilderRenderer: React.FC = () => {
                 ) : (
                   <div className="border border-dashed border-[#222222] rounded-lg py-16 px-4 text-center max-w-xl mx-auto">
                     <span className="text-xs uppercase tracking-[0.25em] text-[#555555] block">
-                      EDITORIAL EM PREPARAÇÃO
+                      {language === 'en' ? 'EDITORIAL IN PREPARATION' : 'EDITORIAL EM PREPARAÇÃO'}
                     </span>
                     <p className="text-[11px] text-[#444444] mt-2">
-                      Fotografias e novos visuais da coleção estarão disponíveis brevemente.
+                      {language === 'en'
+                        ? 'Photographs and new visuals for the collection will be available shortly.'
+                        : 'Fotografias e novos visuais da coleção estarão disponíveis brevemente.'}
                     </p>
                   </div>
                 )}
@@ -417,6 +434,16 @@ export const PageBuilderRenderer: React.FC = () => {
           // 4. MANIFESTO SECTION
           case 'manifesto': {
             const content = block.content;
+            const manifestoSubtitle = language === 'en'
+              ? (block.subtitle_en || 'BRAND PHILOSOPHY')
+              : (block.subtitle || 'FILOSOFIA DA MARCA');
+            const manifestoTitle = language === 'en'
+              ? (block.public_name_en || content.heading_en || 'THE MANIFESTO')
+              : (block.public_name || content.heading || 'O MANIFESTO');
+            const manifestoText = language === 'en'
+              ? (content.text_en || content.text)
+              : content.text;
+
             return (
               <section
                 key={block.id}
@@ -424,18 +451,18 @@ export const PageBuilderRenderer: React.FC = () => {
                 className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 bg-[#0a0a0a] border border-[#1f1f1f] rounded-lg text-center space-y-6 my-12"
               >
                 <span className="text-[10px] text-[#777777] font-sans tracking-[0.35em] uppercase">
-                  {block.subtitle || 'FILOSOFIA DA MARCA'}
+                  {manifestoSubtitle}
                 </span>
                 <h2 className="font-display uppercase text-2xl sm:text-4xl text-white tracking-[0.2em]">
-                  {block.public_name || content.heading || 'O MANIFESTO'}
+                  {manifestoTitle}
                 </h2>
                 <div className="w-12 h-0.5 bg-white mx-auto my-4" />
                 <p className="font-display text-sm sm:text-lg text-[#d4d4d4] max-w-3xl mx-auto leading-loose tracking-[0.08em] uppercase">
-                  {content.text}
+                  {manifestoText}
                 </p>
                 {content.subtext && (
                   <p className="font-sans text-xs sm:text-sm text-[#777777] tracking-widest uppercase mt-4">
-                    {content.subtext}
+                    {language === 'en' ? (content.subtext_en || content.subtext) : content.subtext}
                   </p>
                 )}
               </section>
@@ -445,9 +472,15 @@ export const PageBuilderRenderer: React.FC = () => {
           // 5. CÁPSULA DO TEMPO (ARCHIVED TIME CAPSULE)
           case 'time_capsule': {
             const content = block.content || {};
-            const sectionTitle = block.public_name || content.heading || block.title || 'CÁPSULA DO TEMPO';
-            const sectionSubtitle = block.subtitle || 'História e Memórias';
-            const sectionDesc = content.subheading || (block.subtitle && block.subtitle !== sectionSubtitle ? block.subtitle : 'Registo permanente das peças esgotadas que marcaram o início da nossa história.');
+            const sectionTitle = language === 'en'
+              ? (block.public_name_en || content.heading_en || block.public_name || content.heading || t('nav_capsule', 'TIME CAPSULE'))
+              : (block.public_name || content.heading || block.title || 'CÁPSULA DO TEMPO');
+            const sectionSubtitle = language === 'en'
+              ? (block.subtitle_en || 'History and Memories')
+              : (block.subtitle || 'História e Memórias');
+            const sectionDesc = language === 'en'
+              ? (content.subheading_en || 'Permanent archive of sold-out pieces that marked the beginning of our history.')
+              : (content.subheading || (block.subtitle && block.subtitle !== sectionSubtitle ? block.subtitle : 'Registo permanente das peças esgotadas que marcaram o início da nossa história.'));
             const customItems = Array.isArray(content.items) ? content.items : [];
 
             return (
@@ -476,8 +509,8 @@ export const PageBuilderRenderer: React.FC = () => {
                 {customItems.length > 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                     {customItems.map((item: any, idx: number) => {
-                      const itemTitle = typeof item === 'string' ? item : item.title || item.name || `Memória #${idx + 1}`;
-                      const itemDesc = typeof item === 'object' ? item.description || item.subtitle || '' : '';
+                      const itemTitle = typeof item === 'string' ? item : (language === 'en' ? (item.title_en || item.title || item.name) : (item.title || item.name || `Memória #${idx + 1}`));
+                      const itemDesc = typeof item === 'object' ? (language === 'en' ? (item.description_en || item.description || item.subtitle) : (item.description || item.subtitle || '')) : '';
                       const itemImg = typeof item === 'object' ? item.image || item.imageUrl || '' : '';
 
                       return (
@@ -498,7 +531,9 @@ export const PageBuilderRenderer: React.FC = () => {
                 {/* Archived Products Grid */}
                 {timeCapsuleProducts.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {timeCapsuleProducts.map((product) => (
+                    {timeCapsuleProducts.map((rawProduct) => {
+                      const product = getLocalizedProduct(rawProduct);
+                      return (
                       <div
                         key={product.id}
                         onClick={() => handleProductClick(product)}
@@ -559,7 +594,8 @@ export const PageBuilderRenderer: React.FC = () => {
                           </span>
                         </div>
                       </div>
-                    ))}
+                    );
+                  })}
                   </div>
                 ) : customItems.length === 0 ? (
                   <div className="py-12 px-6 border border-dashed border-[#1f1f1f] rounded text-center">
@@ -568,7 +604,9 @@ export const PageBuilderRenderer: React.FC = () => {
                       {sectionTitle} • {sectionSubtitle}
                     </p>
                     <p className="text-xs text-[#555555] font-sans mt-2 max-w-md mx-auto">
-                      As peças esgotadas de drops anteriores e registos históricos ficam preservados aqui permanentemente.
+                      {language === 'en'
+                        ? 'Sold out pieces from previous drops and historical records are preserved here permanently.'
+                        : 'As peças esgotadas de drops anteriores e registos históricos ficam preservados aqui permanentemente.'}
                     </p>
                   </div>
                 ) : null}
@@ -576,7 +614,7 @@ export const PageBuilderRenderer: React.FC = () => {
             );
           }
 
-          // 7. CUSTOM CONTENT BLOCK (REUTILIZÁVEL: UNUSUAL MODELS, LOOKBOOKS, EDITORIALS, CAMPAIGNS)
+          // 7. CUSTOM CONTENT BLOCK (REUTILIZÁVEL: LOOKBOOKS, EDITORIALS, CAMPAIGNS)
           case 'custom_content': {
             const customContentList = settings.custom_contents || [];
             const linkedCustom = customContentList.find(
@@ -584,9 +622,15 @@ export const PageBuilderRenderer: React.FC = () => {
             );
 
             // Display Title prioritizes title from custom content or public_name (never technical type)
-            const publicTitle = linkedCustom?.title || block.public_name || block.title || 'EDITORIAL';
-            const publicSubtitle = block.subtitle || linkedCustom?.subtitle || '';
-            const description = linkedCustom?.description || block.content?.description || '';
+            const publicTitle = language === 'en'
+              ? (linkedCustom?.title_en || block.public_name_en || linkedCustom?.title || block.public_name || block.title || 'EDITORIAL')
+              : (linkedCustom?.title || block.public_name || block.title || 'EDITORIAL');
+            const publicSubtitle = language === 'en'
+              ? (linkedCustom?.subtitle_en || block.subtitle_en || linkedCustom?.subtitle || block.subtitle || '')
+              : (block.subtitle || linkedCustom?.subtitle || '');
+            const description = language === 'en'
+              ? (linkedCustom?.description_en || block.content?.description_en || linkedCustom?.description || block.content?.description || '')
+              : (linkedCustom?.description || block.content?.description || '');
             const images = linkedCustom?.images || block.content?.images || [];
             const models = linkedCustom?.items || block.content?.items || [];
             const sectionSlug = block.slug || linkedCustom?.slug || block.id;

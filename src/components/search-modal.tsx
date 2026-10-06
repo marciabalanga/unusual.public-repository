@@ -17,6 +17,7 @@ export const SearchModal: React.FC = () => {
     language,
     t,
     isPreviewMode,
+    getLocalizedProduct,
   } = useStore();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -39,12 +40,16 @@ export const SearchModal: React.FC = () => {
 
   const results = products.filter((p) => {
     if (!p.is_visible) return false;
+    const query = searchQuery.trim().toLowerCase();
     const matchesQuery =
-      !searchQuery.trim() ||
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.badge && p.badge.toLowerCase().includes(searchQuery.toLowerCase()));
+      !query ||
+      p.name.toLowerCase().includes(query) ||
+      (p.name_en && p.name_en.toLowerCase().includes(query)) ||
+      p.category.toLowerCase().includes(query) ||
+      (p.category_en && p.category_en.toLowerCase().includes(query)) ||
+      p.description.toLowerCase().includes(query) ||
+      (p.description_en && p.description_en.toLowerCase().includes(query)) ||
+      (p.badge && p.badge.toLowerCase().includes(query));
 
     const matchesCategory =
       selectedCategory === 'all'
@@ -89,7 +94,11 @@ export const SearchModal: React.FC = () => {
             <Search className="w-5 h-5 text-[#888888] shrink-0" />
             <input
               type="text"
-              placeholder="Pesquisar por peça, categoria ou tecido (ex: Hoodie, Denim, Boxy)..."
+              placeholder={
+                language === 'en'
+                  ? 'Search by piece, category or fabric (e.g. Hoodie, Denim, Boxy)...'
+                  : 'Pesquisar por peça, categoria ou tecido (ex: Hoodie, Denim, Boxy)...'
+              }
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               autoFocus
@@ -98,8 +107,8 @@ export const SearchModal: React.FC = () => {
           </div>
           <button
             onClick={() => setIsSearchOpen(false)}
-            className="p-2 text-[#777777] hover:text-white transition-colors"
-            aria-label="Fechar pesquisa"
+            className="p-2 text-[#777777] hover:text-white transition-colors cursor-pointer"
+            aria-label={language === 'en' ? 'Close search' : 'Fechar pesquisa'}
           >
             <X className="w-5 h-5" />
           </button>
@@ -111,16 +120,16 @@ export const SearchModal: React.FC = () => {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-sm whitespace-nowrap transition-colors tracking-widest uppercase ${
+              className={`px-3 py-1.5 rounded-sm whitespace-nowrap transition-colors tracking-widest uppercase cursor-pointer ${
                 selectedCategory === cat
                   ? 'bg-white text-black font-semibold'
                   : 'bg-[#181818] text-[#999999] hover:text-white border border-[#262626]'
               }`}
             >
               {cat === 'all'
-                ? 'TODOS'
+                ? (language === 'en' ? 'ALL' : 'TODOS')
                 : cat === 'time_capsule'
-                ? 'CÁPSULA DO TEMPO'
+                ? (language === 'en' ? 'TIME CAPSULE' : 'CÁPSULA DO TEMPO')
                 : cat.toUpperCase()}
             </button>
           ))}
@@ -131,11 +140,17 @@ export const SearchModal: React.FC = () => {
           {results.length === 0 ? (
             <div className="py-12 text-center text-[#666666]">
               <Tag className="w-8 h-8 mx-auto mb-3 opacity-40" />
-              <p className="font-sans text-sm">Nenhuma peça encontrada para "{searchQuery}".</p>
-              <p className="text-xs text-[#555555] mt-1">Tente pesquisar por 'Hoodie', 'Tee', 'Denim' ou 'Jacket'.</p>
+              <p className="font-sans text-sm">
+                {language === 'en' ? `No pieces found for "${searchQuery}".` : `Nenhuma peça encontrada para "${searchQuery}".`}
+              </p>
+              <p className="text-xs text-[#555555] mt-1">
+                {language === 'en' ? "Try searching for 'Hoodie', 'Tee', 'Denim' or 'Jacket'." : "Tente pesquisar por 'Hoodie', 'Tee', 'Denim' ou 'Jacket'."}
+              </p>
             </div>
           ) : (
-            results.map((product) => (
+            results.map((rawProduct) => {
+              const product = getLocalizedProduct(rawProduct);
+              return (
               <div
                 key={product.id}
                 onClick={() => handleSelectProduct(product)}
@@ -183,7 +198,7 @@ export const SearchModal: React.FC = () => {
                       })()}
                     </div>
                     <p className="text-xs text-[#777777] font-sans mt-0.5">
-                      {product.category} • {product.lifecycle === 'time_capsule' ? 'Arquivo Cápsula' : 'Drop Ativo'}
+                      {product.category} • {product.lifecycle === 'time_capsule' ? (language === 'en' ? 'Capsule Archive' : 'Arquivo Cápsula') : (language === 'en' ? 'Active Drop' : 'Drop Ativo')}
                     </p>
                   </div>
                 </div>
@@ -195,7 +210,8 @@ export const SearchModal: React.FC = () => {
                   <ArrowRight className="w-4 h-4 text-[#555555] group-hover:text-white group-hover:translate-x-1 transition-all" />
                 </div>
               </div>
-            ))
+            );
+            })
           )}
         </div>
       </div>

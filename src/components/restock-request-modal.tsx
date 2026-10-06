@@ -166,9 +166,11 @@ export const RestockRequestModal: React.FC<RestockRequestModalProps> = ({
             <div className="pt-2">
               <div className="p-3 bg-[#121212] border border-[#1f1f1f] rounded text-[11px] text-[#aaaaaa] font-mono">
                 <span className="text-[#666666] block text-[9px] uppercase tracking-wider mb-0.5">
-                  PEÇA REGISTADA
+                  {isEn ? 'REGISTERED PIECE' : 'PEÇA REGISTADA'}
                 </span>
-                <span className="text-white font-bold">{product.name}</span>
+                <span className="text-white font-bold">
+                  {isEn && product.name_en ? product.name_en : product.name}
+                </span>
                 <span className="text-[#777777] block mt-0.5 text-[10px]">
                   WhatsApp: {phone}
                 </span>
@@ -214,10 +216,10 @@ export const RestockRequestModal: React.FC<RestockRequestModalProps> = ({
                 )}
                 <div className="min-w-0 flex-1">
                   <span className="text-[9px] text-[#666666] font-mono uppercase tracking-wider block">
-                    {product.category || 'Cápsula do Tempo'}
+                    {isEn && product.category_en ? product.category_en : (product.category || (isEn ? 'Time Capsule' : 'Cápsula do Tempo'))}
                   </span>
                   <span className="text-xs font-display text-white uppercase tracking-wide truncate block">
-                    {product.name}
+                    {isEn && product.name_en ? product.name_en : product.name}
                   </span>
                 </div>
               </div>

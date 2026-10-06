@@ -15,6 +15,8 @@ export const WishlistDrawer: React.FC = () => {
     setSelectedProductSlug,
     setActiveTab,
     isPreviewMode,
+    language,
+    getLocalizedProduct,
   } = useStore();
 
   if (!isWishlistOpen) return null;
@@ -70,13 +72,13 @@ export const WishlistDrawer: React.FC = () => {
             <div className="flex items-center gap-2.5">
               <Heart className="w-4 h-4 text-white fill-white" />
               <h2 className="font-display uppercase tracking-[0.2em] text-sm font-semibold">
-                FAVORITOS ({wishlistProducts.length})
+                {language === 'en' ? `WISHLIST (${wishlistProducts.length})` : `FAVORITOS (${wishlistProducts.length})`}
               </h2>
             </div>
             <button
               onClick={() => setIsWishlistOpen(false)}
-              className="p-1.5 text-neutral-400 hover:text-white rounded-full transition-colors"
-              aria-label="Fechar lista de desejos"
+              className="p-1.5 text-neutral-400 hover:text-white rounded-full transition-colors cursor-pointer"
+              aria-label={language === 'en' ? 'Close wishlist' : 'Fechar lista de desejos'}
             >
               <X className="w-5 h-5" />
             </button>
@@ -91,22 +93,26 @@ export const WishlistDrawer: React.FC = () => {
                 </div>
                 <div className="space-y-1">
                   <p className="font-display text-sm tracking-wider uppercase text-neutral-300">
-                    A sua lista de favoritos está vazia
+                    {language === 'en' ? 'Your wishlist is empty' : 'A sua lista de favoritos está vazia'}
                   </p>
                   <p className="text-xs text-neutral-500 font-sans max-w-xs">
-                    Guarde as suas peças de arquivo preferidas clicando no ícone de coração.
+                    {language === 'en'
+                      ? 'Save your favourite archive pieces by clicking on the heart icon.'
+                      : 'Guarde as suas peças de arquivo preferidas clicando no ícone de coração.'}
                   </p>
                 </div>
                 <button
                   onClick={() => setIsWishlistOpen(false)}
-                  className="mt-4 px-6 py-2.5 border border-white text-xs font-sans tracking-[0.2em] uppercase hover:bg-white hover:text-black transition-all"
+                  className="mt-4 px-6 py-2.5 border border-white text-xs font-sans tracking-[0.2em] uppercase hover:bg-white hover:text-black transition-all cursor-pointer"
                 >
-                  Explorar Catálogo
+                  {language === 'en' ? 'Explore Catalog' : 'Explorar Catálogo'}
                 </button>
               </div>
             ) : (
               <div className="space-y-4">
-                {wishlistProducts.map((product) => (
+                {wishlistProducts.map((rawProduct) => {
+                  const product = getLocalizedProduct(rawProduct);
+                  return (
                   <div
                     key={product.id}
                     onClick={() => handleProductClick(product.slug)}
@@ -136,8 +142,8 @@ export const WishlistDrawer: React.FC = () => {
                               e.stopPropagation();
                               toggleWishlist(product.id);
                             }}
-                            className="text-neutral-500 hover:text-red-400 p-1"
-                            title="Remover dos favoritos"
+                            className="text-neutral-500 hover:text-red-400 p-1 cursor-pointer"
+                            title={language === 'en' ? 'Remove from wishlist' : 'Remover dos favoritos'}
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -162,7 +168,7 @@ export const WishlistDrawer: React.FC = () => {
                           if (itemSoldOut) {
                             return (
                               <span className="px-2.5 py-1 bg-[#161616] text-[#666666] border border-[#262626] text-[9px] font-sans font-semibold tracking-[0.15em] uppercase rounded">
-                                Esgotado
+                                {language === 'en' ? 'Sold Out' : 'Esgotado'}
                               </span>
                             );
                           }
@@ -171,17 +177,18 @@ export const WishlistDrawer: React.FC = () => {
                             <button
                               type="button"
                               onClick={(e) => handleQuickAdd(e, product)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black hover:bg-neutral-200 text-[10px] font-sans font-bold tracking-[0.18em] uppercase rounded transition-colors"
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black hover:bg-neutral-200 text-[10px] font-sans font-bold tracking-[0.18em] uppercase rounded transition-colors cursor-pointer"
                             >
                               <ShoppingBag className="w-3 h-3" />
-                              <span>Adicionar</span>
+                              <span>{language === 'en' ? 'Add' : 'Adicionar'}</span>
                             </button>
                           );
                         })()}
                       </div>
                     </div>
                   </div>
-                ))}
+                );
+                })}
               </div>
             )}
           </div>
@@ -195,9 +202,9 @@ export const WishlistDrawer: React.FC = () => {
                   setIsWishlistOpen(false);
                   setActiveTab('store');
                 }}
-                className="w-full py-3.5 border border-white text-xs font-sans tracking-[0.25em] uppercase hover:bg-white hover:text-black transition-all flex items-center justify-center gap-2 font-bold"
+                className="w-full py-3.5 border border-white text-xs font-sans tracking-[0.25em] uppercase hover:bg-white hover:text-black transition-all flex items-center justify-center gap-2 font-bold cursor-pointer"
               >
-                <span>Continuar a Comprar</span>
+                <span>{language === 'en' ? 'Continue Shopping' : 'Continuar a Comprar'}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>

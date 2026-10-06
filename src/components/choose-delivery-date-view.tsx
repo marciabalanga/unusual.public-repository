@@ -278,15 +278,27 @@ export const ChooseDeliveryDateView: React.FC<ChooseDeliveryDateViewProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Language Toggle */}
-          <button
-            type="button"
-            onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')}
-            className="px-2.5 py-1 rounded bg-[#141414] hover:bg-[#202020] border border-[#2a2a2a] text-[11px] font-mono font-bold text-[#aaaaaa] hover:text-white uppercase transition-colors"
-            title="Mudar Idioma / Switch Language"
-          >
-            {language === 'pt' ? 'EN' : 'PT'}
-          </button>
+          {/* Global PT / EN Selector */}
+          <div className="flex items-center rounded border border-[#222222] bg-[#111111] p-0.5 text-[10px] font-mono font-bold">
+            <button
+              type="button"
+              onClick={() => setLanguage('pt')}
+              className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                language === 'pt' ? 'bg-white text-black font-bold' : 'text-[#777777] hover:text-white'
+              }`}
+            >
+              PT
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage('en')}
+              className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                language === 'en' ? 'bg-white text-black font-bold' : 'text-[#777777] hover:text-white'
+              }`}
+            >
+              EN
+            </button>
+          </div>
 
           {order && (
             <button

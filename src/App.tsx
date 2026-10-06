@@ -48,6 +48,7 @@ const MainContent: React.FC = () => {
     customContents,
     isPreviewMode,
     setIsPreviewMode,
+    navigateTo,
   } = useStore();
 
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -89,7 +90,7 @@ const MainContent: React.FC = () => {
     scrollToTop(true);
   }, [setActiveTab]);
 
-  // Check URL pathname or hash for /admin, /choose-delivery-date/:code, and pre-order schedule link
+  // Check URL pathname or hash for /admin, /choose-delivery-date/:code, product pages, capsule, and tracking
   useEffect(() => {
     const handleUrlCheck = async () => {
       const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
@@ -100,12 +101,16 @@ const MainContent: React.FC = () => {
 
       if (trackCode) {
         setTrackingInput(trackCode.toUpperCase());
+        setSelectedProductSlug(null);
+        setSelectedCustomSlug(null);
         setActiveTab('track');
         setIsSplashActive(false);
         return;
       }
 
       if (path === '/track' || hash === '#track' || hash === '#/track') {
+        setSelectedProductSlug(null);
+        setSelectedCustomSlug(null);
         setActiveTab('track');
         setIsSplashActive(false);
         return;
@@ -119,6 +124,8 @@ const MainContent: React.FC = () => {
       if (chooseMatch) {
         const extractedCode = decodeURIComponent(chooseMatch[1]).trim().toUpperCase();
         setDeliveryDateOrderCode(extractedCode);
+        setSelectedProductSlug(null);
+        setSelectedCustomSlug(null);
         setActiveTab('choose_delivery_date');
         setIsSplashActive(false);
         return;
@@ -146,6 +153,7 @@ const MainContent: React.FC = () => {
             (p) => p.slug?.toLowerCase() === previewProduct.toLowerCase()
           );
           if (matched) {
+            setSelectedCustomSlug(null);
             setSelectedProductSlug(matched.slug);
             setActiveTab('product_detail');
             setIsSplashActive(false);
@@ -153,6 +161,8 @@ const MainContent: React.FC = () => {
           }
         }
         if (activeTab !== 'product_detail') {
+          setSelectedProductSlug(null);
+          setSelectedCustomSlug(null);
           setActiveTab('store');
         }
         setIsSplashActive(false);
@@ -162,28 +172,96 @@ const MainContent: React.FC = () => {
       if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
         if (isPreviewMode) {
           if (activeTab !== 'product_detail') {
+            setSelectedProductSlug(null);
+            setSelectedCustomSlug(null);
             setActiveTab('store');
           }
           setIsSplashActive(false);
           return;
         }
+        setSelectedProductSlug(null);
+        setSelectedCustomSlug(null);
         setActiveTab('admin');
         setIsSplashActive(false);
         return;
       }
 
       if (path === '/capsule' || hash === '#capsule' || hash === '#/capsule') {
+        setSelectedProductSlug(null);
+        setSelectedCustomSlug(null);
         setActiveTab('capsule');
         setIsSplashActive(false);
         return;
       }
 
-      // Check clean slug for custom contents (e.g. /unusual-models)
+      if (
+        path === '/lookbook' ||
+        hash === '#lookbook' ||
+        hash === '#/lookbook' ||
+        hash === '#lookbook-section' ||
+        path === '/lookbook-section'
+      ) {
+        setSelectedProductSlug(null);
+        setSelectedCustomSlug(null);
+        setActiveTab('store');
+        setIsSplashActive(false);
+        setTimeout(() => {
+          const el = document.getElementById('lookbook-section') || document.getElementById('block_lookbook');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }, 120);
+        return;
+      }
+
+      if (
+        path === '/manifesto' ||
+        hash === '#manifesto' ||
+        hash === '#/manifesto' ||
+        hash === '#manifesto-section' ||
+        path === '/manifesto-section'
+      ) {
+        setSelectedProductSlug(null);
+        setSelectedCustomSlug(null);
+        setActiveTab('store');
+        setIsSplashActive(false);
+        setTimeout(() => {
+          const el = document.getElementById('manifesto-section') || document.getElementById('block_manifesto');
+          if (el) el.scrollIntoView({ behavior: 'smooth' });
+        }, 120);
+        return;
+      }
+
+      // Check product direct route (/peca/:slug or /produto/:slug)
+      if (path.startsWith('/peca/') || path.startsWith('/produto/')) {
+        const cleanProductSlug = path.replace(/^\/(peca|produto)\//i, '').replace(/\/+$/, '');
+        if (cleanProductSlug) {
+          const matched = products.find(
+            (p) => p.slug?.toLowerCase() === cleanProductSlug.toLowerCase() || p.id === cleanProductSlug
+          );
+          if (matched) {
+            setSelectedCustomSlug(null);
+            setSelectedProductSlug(matched.slug);
+            setActiveTab('product_detail');
+            setIsSplashActive(false);
+            return;
+          }
+        }
+      }
+
+      // Check clean slug for custom contents or root
       const cleanSlug = path.replace(/^\/+|\/+$/g, '');
       const cleanHash = hash.replace(/^#\/?/, '').replace(/\/+$/, '');
       const targetSlug = cleanSlug || cleanHash;
 
-      if (targetSlug && targetSlug !== 'store') {
+      if (
+        targetSlug &&
+        targetSlug !== 'store' &&
+        targetSlug !== 'drop-atual' &&
+        targetSlug !== 'preview' &&
+        targetSlug !== 'lookbook' &&
+        targetSlug !== 'lookbook-section' &&
+        targetSlug !== 'manifesto' &&
+        targetSlug !== 'manifesto-section'
+      ) {
         // 1. Check Custom Content
         const matchedCustom = customContents.find(
           (c) =>
@@ -191,18 +269,19 @@ const MainContent: React.FC = () => {
             c.id?.toLowerCase() === targetSlug.toLowerCase()
         );
         if (matchedCustom) {
+          setSelectedProductSlug(null);
           setSelectedCustomSlug(matchedCustom.slug);
           setActiveTab('custom_content');
           setIsSplashActive(false);
           return;
         }
 
-        // 2. Check Product
-        const cleanProductSlug = targetSlug.replace(/^peca\//i, '').replace(/^produto\//i, '');
+        // 2. Check Product fallback if slug directly in root
         const matchedProduct = products.find(
-          (p) => p.slug?.toLowerCase() === cleanProductSlug.toLowerCase()
+          (p) => p.slug?.toLowerCase() === targetSlug.toLowerCase()
         );
         if (matchedProduct) {
+          setSelectedCustomSlug(null);
           setSelectedProductSlug(matchedProduct.slug);
           setActiveTab('product_detail');
           setIsSplashActive(false);
@@ -210,9 +289,11 @@ const MainContent: React.FC = () => {
         }
       }
 
-      if (activeTab === 'admin' && !isPreviewMode) {
-        setActiveTab('store');
-      }
+      // Default root / homepage
+      setSelectedProductSlug(null);
+      setSelectedCustomSlug(null);
+      setActiveTab('store');
+      setIsSplashActive(false);
     };
     handleUrlCheck();
     window.addEventListener('popstate', handleUrlCheck);
@@ -221,7 +302,7 @@ const MainContent: React.FC = () => {
       window.removeEventListener('popstate', handleUrlCheck);
       window.removeEventListener('hashchange', handleUrlCheck);
     };
-  }, [setActiveTab, getOrderByTrackingCode, setDeliveryDateOrderCode, isAuthenticated, isPreviewMode, products]);
+  }, [setActiveTab, setSelectedProductSlug, setSelectedCustomSlug, getOrderByTrackingCode, setDeliveryDateOrderCode, isAuthenticated, isPreviewMode, products, customContents]);
 
   // Garantia Universal: sempre que a aba ou o produto selecionado mudar,
   // reposiciona imediatamente a janela no topo absoluto (Y = 0),
@@ -434,11 +515,10 @@ const MainContent: React.FC = () => {
             <ProductDetailView
               product={selectedProduct}
               onBack={() => {
-                scrollToTop(true);
                 if (selectedProduct.lifecycle === 'time_capsule') {
-                  setActiveTab('capsule');
+                  navigateTo({ tab: 'capsule' });
                 } else {
-                  setActiveTab('store');
+                  navigateTo({ tab: 'store' });
                 }
               }}
               onOpenPreOrderCheckout={(item) => {
@@ -452,7 +532,7 @@ const MainContent: React.FC = () => {
 
           {activeTab === 'custom_content' && (
             <CustomContentView
-              slug={selectedCustomSlug || 'unusual-models'}
+              slug={selectedCustomSlug || (customContents[0]?.slug ?? '')}
               onBack={() => {
                 setSelectedCustomSlug(null);
                 setActiveTab('store');

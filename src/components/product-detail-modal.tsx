@@ -54,8 +54,8 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
   onBack,
   onOpenPreOrderCheckout,
 }) => {
-  const { addToCart, toggleWishlist, isInWishlist, t, settings, language, setIsCartOpen, isPreviewMode } = useStore();
-  const product = React.useMemo(() => sanitizeProductVariants(rawProduct), [rawProduct]);
+  const { addToCart, toggleWishlist, isInWishlist, t, settings, language, setIsCartOpen, isPreviewMode, getLocalizedProduct } = useStore();
+  const product = React.useMemo(() => getLocalizedProduct(sanitizeProductVariants(rawProduct), language), [rawProduct, language, getLocalizedProduct]);
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
@@ -209,7 +209,9 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
       >
         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
         <span>
-          {product.lifecycle === 'time_capsule' ? 'VOLTAR À CÁPSULA DO TEMPO' : 'VOLTAR AO CATÁLOGO'}
+          {product.lifecycle === 'time_capsule'
+            ? (language === 'en' ? 'BACK TO TIME CAPSULE' : 'VOLTAR À CÁPSULA DO TEMPO')
+            : (language === 'en' ? 'BACK TO CATALOG' : 'VOLTAR AO CATÁLOGO')}
         </span>
       </button>
 
@@ -306,7 +308,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
           {/* Category & Title */}
           <div>
             <span className="text-[10px] text-[#777777] font-sans tracking-[0.3em] uppercase block mb-1">
-              {product.category} • {product.lifecycle === 'time_capsule' ? 'ARQUIVO CÁPSULA' : 'DROP ATUAL'}
+              {product.category} • {product.lifecycle === 'time_capsule' ? (language === 'en' ? 'CAPSULE ARCHIVE' : 'ARQUIVO CÁPSULA') : (language === 'en' ? 'CURRENT DROP' : 'DROP ATUAL')}
             </span>
             <h1 className="font-display uppercase text-2xl sm:text-4xl text-white tracking-[0.15em] leading-tight">
               {product.name}
@@ -327,7 +329,9 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
           {product.colors.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-sans">
-                <span className="text-[#888888] uppercase tracking-wider">COR SELECIONADA:</span>
+                <span className="text-[#888888] uppercase tracking-wider">
+                  {language === 'en' ? 'SELECTED COLOR:' : 'COR SELECIONADA:'}
+                </span>
                 <span className="text-white font-medium">{selectedColor || product.colors[0]?.name || ''}</span>
               </div>
               <div className="flex items-center gap-3">
@@ -350,7 +354,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
                           : 'cursor-pointer ring-1 ring-[#333333] hover:ring-[#777777]'
                       }`}
                       style={{ backgroundColor: c.hex }}
-                      aria-label={`${c.name}${isOutOfStock ? ' (Indisponível)' : ''}`}
+                      aria-label={`${c.name}${isOutOfStock ? (language === 'en' ? ' (Unavailable)' : ' (Indisponível)') : ''}`}
                     >
                       {isOutOfStock ? (
                         <svg
@@ -386,14 +390,16 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
           {/* Size Selection */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between text-xs font-sans">
-              <span className="text-[#888888] uppercase tracking-wider">TAMANHO DISPONÍVEL:</span>
+              <span className="text-[#888888] uppercase tracking-wider">
+                {language === 'en' ? 'AVAILABLE SIZES:' : 'TAMANHO DISPONÍVEL:'}
+              </span>
               <button
                 type="button"
                 onClick={() => setShowSizeGuideModal(true)}
                 className="text-[11px] text-[#aaaaaa] hover:text-white underline underline-offset-4 transition-colors flex items-center gap-1.5 font-medium"
               >
                 <Ruler className="w-3.5 h-3.5 text-white" />
-                <span>GUIA DE MEDIDAS</span>
+                <span>{language === 'en' ? 'SIZE GUIDE' : 'GUIA DE MEDIDAS'}</span>
               </button>
             </div>
 
@@ -410,10 +416,10 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
                     }}
                     title={
                       isSoldOut
-                        ? 'Peça esgotada'
+                        ? (language === 'en' ? 'Sold out piece' : 'Peça esgotada')
                         : !s.in_stock
-                        ? `Tamanho ${s.size} esgotado`
-                        : `Tamanho ${s.size}`
+                        ? (language === 'en' ? `Size ${s.size} sold out` : `Tamanho ${s.size} esgotado`)
+                        : `${language === 'en' ? 'Size' : 'Tamanho'} ${s.size}`
                     }
                     className={`py-2.5 text-xs font-sans uppercase rounded border transition-all ${
                       selectedSize === s.size && !isSoldOut
@@ -433,14 +439,14 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
             <div className="p-3 bg-[#111111] border border-[#222222] rounded text-xs text-[#999999] font-sans leading-relaxed mt-2">
               <div className="flex items-center justify-between mb-1">
                 <strong className="text-white block uppercase tracking-wider text-[11px]">
-                  Guia de Caimento da Peça:
+                  {language === 'en' ? 'Piece Fit & Sizing Guide:' : 'Guia de Caimento da Peça:'}
                 </strong>
                 <button
                   type="button"
                   onClick={() => setShowSizeGuideModal(true)}
                   className="text-[10px] text-white hover:underline uppercase tracking-wider font-mono"
                 >
-                  Ver Tabela
+                  {language === 'en' ? 'View Table' : 'Ver Tabela'}
                 </button>
               </div>
               <p className="text-[#a0a0a0] leading-relaxed text-[11px]">
@@ -573,7 +579,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
                 {isAdded ? (
                   <>
                     <Check className="w-4 h-4 text-black" />
-                    <span>ADICIONADO AO SACO!</span>
+                    <span>{language === 'en' ? 'ADDED TO BAG!' : 'ADICIONADO AO SACO!'}</span>
                   </>
                 ) : (
                   <>
@@ -585,14 +591,14 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
             )}
 
             <p className="text-[10px] text-center text-[#666666] tracking-wider uppercase font-sans">
-              PAGAMENTO POR TRANSFERÊNCIA / MULTICAIXA EXPRESS NO CHECKOUT
+              {language === 'en' ? 'PAYMENT BY BANK TRANSFER / MULTICAIXA EXPRESS AT CHECKOUT' : 'PAGAMENTO POR TRANSFERÊNCIA / MULTICAIXA EXPRESS NO CHECKOUT'}
             </p>
           </div>
 
           {/* Technical Details Accordion */}
           <div className="border-t border-[#1c1c1c] pt-5 space-y-3 text-xs font-sans">
             <h4 className="font-display uppercase text-xs tracking-[0.2em] text-white">
-              ESPECIFICAÇÕES TÉCNICAS & TECIDO
+              {language === 'en' ? 'TECHNICAL SPECIFICATIONS & FABRIC' : 'ESPECIFICAÇÕES TÉCNICAS & TECIDO'}
             </h4>
             <p className="text-[#888888] leading-relaxed">
               {product.details}
@@ -601,11 +607,11 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
             <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[#181818] text-[#777777] text-[11px]">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#aaaaaa]" />
-                <span>Algodão Pesado 100%</span>
+                <span>{language === 'en' ? '100% Heavy Cotton' : 'Algodão Pesado 100%'}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Truck className="w-4 h-4 text-[#aaaaaa]" />
-                <span>Entrega Rápida em Luanda</span>
+                <span>{language === 'en' ? 'Express Delivery in Luanda' : 'Entrega Rápida em Luanda'}</span>
               </div>
             </div>
           </div>
@@ -630,7 +636,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
                   WEARING UNUSUAL • FIT & SIZING
                 </span>
                 <h3 className="font-display uppercase text-lg sm:text-xl text-white tracking-wider mt-0.5">
-                  GUIA DE CAIMENTO & MEDIDAS
+                  {language === 'en' ? 'FIT & MEASUREMENTS GUIDE' : 'GUIA DE CAIMENTO & MEDIDAS'}
                 </h3>
               </div>
               <button
@@ -645,7 +651,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
             {/* Custom fit guide from product */}
             <div className="p-4 bg-[#141414] border border-[#222222] rounded-lg space-y-2">
               <span className="text-[10px] text-[#888888] uppercase tracking-wider font-semibold block font-sans">
-                GUIA DE CAIMENTO E MEDIDAS DA PEÇA:
+                {language === 'en' ? 'PIECE FIT & SIZING GUIDE:' : 'GUIA DE CAIMENTO E MEDIDAS DA PEÇA:'}
               </span>
               <p className="text-white text-xs sm:text-sm font-sans leading-relaxed">
                 {currentSizeGuideText}
@@ -655,16 +661,16 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
             {/* Dimensions Table */}
             <div className="space-y-2">
               <span className="text-[10px] text-[#666666] uppercase tracking-wider block font-sans">
-                TABELA DE MEDIDAS APROXIMADAS (CM):
+                {language === 'en' ? 'APPROXIMATE MEASUREMENTS TABLE (CM):' : 'TABELA DE MEDIDAS APROXIMADAS (CM):'}
               </span>
               <div className="overflow-x-auto border border-[#222222] rounded">
                 <table className="w-full text-left font-sans text-xs">
                   <thead className="bg-[#141414] text-[#888888] uppercase text-[10px] border-b border-[#222222]">
                     <tr>
-                      <th className="py-2.5 px-3">Tamanho</th>
-                      <th className="py-2.5 px-3">Peito (cm)</th>
-                      <th className="py-2.5 px-3">Comprimento (cm)</th>
-                      <th className="py-2.5 px-3">Ombro (cm)</th>
+                      <th className="py-2.5 px-3">{language === 'en' ? 'Size' : 'Tamanho'}</th>
+                      <th className="py-2.5 px-3">{language === 'en' ? 'Chest (cm)' : 'Peito (cm)'}</th>
+                      <th className="py-2.5 px-3">{language === 'en' ? 'Length (cm)' : 'Comprimento (cm)'}</th>
+                      <th className="py-2.5 px-3">{language === 'en' ? 'Shoulder (cm)' : 'Ombro (cm)'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#1a1a1a] text-[#cccccc]">
@@ -708,7 +714,7 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
               onClick={() => setShowSizeGuideModal(false)}
               className="w-full py-3 bg-white hover:bg-neutral-200 text-black font-sans font-bold text-xs uppercase tracking-wider rounded transition-colors"
             >
-              Entendido
+              {language === 'en' ? 'Close Guide' : 'Entendido'}
             </button>
           </div>
         </div>

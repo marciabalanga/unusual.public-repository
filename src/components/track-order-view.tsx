@@ -19,7 +19,7 @@ import {
   Truck
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { formatAOA, formatDate } from '../lib/format';
+import { formatAOA, formatDate, getOrderStatusDisplay } from '../lib/format';
 import { Order, OrderStatus } from '../types';
 import { scrollToTop } from '../lib/scroll';
 import { ScheduleDeliveryModal } from './schedule-delivery-modal';
@@ -31,6 +31,7 @@ export const TrackOrderView: React.FC = () => {
     setTrackingInput,
     settings,
     setActiveTab,
+    language,
     t,
   } = useStore();
 
@@ -122,46 +123,60 @@ export const TrackOrderView: React.FC = () => {
   const regularSteps = [
     {
       step: 1,
-      title: 'ORDER CONFIRMED',
-      subtitle: t('track_step_1_desc', 'Pedido confirmado e vaga reservada no atelier.'),
+      title: language === 'en' ? 'ORDER CONFIRMED' : 'PEDIDO CONFIRMADO',
+      subtitle: language === 'en'
+        ? 'Order confirmed and atelier production slot reserved.'
+        : t('track_step_1_desc', 'Pedido confirmado e vaga reservada no atelier.'),
       icon: Check,
       isAlert: false,
     },
     {
       step: 2,
-      title: 'PAYMENT VERIFIED',
-      subtitle: t('track_step_2_desc', 'Pagamento e comprovativo de transferência validados com sucesso.'),
+      title: language === 'en' ? 'PAYMENT VERIFIED' : 'PAGAMENTO VERIFICADO',
+      subtitle: language === 'en'
+        ? 'Payment and transfer proof verified successfully.'
+        : t('track_step_2_desc', 'Pagamento e comprovativo de transferência validados com sucesso.'),
       icon: FileCheck,
       isAlert: false,
     },
     {
       step: 3,
-      title: 'READY FOR DELIVERY',
-      subtitle: t('track_step_3_desc', 'Peça inspecionada, embalada sob padrão estrito e pronta para entrega.'),
+      title: language === 'en' ? 'READY FOR DELIVERY' : 'PRONTO PARA ENTREGA',
+      subtitle: language === 'en'
+        ? 'Piece inspected, strictly packaged, and ready for dispatch.'
+        : t('track_step_3_desc', 'Peça inspecionada, embalada sob padrão estrito e pronta para entrega.'),
       icon: Package,
       isAlert: false,
     },
     {
       step: 4,
-      title: 'DELIVERY SCHEDULED',
+      title: language === 'en' ? 'DELIVERY SCHEDULED' : 'ENTREGA AGENDADA',
       subtitle: currentOrder?.scheduled_delivery_date
-        ? `Entrega agendada para ${currentOrder.scheduled_delivery_date}${currentOrder.delivery_window ? ` (${currentOrder.delivery_window})` : ''}.`
-        : 'Data de entrega agendada com a equipa de logística.',
+        ? (language === 'en'
+            ? `Delivery scheduled for ${currentOrder.scheduled_delivery_date}${currentOrder.delivery_window ? ` (${currentOrder.delivery_window})` : ''}.`
+            : `Entrega agendada para ${currentOrder.scheduled_delivery_date}${currentOrder.delivery_window ? ` (${currentOrder.delivery_window})` : ''}.`)
+        : (language === 'en' ? 'Delivery date scheduled with logistics team.' : 'Data de entrega agendada com a equipa de logística.'),
       icon: Calendar,
       isAlert: false,
     },
     {
       step: 5,
-      title: 'OUT FOR DELIVERY',
-      subtitle: t('track_step_5_desc', 'A sua encomenda saiu para entrega em Luanda. O estafeta está a caminho.'),
-      alertText: t('track_step_5_alert', 'Certifique-se de se manter contactável no seu telefone.'),
+      title: language === 'en' ? 'OUT FOR DELIVERY' : 'EM ROTA DE ENTREGA',
+      subtitle: language === 'en'
+        ? 'Your order is out for delivery in Luanda. Courier is on the way.'
+        : t('track_step_5_desc', 'A sua encomenda saiu para entrega em Luanda. O estafeta está a caminho.'),
+      alertText: language === 'en'
+        ? 'Please make sure to keep your phone reachable.'
+        : t('track_step_5_alert', 'Certifique-se de se manter contactável no seu telefone.'),
       icon: Truck,
       isAlert: true,
     },
     {
       step: 6,
-      title: 'DELIVERED',
-      subtitle: t('track_step_6_desc', 'Encomenda entregue em mãos com sucesso.'),
+      title: language === 'en' ? 'DELIVERED' : 'ENTREGUE',
+      subtitle: language === 'en'
+        ? 'Order hand-delivered successfully.'
+        : t('track_step_6_desc', 'Encomenda entregue em mãos com sucesso.'),
       icon: CheckCircle2,
       isAlert: false,
     },
@@ -170,54 +185,72 @@ export const TrackOrderView: React.FC = () => {
   const preOrderSteps = [
     {
       step: 1,
-      title: 'ORDER CONFIRMED',
-      subtitle: t('preorder_step_1_desc', 'Pré-encomenda registada no atelier. A sua peça será produzida sob demanda com prioridade.'),
+      title: language === 'en' ? 'PRE-ORDER CONFIRMED' : 'PRÉ-ENCOMENDA CONFIRMADA',
+      subtitle: language === 'en'
+        ? 'Pre-order registered in atelier. Your piece will be crafted on-demand with priority.'
+        : t('preorder_step_1_desc', 'Pré-encomenda registada no atelier. A sua peça será produzida sob demanda com prioridade.'),
       icon: Clock,
       isAlert: false,
     },
     {
       step: 2,
-      title: 'PAYMENT VERIFIED',
-      subtitle: t('preorder_step_2_desc', 'Pagamento/comprovativo validado. Vaga no lote de produção assegurada.'),
+      title: language === 'en' ? 'PAYMENT VERIFIED' : 'PAGAMENTO VERIFICADO',
+      subtitle: language === 'en'
+        ? 'Payment / proof verified. Spot in production batch secured.'
+        : t('preorder_step_2_desc', 'Pagamento/comprovativo validado. Vaga no lote de produção assegurada.'),
       icon: FileCheck,
       isAlert: false,
     },
     {
       step: 3,
-      title: 'IN PRODUCTION',
-      subtitle: t('preorder_step_3_desc', 'A produção da sua peça está em andamento no atelier.'),
+      title: language === 'en' ? 'IN PRODUCTION' : 'EM PRODUÇÃO',
+      subtitle: language === 'en'
+        ? 'Production of your piece is actively underway at the atelier.'
+        : t('preorder_step_3_desc', 'A produção da sua peça está em andamento no atelier.'),
       icon: Package,
       isAlert: false,
     },
     {
       step: 4,
-      title: 'PRODUCTION COMPLETED / READY FOR DELIVERY',
-      subtitle: t('preorder_step_4_desc', 'A produção terminou e a sua peça está pronta para entrega. Escolha a sua data preferida.'),
+      title: language === 'en' ? 'PRODUCTION COMPLETED / READY FOR DELIVERY' : 'PRODUÇÃO CONCLUÍDA / PRONTO PARA ENTREGA',
+      subtitle: language === 'en'
+        ? 'Production complete and your piece is ready. Choose your preferred delivery date.'
+        : t('preorder_step_4_desc', 'A produção terminou e a sua peça está pronta para entrega. Escolha a sua data preferida.'),
       icon: Sparkles,
       isAlert: true,
-      alertText: t('preorder_step_4_alert', 'Peça pronta para entrega! Clique no botão abaixo para agendar a data de entrega.'),
+      alertText: language === 'en'
+        ? 'Piece ready for delivery! Click the button below to schedule your delivery date.'
+        : t('preorder_step_4_alert', 'Peça pronta para entrega! Clique no botão abaixo para agendar a data de entrega.'),
     },
     {
       step: 5,
-      title: 'DELIVERY SCHEDULED',
+      title: language === 'en' ? 'DELIVERY SCHEDULED' : 'ENTREGA AGENDADA',
       subtitle: currentOrder?.scheduled_delivery_date
-        ? `Data de entrega agendada para ${currentOrder.scheduled_delivery_date}${currentOrder.delivery_window ? ` (${currentOrder.delivery_window})` : ''}.`
-        : 'Data de entrega agendada pelo cliente.',
+        ? (language === 'en'
+            ? `Delivery date scheduled for ${currentOrder.scheduled_delivery_date}${currentOrder.delivery_window ? ` (${currentOrder.delivery_window})` : ''}.`
+            : `Data de entrega agendada para ${currentOrder.scheduled_delivery_date}${currentOrder.delivery_window ? ` (${currentOrder.delivery_window})` : ''}.`)
+        : (language === 'en' ? 'Delivery date scheduled by customer.' : 'Data de entrega agendada pelo cliente.'),
       icon: Calendar,
       isAlert: false,
     },
     {
       step: 6,
-      title: 'OUT FOR DELIVERY',
-      subtitle: t('preorder_step_6_desc', 'A sua encomenda está a caminho. Mantenha o telefone por perto no dia agendado.'),
+      title: language === 'en' ? 'OUT FOR DELIVERY' : 'EM ROTA DE ENTREGA',
+      subtitle: language === 'en'
+        ? 'Your order is on its way. Keep your phone nearby on the scheduled day.'
+        : t('preorder_step_6_desc', 'A sua encomenda está a caminho. Mantenha o telefone por perto no dia agendado.'),
       icon: Truck,
       isAlert: true,
-      alertText: t('out_for_delivery_notice', 'YOUR ORDER IS ON ITS WAY 🖤 Please stay available and keep your phone nearby. Your order will arrive shortly.'),
+      alertText: language === 'en'
+        ? 'YOUR ORDER IS ON ITS WAY 🖤 Please stay available and keep your phone nearby. Your order will arrive shortly.'
+        : t('out_for_delivery_notice', 'A SUA ENCOMENDA ESTÁ A CAMINHO 🖤 Mantenha-se contactável e com o telefone por perto. A sua entrega chegará em breve.'),
     },
     {
       step: 7,
-      title: 'DELIVERED',
-      subtitle: t('preorder_step_7_desc', 'Encomenda entregue em mãos com sucesso.'),
+      title: language === 'en' ? 'DELIVERED' : 'ENTREGUE',
+      subtitle: language === 'en'
+        ? 'Order hand-delivered successfully.'
+        : t('preorder_step_7_desc', 'Encomenda entregue em mãos com sucesso.'),
       icon: CheckCircle2,
       isAlert: false,
     },
@@ -230,13 +263,15 @@ export const TrackOrderView: React.FC = () => {
       {/* Title Header */}
       <div className="text-center space-y-3 mb-10">
         <span className="text-[10px] text-[#888888] font-sans tracking-[0.3em] uppercase">
-          RASTREIO DINÂMICO EM TEMPO REAL • SUPABASE ENGINE
+          {language === 'en' ? 'REAL-TIME DYNAMIC TRACKING • LOGISTICS ENGINE' : 'RASTREIO DINÂMICO EM TEMPO REAL • SUPABASE ENGINE'}
         </span>
         <h1 className="font-display uppercase text-2xl sm:text-4xl text-white tracking-[0.18em]">
-          RASTREAR ENCOMENDA
+          {language === 'en' ? 'TRACK ORDER' : 'RASTREAR ENCOMENDA'}
         </h1>
         <p className="text-xs sm:text-sm text-[#777777] font-sans max-w-xl mx-auto">
-          Introduza o seu código de rastreio individual gerado no checkout (ex: <strong className="text-white">WU-XXXX</strong>) para acompanhar o progresso em tempo real.
+          {language === 'en'
+            ? <>Enter your individual tracking code generated at checkout (e.g. <strong className="text-white">WU-XXXX</strong>) to monitor progress in real time.</>
+            : <>Introduza o seu código de rastreio individual gerado no checkout (ex: <strong className="text-white">WU-XXXX</strong>) para acompanhar o progresso em tempo real.</>}
         </p>
       </div>
 
@@ -253,7 +288,7 @@ export const TrackOrderView: React.FC = () => {
             <Search className="w-4 h-4 text-[#777777] absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Ex: WU-8492"
+              placeholder={language === 'en' ? 'e.g. WU-8492' : 'Ex: WU-8492'}
               value={searchedCode}
               onChange={(e) => setSearchedCode(e.target.value.toUpperCase())}
               className="w-full pl-11 pr-4 py-3.5 bg-[#0a0a0a] border border-[#2b2b2b] rounded text-white font-mono text-sm tracking-widest placeholder-[#555555] uppercase focus:outline-none focus:border-white transition-colors"
@@ -262,9 +297,11 @@ export const TrackOrderView: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading || !searchedCode.trim()}
-            className="w-full sm:w-auto px-8 py-3.5 bg-white hover:bg-[#eaeaea] text-black font-sans font-bold text-xs tracking-[0.25em] uppercase rounded transition-all flex items-center justify-center gap-2 disabled:opacity-40"
+            className="w-full sm:w-auto px-8 py-3.5 bg-white hover:bg-[#eaeaea] text-black font-sans font-bold text-xs tracking-[0.25em] uppercase rounded transition-all flex items-center justify-center gap-2 disabled:opacity-40 cursor-pointer"
           >
-            {isLoading ? <span>A CONSULTAR...</span> : <span>RASTREAR AGORA</span>}
+            {isLoading
+              ? <span>{language === 'en' ? 'SEARCHING...' : 'A CONSULTAR...'}</span>
+              : <span>{language === 'en' ? 'TRACK NOW' : 'RASTREAR AGORA'}</span>}
           </button>
         </form>
       </div>
@@ -279,21 +316,24 @@ export const TrackOrderView: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-3">
                     <span className="text-[10px] text-[#888888] tracking-widest uppercase">
-                      CÓDIGO ÚNICO:
+                      {language === 'en' ? 'UNIQUE CODE:' : 'CÓDIGO ÚNICO:'}
                     </span>
                     <span className="font-mono text-lg font-bold text-white tracking-widest bg-[#181818] px-3 py-1 rounded border border-[#2c2c2c]">
                       {currentOrder.tracking_code}
                     </span>
                   </div>
                   <p className="text-xs text-[#777777] mt-1.5 font-sans">
-                    Encomenda efetuada em: <span className="text-[#cccccc]">{formatDate(currentOrder.created_at)}</span>
+                    {language === 'en' ? 'Order placed on: ' : 'Encomenda efetuada em: '}
+                    <span className="text-[#cccccc]">{formatDate(currentOrder.created_at, language)}</span>
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#888888] font-sans uppercase">ESTADO ATUAL:</span>
+                  <span className="text-xs text-[#888888] font-sans uppercase">
+                    {language === 'en' ? 'CURRENT STATUS:' : 'ESTADO ATUAL:'}
+                  </span>
                   <span className="px-3 py-1 bg-white text-black text-xs font-bold font-sans tracking-widest rounded uppercase">
-                    {currentOrder.status}
+                    {getOrderStatusDisplay(currentOrder.status, language)}
                   </span>
                 </div>
               </div>
@@ -305,10 +345,10 @@ export const TrackOrderView: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <MessageSquare className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span className="text-[11px] font-sans font-bold uppercase tracking-[0.2em] text-white">
-                      INSTRUÇÕES & ATUALIZAÇÕES DA EQUIPA (WEARING UNUSUAL)
+                      {language === 'en' ? 'TEAM INSTRUCTIONS & UPDATES (WEARING UNUSUAL)' : 'INSTRUÇÕES & ATUALIZAÇÕES DA EQUIPA (WEARING UNUSUAL)'}
                     </span>
                     <span className="ml-auto text-[9px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-950/90 text-emerald-300 border border-emerald-800">
-                      AO VIVO
+                      {language === 'en' ? 'LIVE' : 'AO VIVO'}
                     </span>
                   </div>
                   <div className="pl-6 border-l-2 border-emerald-500/60 my-1">
@@ -318,9 +358,16 @@ export const TrackOrderView: React.FC = () => {
                     </p>
                   </div>
                   <div className="flex items-center justify-between text-[10px] text-[#777777] font-sans pt-1">
-                    <span>Instruções oficiais submetidas pelo atelier & equipa de logística.</span>
+                    <span>
+                      {language === 'en'
+                        ? 'Official updates submitted by the atelier & logistics team.'
+                        : 'Instruções oficiais submetidas pelo atelier & equipa de logística.'}
+                    </span>
                     {currentOrder.updated_at && (
-                      <span>Atualizado em: {formatDate(currentOrder.updated_at)}</span>
+                      <span>
+                        {language === 'en' ? 'Updated on: ' : 'Atualizado em: '}
+                        {formatDate(currentOrder.updated_at, language)}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -330,7 +377,7 @@ export const TrackOrderView: React.FC = () => {
               <div className="space-y-6">
                 <h3 className="text-xs font-sans tracking-[0.25em] text-[#aaaaaa] uppercase flex items-center gap-2">
                   <Clock className="w-4 h-4 text-white" />
-                  <span>LINHA DO TEMPO DA ENCOMENDA</span>
+                  <span>{language === 'en' ? 'ORDER TIMELINE' : 'LINHA DO TEMPO DA ENCOMENDA'}</span>
                 </h3>
 
                 <div className="relative pl-6 sm:pl-8 space-y-8 before:content-[''] before:absolute before:left-[17px] sm:before:left-[21px] before:top-3 before:bottom-3 before:w-[2px] before:bg-[#222222]">
@@ -365,11 +412,11 @@ export const TrackOrderView: React.FC = () => {
                                 isCompleted ? 'text-white font-semibold' : 'text-[#666666]'
                               }`}
                             >
-                              Etapa {st.step}: {timelineEv?.title || st.title}
+                              {language === 'en' ? `Step ${st.step}:` : `Etapa ${st.step}:`} {timelineEv?.title || st.title}
                             </h4>
                             {isCurrent && (
                               <span className="text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded font-sans tracking-widest uppercase font-semibold">
-                                EM CURSO
+                                {language === 'en' ? 'IN PROGRESS' : 'EM CURSO'}
                               </span>
                             )}
                           </div>
@@ -382,7 +429,9 @@ export const TrackOrderView: React.FC = () => {
                             <div className="mt-2 p-2.5 bg-[#171717] border border-[#2b2b2b] rounded text-xs text-[#e0e0e0] font-sans flex items-start gap-2">
                               <MessageSquare className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
                               <div>
-                                <span className="text-[10px] text-[#888888] uppercase block font-semibold">Nota desta etapa:</span>
+                                <span className="text-[10px] text-[#888888] uppercase block font-semibold">
+                                  {language === 'en' ? 'Step Note:' : 'Nota desta etapa:'}
+                                </span>
                                 <span>{stepAdminNote}</span>
                               </div>
                             </div>
@@ -399,8 +448,12 @@ export const TrackOrderView: React.FC = () => {
                                   </strong>
                                   <span className="text-[#a5998a] text-[11px] mt-0.5 block">
                                     {isPreOrder && st.step === 4
-                                      ? 'A sua peça foi finalizada com perfeição. Escolha a data de entrega mais conveniente para si.'
-                                      : 'O nosso serviço de estafeta efetuará o contacto telefónico antes da entrega no seu endereço.'}
+                                      ? (language === 'en'
+                                          ? 'Your piece has been crafted to perfection. Choose the delivery date most convenient for you.'
+                                          : 'A sua peça foi finalizada com perfeição. Escolha a data de entrega mais conveniente para si.')
+                                      : (language === 'en'
+                                          ? 'Our courier service will contact you via phone before delivering to your address.'
+                                          : 'O nosso serviço de estafeta efetuará o contacto telefónico antes da entrega no seu endereço.')}
                                   </span>
                                 </div>
                               </div>
@@ -430,7 +483,7 @@ export const TrackOrderView: React.FC = () => {
                 {/* Items */}
                 <div className="space-y-4">
                   <h4 className="text-xs font-sans tracking-[0.2em] text-[#aaaaaa] uppercase">
-                    PEÇAS ENCOMENDADAS ({currentOrder.items.length})
+                    {language === 'en' ? `ORDERED ITEMS (${currentOrder.items.length})` : `PEÇAS ENCOMENDADAS (${currentOrder.items.length})`}
                   </h4>
                   <div className="space-y-3">
                     {currentOrder.items.map((item, idx) => (
@@ -452,7 +505,7 @@ export const TrackOrderView: React.FC = () => {
                             {item.name}
                           </h5>
                           <p className="text-[11px] text-[#777777] font-sans mt-0.5">
-                            Tam: <strong className="text-[#cccccc]">{item.size}</strong> • Cor: <strong className="text-[#cccccc]">{item.color}</strong> • Qtd: {item.quantity}
+                            {language === 'en' ? 'Size: ' : 'Tam: '}<strong className="text-[#cccccc]">{item.size}</strong> • {language === 'en' ? 'Color: ' : 'Cor: '}<strong className="text-[#cccccc]">{item.color}</strong> • {language === 'en' ? 'Qty: ' : 'Qtd: '}{item.quantity}
                           </p>
                         </div>
                         <span className="font-sans text-xs text-white font-medium">
@@ -463,7 +516,7 @@ export const TrackOrderView: React.FC = () => {
                   </div>
 
                   <div className="pt-3 border-t border-[#1a1a1a] flex items-center justify-between text-xs font-sans">
-                    <span className="text-[#888888] uppercase">Total da Encomenda</span>
+                    <span className="text-[#888888] uppercase">{language === 'en' ? 'Order Total' : 'Total da Encomenda'}</span>
                     <span className="font-bold text-white text-sm">{formatAOA(currentOrder.total_aoa)}</span>
                   </div>
                 </div>
@@ -471,28 +524,36 @@ export const TrackOrderView: React.FC = () => {
                 {/* Delivery & Proof */}
                 <div className="space-y-4 font-sans text-xs">
                   <h4 className="tracking-[0.2em] text-[#aaaaaa] uppercase">
-                    DETALHES DE ENTREGA & COMPROVATIVO
+                    {language === 'en' ? 'DELIVERY DETAILS & PROOF' : 'DETALHES DE ENTREGA & COMPROVATIVO'}
                   </h4>
 
                   <div className="bg-[#121212] border border-[#1c1c1c] rounded p-4 space-y-3">
                     <div>
-                      <span className="text-[10px] text-[#666666] uppercase block">DESTINATÁRIO</span>
+                      <span className="text-[10px] text-[#666666] uppercase block">
+                        {language === 'en' ? 'RECIPIENT' : 'DESTINATÁRIO'}
+                      </span>
                       <span className="text-white font-medium">{currentOrder.customer_name}</span>
                     </div>
 
                     <div>
-                      <span className="text-[10px] text-[#666666] uppercase block">TELEFONE / WHATSAPP</span>
+                      <span className="text-[10px] text-[#666666] uppercase block">
+                        {language === 'en' ? 'PHONE / WHATSAPP' : 'TELEFONE / WHATSAPP'}
+                      </span>
                       <span className="text-white font-medium">{currentOrder.customer_phone}</span>
                     </div>
 
                     <div>
-                      <span className="text-[10px] text-[#666666] uppercase block">ENDEREÇO EM LUANDA</span>
+                      <span className="text-[10px] text-[#666666] uppercase block">
+                        {language === 'en' ? 'DELIVERY ADDRESS IN LUANDA' : 'ENDEREÇO EM LUANDA'}
+                      </span>
                       <span className="text-white font-medium">{currentOrder.customer_city}</span>
                     </div>
 
                     {currentOrder.customer_notes && (
                       <div>
-                        <span className="text-[10px] text-[#666666] uppercase block">OBSERVAÇÕES</span>
+                        <span className="text-[10px] text-[#666666] uppercase block">
+                          {language === 'en' ? 'NOTES' : 'OBSERVAÇÕES'}
+                        </span>
                         <span className="text-[#a0a0a0] italic">{currentOrder.customer_notes}</span>
                       </div>
                     )}
@@ -500,11 +561,13 @@ export const TrackOrderView: React.FC = () => {
                     {currentOrder.payment_proof_url && (
                       <div className="pt-2 border-t border-[#1a1a1a]">
                         <span className="text-[10px] text-[#666666] uppercase block mb-1">
-                          COMPROVATIVO ANEXADO
+                          {language === 'en' ? 'ATTACHED PROOF' : 'COMPROVATIVO ANEXADO'}
                         </span>
                         <div className="flex items-center gap-2">
                           <FileCheck className="w-4 h-4 text-emerald-400" />
-                          <span className="text-emerald-400 font-medium">Validado no sistema</span>
+                          <span className="text-emerald-400 font-medium">
+                            {language === 'en' ? 'Verified in system' : 'Validado no sistema'}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -512,14 +575,16 @@ export const TrackOrderView: React.FC = () => {
 
                   <a
                     href={`https://wa.me/${(settings.whatsapp_number || '+244 937765130').replace(/\D/g, '') || '244937765130'}?text=${encodeURIComponent(
-                      `Olá Wearing Unusual, gostaria de informações sobre a minha encomenda com código de rastreio ${currentOrder.tracking_code}.`
+                      language === 'en'
+                        ? `Hello Wearing Unusual, I would like information regarding my order with tracking code ${currentOrder.tracking_code}.`
+                        : `Olá Wearing Unusual, gostaria de informações sobre a minha encomenda com código de rastreio ${currentOrder.tracking_code}.`
                     )}`}
                     target="_blank"
                     rel="noreferrer"
                     className="w-full py-3 bg-[#181818] hover:bg-[#222222] text-white border border-[#2a2a2a] rounded text-center text-xs tracking-wider uppercase flex items-center justify-center gap-2 transition-colors"
                   >
                     <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Falar com o Suporte no WhatsApp</span>
+                    <span>{language === 'en' ? 'Chat with Support on WhatsApp' : 'Falar com o Suporte no WhatsApp'}</span>
                   </a>
                 </div>
               </div>
@@ -528,10 +593,12 @@ export const TrackOrderView: React.FC = () => {
             <div className="bg-[#111111] border border-[#222222] rounded-lg p-10 text-center space-y-3">
               <AlertTriangle className="w-10 h-10 text-amber-400 mx-auto opacity-70" />
               <h3 className="font-display uppercase text-base text-white tracking-wider">
-                NENHUMA ENCOMENDA ENCONTRADA
+                {language === 'en' ? 'NO ORDER FOUND' : 'NENHUMA ENCOMENDA ENCONTRADA'}
               </h3>
               <p className="text-xs text-[#777777] font-sans max-w-md mx-auto">
-                Não encontramos nenhum registo com o código "<strong className="text-white">{searchedCode}</strong>". Verifique se digitou o código exatamente como gerado (ex: WU-8492).
+                {language === 'en'
+                  ? <>No records found for tracking code "<strong className="text-white">{searchedCode}</strong>". Please verify that you typed it exactly as generated (e.g. WU-8492).</>
+                  : <>Não encontramos nenhum registo com o código "<strong className="text-white">{searchedCode}</strong>". Verifique se digitou o código exatamente como gerado (ex: WU-8492).</>}
               </p>
             </div>
           )}

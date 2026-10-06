@@ -20,16 +20,23 @@ export interface Product {
   id: string;
   slug: string;
   name: string;
+  name_en?: string;
   category: string;
+  category_en?: string;
   price_aoa: number;
   description: string;
+  description_en?: string;
   details: string;
+  details_en?: string;
   size_guide?: string;
+  size_guide_en?: string;
   fit_guide?: string;
+  fit_guide_en?: string;
   images: string[];
   sizes: ProductSize[];
   colors: ProductColor[];
   badge: ProductBadge | null;
+  badge_en?: string;
   lifecycle: ProductLifecycle;
   is_visible: boolean;
   is_featured: boolean;
@@ -41,10 +48,12 @@ export interface Product {
   enable_pre_order?: boolean;
   pre_order_price_aoa?: number;
   pre_order_estimated_delivery?: string;
+  pre_order_estimated_delivery_en?: string;
   pre_order_start_date?: string;
   pre_order_end_date?: string;
   pre_order_max_quantity?: number;
   pre_order_custom_notice?: string;
+  pre_order_custom_notice_en?: string;
   coming_soon_badge?: boolean;
   return_date?: string;
   enable_request_restock?: boolean;
@@ -177,7 +186,9 @@ export interface CustomContentItem {
   id: string;
   name: string;
   role?: string;
+  role_en?: string;
   bio?: string;
+  bio_en?: string;
   image_url?: string;
   images?: string[];
   social_link?: string;
@@ -186,11 +197,14 @@ export interface CustomContentItem {
 
 export interface CustomContent {
   id: string;
-  title: string;              // Nome do Conteúdo (ex: "UNUSUAL MODELS")
-  internal_name?: string;     // Nome interno (ex: "Model Portfolio")
-  slug: string;               // ex: "unusual-models"
-  subtitle?: string;          // ex: "Portfolio / Editorial"
+  title: string;              // Nome do Conteúdo (ex: "LOOKBOOK DROP 01")
+  title_en?: string;
+  internal_name?: string;     // Nome interno (ex: "Editorial Drop 01")
+  slug: string;               // ex: "lookbook-drop-01"
+  subtitle?: string;          // ex: "Editorial / Campanha"
+  subtitle_en?: string;
   description?: string;
+  description_en?: string;
   images: string[];
   items?: CustomContentItem[];
   is_active: boolean;
@@ -201,6 +215,7 @@ export interface CustomContent {
 export interface SiteMenuItem {
   id: string;
   label: string;             // Nome no menu (ex: "MODELS" ou "SHOP")
+  label_en?: string;
   target_type: 'store' | 'capsule' | 'custom' | 'anchor' | 'external' | 'wishlist' | 'track';
   target_id?: string;        // ID do conteúdo personalizado ou âncora
   url?: string;              // URL externa se target_type === 'external'
@@ -213,7 +228,9 @@ export interface SiteBlock {
   block_type: BlockType;
   title: string;              // Nome interno (Internal Name)
   public_name?: string;       // Nome público / apresentado no site
+  public_name_en?: string;
   subtitle?: string;          // Subtítulo ou categoria (ex: "Portfolio / Editorial")
+  subtitle_en?: string;
   content_type?: 'product' | 'custom'; // Tipo de conteúdo
   custom_content_id?: string; // Se vinculado a um conteúdo personalizado
   slug?: string;
@@ -227,7 +244,7 @@ export interface DictionaryEntry {
   key: string;
   pt: string;
   en: string;
-  category: 'navigation' | 'buttons' | 'headings' | 'checkout' | 'footer' | 'manifesto' | 'tracking';
+  category: 'navigation' | 'buttons' | 'headings' | 'products' | 'checkout' | 'footer' | 'manifesto' | 'tracking' | 'system';
   updated_at?: string;
 }
 
@@ -237,18 +254,24 @@ export interface SiteSettings {
   site_logo_url?: string;
   logo_url?: string;
   brand_bio?: string;
+  brand_bio_en?: string;
   location_text?: string;
+  location_text_en?: string;
   contact_email?: string;
   instagram_handle?: string;
   copyright_text?: string;
+  copyright_text_en?: string;
   delivery_fee_aoa?: number;
   maintenance_mode: boolean;
   maintenance_message: string;
+  maintenance_message_en?: string;
   next_drop_mode: boolean;
   next_drop_date: string;
   next_drop_title: string;
+  next_drop_title_en?: string;
   checkout_locked: boolean;
   checkout_lock_message: string;
+  checkout_lock_message_en?: string;
   require_payment_proof: boolean;
   iban: string;
   account_holder: string;
@@ -257,6 +280,7 @@ export interface SiteSettings {
   whatsapp_number: string;
   marquee_enabled: boolean;
   marquee_messages: string[];
+  marquee_messages_en?: string[];
   footer_categories: string[];
 
   // Global Button Toggles & Autonomy

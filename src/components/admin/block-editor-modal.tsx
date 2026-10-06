@@ -182,20 +182,59 @@ export const BlockEditorModal: React.FC<BlockEditorModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[#888888] uppercase text-[10px] mb-1 font-mono">
-                    Nome Público (Apresentado no Site e no Card) *
+                    Nome Público em Português (PT) *
                   </label>
                   <input
                     type="text"
                     value={editingBlock.public_name || editingBlock.title || ''}
                     onChange={(e) => setEditingBlock((prev) => ({ ...prev, public_name: e.target.value }))}
-                    placeholder="Ex: UNUSUAL MODELS"
+                    placeholder="Ex: LOOKBOOK DROP 01"
                     className="w-full px-3 py-2 bg-[#161616] border border-[#2a2a2a] rounded text-white font-bold"
                   />
                   <span className="text-[10px] text-neutral-500 mt-1 block">
-                    Nome visível aos clientes na homepage e no card do Page Builder.
+                    Nome visível aos clientes quando a loja está em Português.
                   </span>
                 </div>
                 <div>
+                  <label className="block text-[#888888] uppercase text-[10px] mb-1 font-mono">
+                    Nome Público em Inglês (EN)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingBlock.public_name_en || ''}
+                    onChange={(e) => setEditingBlock((prev) => ({ ...prev, public_name_en: e.target.value }))}
+                    placeholder="Ex: LOOKBOOK DROP 01"
+                    className="w-full px-3 py-2 bg-[#161616] border border-[#2a2a2a] rounded text-white font-bold"
+                  />
+                  <span className="text-[10px] text-neutral-500 mt-1 block">
+                    Nome visível aos clientes quando a loja está em Inglês.
+                  </span>
+                </div>
+                <div>
+                  <label className="block text-[#888888] uppercase text-[10px] mb-1 font-mono">
+                    Subtítulo (PT)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingBlock.subtitle || ''}
+                    onChange={(e) => setEditingBlock((prev) => ({ ...prev, subtitle: e.target.value }))}
+                    placeholder="Ex: Portfolio / Editorial"
+                    className="w-full px-3 py-2 bg-[#161616] border border-[#2a2a2a] rounded text-neutral-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#888888] uppercase text-[10px] mb-1 font-mono">
+                    Subtítulo em Inglês (EN)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingBlock.subtitle_en || ''}
+                    onChange={(e) => setEditingBlock((prev) => ({ ...prev, subtitle_en: e.target.value }))}
+                    placeholder="Ex: Portfolio / Editorial"
+                    className="w-full px-3 py-2 bg-[#161616] border border-[#2a2a2a] rounded text-neutral-400"
+                  />
+                </div>
+                <div className="sm:col-span-2">
                   <label className="block text-[#888888] uppercase text-[10px] mb-1 font-mono">
                     Nome Interno (Identificação Administrativa)
                   </label>
@@ -209,18 +248,6 @@ export const BlockEditorModal: React.FC<BlockEditorModalProps> = ({
                   <span className="text-[10px] text-neutral-500 mt-1 block">
                     Nome de controlo interno no painel administrativo.
                   </span>
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-[#888888] uppercase text-[10px] mb-1 font-mono">
-                    Subtítulo / Categoria do Bloco
-                  </label>
-                  <input
-                    type="text"
-                    value={editingBlock.subtitle || ''}
-                    onChange={(e) => setEditingBlock((prev) => ({ ...prev, subtitle: e.target.value }))}
-                    placeholder="Ex: Portfolio / Editorial"
-                    className="w-full px-3 py-2 bg-[#161616] border border-[#2a2a2a] rounded text-neutral-400"
-                  />
                 </div>
               </div>
             </div>
@@ -884,7 +911,7 @@ export const BlockEditorModal: React.FC<BlockEditorModalProps> = ({
               </div>
             )}
 
-            {/* 7. CUSTOM CONTENT EDITOR (UNUSUAL MODELS, LOOKBOOKS, EDITORIALS, CAMPAIGNS) */}
+            {/* 7. CUSTOM CONTENT EDITOR (LOOKBOOKS, EDITORIALS, CAMPAIGNS) */}
             {editingBlock.block_type === 'custom_content' && (
               <div className="space-y-6 text-xs font-sans">
                 <div className="p-4 bg-[#111111] border border-[#1f1f1f] rounded-lg space-y-4">
@@ -949,7 +976,7 @@ export const BlockEditorModal: React.FC<BlockEditorModalProps> = ({
                         setEditingBlock((prev) => ({ ...prev, slug: val }));
                         updateContentField('slug', val);
                       }}
-                      placeholder="unusual-models"
+                      placeholder="lookbook-drop-01"
                       className="w-full px-3 py-2 bg-[#161616] border border-[#2a2a2a] rounded text-white font-mono"
                     />
                   </div>

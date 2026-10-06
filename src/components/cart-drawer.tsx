@@ -31,6 +31,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     freeShippingThreshold,
     settings,
     t,
+    language,
   } = useStore();
 
   const isOpen = propIsOpen !== undefined ? propIsOpen : contextIsOpen;
@@ -89,11 +90,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             {cart.length === 0 ? (
               <div className="py-16 text-center text-[#666666]">
                 <ShoppingBag className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p className="font-sans text-sm">O seu saco está vazio.</p>
-                <p className="text-xs text-[#555555] mt-1">Explore o Drop Atual para selecionar a sua peça.</p>
+                <p className="font-sans text-sm">{t('cart_empty_title', 'O seu saco está vazio.')}</p>
+                <p className="text-xs text-[#555555] mt-1">{t('cart_empty_desc', 'Explore o Drop Atual para selecionar a sua peça.')}</p>
               </div>
             ) : (
-              cart.map((item, idx) => (
+              cart.map((item, idx) => {
+                const itemName = language === 'en' && item.product.name_en ? item.product.name_en : item.product.name;
+                return (
                 <div
                   key={`${item.product.id}-${item.size}-${item.color}-${idx}`}
                   className="flex gap-4 p-3 bg-[#111111] border border-[#1c1c1c] rounded"
@@ -102,7 +105,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     {item.product.images && item.product.images[0] && item.product.images[0].trim() !== '' ? (
                       <img
                         src={item.product.images[0].trim()}
-                        alt={item.product.name}
+                        alt={itemName}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -114,22 +117,22 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <h4 className="font-display uppercase text-xs text-white truncate tracking-wider">
-                          {item.product.name}
+                          {itemName}
                         </h4>
                         <button
                           onClick={() => removeFromCart(item.product.id, item.size, item.color)}
                           className="text-[#555555] hover:text-red-400 p-0.5 transition-colors"
-                          aria-label="Remover item"
+                          aria-label={language === 'en' ? 'Remove item' : 'Remover item'}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
 
                       <div className="flex items-center gap-3 mt-1 text-[11px] text-[#777777] font-sans">
-                        <span>Tam: <strong className="text-[#dddddd]">{item.size}</strong></span>
+                        <span>{language === 'en' ? 'Size:' : 'Tam:'} <strong className="text-[#dddddd]">{item.size}</strong></span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
-                          Cor: <strong className="text-[#dddddd]">{item.color}</strong>
+                          {language === 'en' ? 'Color:' : 'Cor:'} <strong className="text-[#dddddd]">{item.color}</strong>
                         </span>
                       </div>
                     </div>
@@ -159,7 +162,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     </div>
                   </div>
                 </div>
-              ))
+              );
+            })
             )}
           </div>
         </div>
@@ -175,11 +179,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   {isFreeShipping ? (
                     <span className="text-emerald-400 font-semibold flex items-center gap-1.5 text-xs">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      Parabéns! Você ganhou Entrega Grátis
+                      {language === 'en' ? 'Congratulations! You unlocked Free Shipping' : 'Parabéns! Ganhou Entrega Grátis'}
                     </span>
                   ) : (
                     <span className="text-[#cccccc] text-xs">
-                      Adicione mais <strong className="text-white font-bold">{formatAOA(amountUntilFreeShipping)}</strong> para ganhar Entrega Grátis!
+                      {language === 'en' ? (
+                        <>Add <strong className="text-white font-bold">{formatAOA(amountUntilFreeShipping)}</strong> more for Free Delivery!</>
+                      ) : (
+                        <>Adicione mais <strong className="text-white font-bold">{formatAOA(amountUntilFreeShipping)}</strong> para ganhar Entrega Grátis!</>
+                      )}
                     </span>
                   )}
                 </div>
@@ -196,7 +204,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
 
               <div className="flex items-center justify-between text-[10px] text-[#777777] font-sans">
-                <span>Entrega Grátis em compras a partir de {formatAOA(freeShippingThreshold)}</span>
+                <span>{language === 'en' ? `Free Delivery on orders over ${formatAOA(freeShippingThreshold)}` : `Entrega Grátis em compras a partir de ${formatAOA(freeShippingThreshold)}`}</span>
                 <span className="font-mono font-medium text-white">
                   {isFreeShipping ? '100%' : `${shippingProgressPercentage}%`}
                 </span>
@@ -205,34 +213,34 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
             <div className="space-y-2 text-xs font-sans">
               <div className="flex items-center justify-between text-[#888888]">
-                <span>SUBTOTAL</span>
+                <span>{language === 'en' ? 'SUBTOTAL' : 'SUBTOTAL'}</span>
                 <span className="text-white font-semibold font-mono">{formatAOA(cartSubtotal)}</span>
               </div>
               <div className="flex items-center justify-between text-[#888888]">
-                <span>TAXA DE ENTREGA (LUANDA)</span>
+                <span>{language === 'en' ? 'DELIVERY FEE (LUANDA)' : 'TAXA DE ENTREGA (LUANDA)'}</span>
                 {deliveryFee === 0 ? (
                   <span className="text-emerald-400 font-semibold tracking-wider flex items-center gap-1 font-mono">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> GRÁTIS (0 AOA)
+                    <CheckCircle2 className="w-3.5 h-3.5" /> {language === 'en' ? 'FREE (0 AOA)' : 'GRÁTIS (0 AOA)'}
                   </span>
                 ) : (
                   <span className="text-white font-mono font-medium">{formatAOA(deliveryFee)}</span>
                 )}
               </div>
               <div className="flex items-center justify-between text-sm pt-2.5 border-t border-[#1c1c1c] text-white font-semibold">
-                <span className="tracking-wider">TOTAL A PAGAR</span>
+                <span className="tracking-wider">{language === 'en' ? 'TOTAL TO PAY' : 'TOTAL A PAGAR'}</span>
                 <span className="text-base text-white font-mono font-bold">{formatAOA(cartTotal)}</span>
               </div>
             </div>
 
             {settings.checkout_locked ? (
               <div className="p-3 bg-red-950/40 border border-red-900/60 rounded text-center text-xs text-red-300">
-                {settings.checkout_lock_message || 'Checkout temporariamente suspenso para inventário.'}
+                {settings.checkout_lock_message || (language === 'en' ? 'Checkout temporarily paused for inventory.' : 'Checkout temporariamente suspenso para inventário.')}
               </div>
             ) : (
               <button
                 id="cart-proceed-checkout-btn"
                 onClick={handleProceed}
-                className="w-full py-3.5 bg-white hover:bg-[#e6e6e6] text-black font-sans font-semibold text-xs tracking-[0.25em] uppercase rounded transition-all flex items-center justify-center gap-2 group"
+                className="w-full py-3.5 bg-white hover:bg-[#e6e6e6] text-black font-sans font-semibold text-xs tracking-[0.25em] uppercase rounded transition-all flex items-center justify-center gap-2 group cursor-pointer"
               >
                 <span>{t('btn_checkout', 'FINALIZAR COMPRA')}</span>
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -241,7 +249,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
             <div className="flex items-center justify-center gap-1.5 text-[10px] text-[#666666] tracking-wider uppercase font-sans">
               <ShieldCheck className="w-3.5 h-3.5 text-[#888888]" />
-              <span>PAGAMENTO SEGURO VIA MULTICAIXA EXPRESS</span>
+              <span>{language === 'en' ? 'SECURE PAYMENT VIA MULTICAIXA EXPRESS' : 'PAGAMENTO SEGURO VIA MULTICAIXA EXPRESS'}</span>
             </div>
           </div>
         )}

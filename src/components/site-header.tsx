@@ -11,8 +11,6 @@ export const SiteHeader: React.FC = () => {
     wishlistCount,
     setIsWishlistOpen,
     setIsSearchOpen,
-    activeTab,
-    setActiveTab,
     settings,
     blocks,
     language,
@@ -20,7 +18,7 @@ export const SiteHeader: React.FC = () => {
     t,
     menuItems,
     customContents,
-    setSelectedCustomSlug,
+    navigateTo,
   } = useStore();
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -32,31 +30,57 @@ export const SiteHeader: React.FC = () => {
     Boolean(settings.marquee_enabled !== false) &&
     Boolean(marqueeBlock ? marqueeBlock.is_active !== false : true);
 
-  const blockItems = Array.isArray(marqueeBlock?.content?.items)
+  const blockItemsPt = Array.isArray(marqueeBlock?.content?.items)
     ? (marqueeBlock.content.items as string[]).filter(
         (msg) => typeof msg === 'string' && msg.trim().length > 0
       )
     : [];
 
-  const settingsItems = Array.isArray(settings.marquee_messages)
+  const blockItemsEn = Array.isArray(marqueeBlock?.content?.items_en)
+    ? (marqueeBlock.content.items_en as string[]).filter(
+        (msg) => typeof msg === 'string' && msg.trim().length > 0
+      )
+    : [];
+
+  const settingsItemsPt = Array.isArray(settings.marquee_messages)
     ? (settings.marquee_messages as string[]).filter(
         (msg) => typeof msg === 'string' && msg.trim().length > 0
       )
     : [];
 
+  const settingsItemsEn = Array.isArray(settings.marquee_messages_en)
+    ? (settings.marquee_messages_en as string[]).filter(
+        (msg) => typeof msg === 'string' && msg.trim().length > 0
+      )
+    : [];
+
+  const defaultMessagesPt = [
+    'EDIÇÃO LIMITADA • DROP 01 WELCOME TO LUANDA',
+    'PRODUZIDO EM ANGOLA',
+    'ENTREGAS DIRETAS EM LUANDA',
+    'WEARING UNUSUAL — HIGH-END MINIMALIST STREETWEAR',
+    'PAGAMENTO DIRETO VIA MULTICAIXA EXPRESS',
+  ];
+
+  const defaultMessagesEn = [
+    'LIMITED EDITION • DROP 01 WELCOME TO LUANDA',
+    'CRAFTED IN ANGOLA',
+    'DIRECT DELIVERY IN LUANDA',
+    'WEARING UNUSUAL — HIGH-END MINIMALIST STREETWEAR',
+    'DIRECT PAYMENT VIA MULTICAIXA EXPRESS',
+  ];
+
+  const chosenBlockItems = language === 'en' && blockItemsEn.length > 0 ? blockItemsEn : blockItemsPt;
+  const chosenSettingsItems = language === 'en' && settingsItemsEn.length > 0 ? settingsItemsEn : settingsItemsPt;
+  const chosenDefaultMessages = language === 'en' ? defaultMessagesEn : defaultMessagesPt;
+
   // Block items take precedence because they are edited in the Visual Block Builder
   const rawMarqueeList: string[] =
-    blockItems.length > 0
-      ? blockItems
-      : settingsItems.length > 0
-      ? settingsItems
-      : [
-          'EDIÇÃO LIMITADA • DROP 01 WELCOME TO LUANDA',
-          'PRODUZIDO EM ANGOLA',
-          'ENTREGAS DIRETAS EM LUANDA',
-          'WEARING UNUSUAL — HIGH-END MINIMALIST STREETWEAR',
-          'PAGAMENTO DIRETO VIA MULTICAIXA EXPRESS',
-        ];
+    chosenBlockItems.length > 0
+      ? chosenBlockItems
+      : chosenSettingsItems.length > 0
+      ? chosenSettingsItems
+      : chosenDefaultMessages;
 
   // Guarantee at least 1 base item to strictly avoid any infinite while loops
   const baseItems = rawMarqueeList.length > 0 ? rawMarqueeList : ['WEARING UNUSUAL • HIGH-END STREETWEAR'];
@@ -70,17 +94,8 @@ export const SiteHeader: React.FC = () => {
   const textColor = marqueeBlock?.content?.text_color || '#a3a3a3';
 
   const handleNavClick = (tab: 'store' | 'capsule' | 'track', anchorId?: string) => {
-    setSelectedCustomSlug(null);
-    setActiveTab(tab);
     setIsMobileMenuOpen(false);
-    if (anchorId) {
-      setTimeout(() => {
-        const el = document.getElementById(anchorId);
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    } else {
-      scrollToTop(true);
-    }
+    navigateTo({ tab, anchorId });
   };
 
   const handleMenuItemClick = (item: any) => {
@@ -96,20 +111,9 @@ export const SiteHeader: React.FC = () => {
         const found = customContents.find((c) => c.id === item.target_id || c.slug === item.target_id);
         const slug = found ? found.slug : item.target_id;
         if (slug) {
-          setSelectedCustomSlug(slug);
-          try {
-            window.history.pushState(null, '', '/' + slug);
-          } catch {}
-          const el = document.getElementById(slug);
-          if (el) {
-            setActiveTab('store');
-            setTimeout(() => {
-              el.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
-          } else {
-            setActiveTab('custom_content');
-            scrollToTop(true);
-          }
+          navigateTo({ tab: 'custom_content', slug });
+        } else {
+          navigateTo({ tab: 'store' });
         }
         break;
       }
@@ -128,6 +132,24 @@ export const SiteHeader: React.FC = () => {
       default:
         handleNavClick('store');
     }
+  };
+
+  const getMenuItemLabel = (item: any) => {
+    if (language === 'en') {
+      if (item.label_en) return item.label_en;
+      const upper = (item.label || '').toUpperCase().trim();
+      if (upper === 'DROP ATUAL') return 'CURRENT DROP';
+      if (upper === 'CÁPSULA DO TEMPO' || upper === 'CAPSULA DO TEMPO') return 'TIME CAPSULE';
+      if (upper === 'LOOKBOOK') return 'LOOKBOOK';
+      if (upper === 'MANIFESTO') return 'MANIFESTO';
+      if (upper === 'FAVORITOS') return 'WISHLIST';
+      if (upper === 'RASTREAR' || upper === 'RASTREAR ENCOMENDA') return 'TRACK ORDER';
+      if (item.target_type === 'store') return 'CURRENT DROP';
+      if (item.target_type === 'capsule') return 'TIME CAPSULE';
+      if (item.target_type === 'wishlist') return 'WISHLIST';
+      if (item.target_type === 'track') return 'TRACK ORDER';
+    }
+    return item.label;
   };
 
   return (
@@ -208,7 +230,8 @@ export const SiteHeader: React.FC = () => {
           <button
             onClick={() => setIsSearchOpen(true)}
             className="p-2 text-[#cccccc] hover:text-white transition-colors"
-            aria-label="Pesquisar catálogo"
+            aria-label={t('nav_search', 'Pesquisar catálogo')}
+            title={t('nav_search', 'Pesquisar catálogo')}
           >
             <Search className="w-5 h-5" />
           </button>
@@ -217,7 +240,8 @@ export const SiteHeader: React.FC = () => {
           <button
             onClick={() => setIsWishlistOpen(true)}
             className="relative p-2 text-[#cccccc] hover:text-white transition-colors"
-            aria-label="Favoritos"
+            aria-label={t('nav_wishlist', 'Favoritos')}
+            title={t('nav_wishlist', 'Favoritos')}
           >
             <Heart className="w-5 h-5" />
             {wishlistCount > 0 && (
@@ -227,12 +251,13 @@ export const SiteHeader: React.FC = () => {
             )}
           </button>
 
-          {/* Cart Icon with discrete corner badge (no 'BAG' or '(0)' text) */}
+          {/* Cart Icon with discrete corner badge */}
           <button
             id="header-cart-btn"
             onClick={() => setIsCartOpen(true)}
             className="relative p-2 text-[#cccccc] hover:text-white transition-colors"
-            aria-label="Saco de compras"
+            aria-label={t('nav_cart', 'Saco de compras')}
+            title={t('nav_cart', 'Saco de compras')}
           >
             <ShoppingBag className="w-5 h-5" />
             {cartCount > 0 && (
@@ -255,10 +280,13 @@ export const SiteHeader: React.FC = () => {
                 .map((item: any) => (
                   <button
                     key={item.id}
+                    type="button"
                     onClick={() => handleMenuItemClick(item)}
-                    className="block w-full text-left py-2 hover:text-white border-b border-[#181818] flex items-center justify-between transition-colors group"
+                    className="block w-full text-left py-2 hover:text-white border-b border-[#181818] flex items-center justify-between transition-colors group cursor-pointer"
                   >
-                    <span className="group-hover:text-white transition-colors">{item.label}</span>
+                    <span className="group-hover:text-white transition-colors">
+                      {getMenuItemLabel(item)}
+                    </span>
                     {item.target_type === 'wishlist' && (
                       <span className="text-white font-mono text-[11px]">({wishlistCount})</span>
                     )}
@@ -267,69 +295,93 @@ export const SiteHeader: React.FC = () => {
             ) : (
               <>
                 <button
+                  type="button"
                   onClick={() => handleNavClick('store', 'drop-atual')}
-                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818]"
+                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818] cursor-pointer"
                 >
-                  {t('nav_drop', 'DROP ATUAL')}
+                  {language === 'en' ? 'CURRENT DROP' : 'DROP ATUAL'}
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleNavClick('capsule')}
-                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818]"
+                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818] cursor-pointer"
                 >
-                  {t('nav_capsule', 'CÁPSULA DO TEMPO')}
+                  {language === 'en' ? 'TIME CAPSULE' : 'CÁPSULA DO TEMPO'}
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleNavClick('store', 'lookbook-section')}
-                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818]"
+                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818] cursor-pointer"
                 >
-                  {t('nav_lookbook', 'LOOKBOOK')}
+                  LOOKBOOK
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleNavClick('store', 'manifesto-section')}
-                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818]"
+                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818] cursor-pointer"
                 >
-                  {t('nav_manifesto', 'MANIFESTO')}
+                  MANIFESTO
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setIsWishlistOpen(true);
                     setIsMobileMenuOpen(false);
                   }}
-                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818] flex items-center justify-between"
+                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818] flex items-center justify-between cursor-pointer"
                 >
                   <div className="flex items-center gap-2">
                     <Heart className="w-4 h-4" />
-                    <span>FAVORITOS</span>
+                    <span>{language === 'en' ? 'WISHLIST' : 'FAVORITOS'}</span>
                   </div>
                   <span className="text-white font-mono text-[11px]">({wishlistCount})</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleNavClick('track')}
-                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818] flex items-center gap-2"
+                  className="block w-full text-left py-2 hover:text-white border-b border-[#181818] flex items-center gap-2 cursor-pointer"
                 >
                   <PackageCheck className="w-4 h-4" />
-                  {t('nav_track', 'RASTREAR ENCOMENDA')}
+                  {language === 'en' ? 'TRACK ORDER' : 'RASTREAR ENCOMENDA'}
                 </button>
               </>
             )}
           </div>
 
-          <div className="pt-4 flex items-center justify-between text-xs text-[#777777]">
-            <span>IDIOMA:</span>
-            <div className="flex gap-2">
+          {/* Persistent PT / EN Selector strictly in the menu drawer */}
+          <div className="pt-4 flex items-center justify-between text-xs text-[#888888] border-t border-[#181818]">
+            <span className="font-mono uppercase tracking-widest text-[11px]">
+              {language === 'en' ? 'LANGUAGE' : 'IDIOMA'}:
+            </span>
+            <div
+              id="menu-drawer-lang-selector"
+              className="flex items-center rounded border border-[#2a2a2a] bg-[#111111] p-0.5 text-[10px] font-mono font-bold select-none"
+              role="group"
+              aria-label="Seletor de idioma / Language selector"
+            >
               <button
+                type="button"
                 onClick={() => setLanguage('pt')}
-                className={`px-3 py-1 rounded text-xs ${
-                  language === 'pt' ? 'bg-white text-black font-bold' : 'bg-[#181818] text-white'
+                className={`px-3 py-1 rounded transition-all cursor-pointer ${
+                  language === 'pt'
+                    ? 'bg-white text-black font-extrabold shadow-sm'
+                    : 'text-[#888888] hover:text-white'
                 }`}
+                aria-label="Português (PT)"
+                title="Mudar para Português"
               >
                 PT
               </button>
               <button
+                type="button"
                 onClick={() => setLanguage('en')}
-                className={`px-3 py-1 rounded text-xs ${
-                  language === 'en' ? 'bg-white text-black font-bold' : 'bg-[#181818] text-white'
+                className={`px-3 py-1 rounded transition-all cursor-pointer ${
+                  language === 'en'
+                    ? 'bg-white text-black font-extrabold shadow-sm'
+                    : 'text-[#888888] hover:text-white'
                 }`}
+                aria-label="English (EN)"
+                title="Switch to English"
               >
                 EN
               </button>

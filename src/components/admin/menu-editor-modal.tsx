@@ -111,7 +111,7 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
               }}
               className="w-full px-3 py-2 bg-[#161616] border border-[#2a2a2a] rounded text-white text-xs"
             >
-              <option value="custom">Conteúdo Personalizado (ex: UNUSUAL MODELS, Portfólio)</option>
+              <option value="custom">Conteúdo Personalizado (ex: Lookbook, Editorial, Portfólio)</option>
               <option value="store">Loja / Drop Atual</option>
               <option value="capsule">Cápsula do Tempo (Arquivo Histórico)</option>
               <option value="anchor">Âncora na Página (Ex: #manifesto-section)</option>
@@ -145,7 +145,7 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
                 </p>
               )}
               <p className="text-[10px] text-[#777777]">
-                Mesmo que o nome no menu seja "MODELS" ou "FACES", o clique abrirá o conteúdo selecionado.
+                O clique no menu abrirá o conteúdo personalizado selecionado.
               </p>
             </div>
           )}
@@ -164,7 +164,6 @@ export const MenuEditorModal: React.FC<MenuEditorModalProps> = ({
                 <option value="drop-atual">drop-atual (Grelha de Produtos)</option>
                 <option value="lookbook-section">lookbook-section (Galeria Lookbook)</option>
                 <option value="manifesto-section">manifesto-section (Manifesto da Marca)</option>
-                <option value="unusual-models">unusual-models (UNUSUAL MODELS)</option>
               </select>
             </div>
           )}

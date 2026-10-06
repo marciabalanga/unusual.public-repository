@@ -38,7 +38,8 @@ import {
   Archive,
   Calendar,
   Compass,
-  UploadCloud
+  UploadCloud,
+  Globe
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { useAuth } from '../../context/AuthContext';
@@ -546,8 +547,8 @@ export const AdminPanel: React.FC = () => {
                 : 'text-[#888888] hover:text-white hover:bg-[#151515]'
             }`}
           >
-            <Type className="w-4 h-4" />
-            <span>3. Dicionário & Micro-Copy</span>
+            <Globe className="w-4 h-4" />
+            <span>3. Idiomas / Traduções (PT / EN)</span>
           </button>
 
           <button
@@ -2433,7 +2434,7 @@ export const AdminPanel: React.FC = () => {
           </div>
         )}
 
-        {/* SEÇÃO B: CONTEÚDO PERSONALIZADO (EDITORIAL, LOOKBOOKS, PORTFÓLIOS, UNUSUAL MODELS) */}
+        {/* SEÇÃO B: CONTEÚDO PERSONALIZADO (EDITORIAL, LOOKBOOKS, PORTFÓLIOS) */}
         {catalogTab === 'custom_contents' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0d0d0d] p-4 rounded-lg border border-[#1f1f1f]">
@@ -2447,7 +2448,7 @@ export const AdminPanel: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-xs text-[#777777] font-sans mt-0.5">
-                  Crie livremente páginas como UNUSUAL MODELS, Lookbooks, Campanhas e Fotografias. Sem restrições nem campos de roupa.
+                  Crie livremente páginas como Lookbooks, Editoriais, Campanhas e Fotografias. Sem restrições nem campos de roupa.
                 </p>
               </div>
 
@@ -2676,18 +2677,18 @@ export const AdminPanel: React.FC = () => {
                     Nenhum Conteúdo Personalizado Criado
                   </h4>
                   <p className="text-xs text-[#777777] font-sans mt-1 max-w-md mx-auto">
-                    Crie páginas e portfólios editoriais reutilizáveis como o UNUSUAL MODELS com fotos, casting e narrativa própria.
+                    Crie páginas e portfólios editoriais reutilizáveis como Lookbooks e Campanhas com fotos e narrativa própria.
                   </p>
                 </div>
                 <button
                   onClick={() => {
                     setEditingCustomContent({
                       id: `custom-${Date.now()}`,
-                      title: 'UNUSUAL MODELS',
-                      internal_name: 'Model Portfolio',
-                      slug: 'unusual-models',
-                      subtitle: 'PORTFOLIO & CASTING EDITORIAL',
-                      description: 'Apresentação visual dos modelos e personalidades que dão vida ao movimento Wearing Unusual em Luanda.',
+                      title: 'NOVO CONTEÚDO',
+                      internal_name: 'Novo Editorial',
+                      slug: `editorial-${Date.now().toString(36)}`,
+                      subtitle: 'EDITORIAL / LOOKBOOK',
+                      description: '',
                       images: [],
                       items: [],
                       is_active: true,
@@ -2697,7 +2698,7 @@ export const AdminPanel: React.FC = () => {
                   }}
                   className="px-5 py-2.5 bg-white text-black font-bold text-xs uppercase rounded hover:bg-[#eaeaea] transition-all"
                 >
-                  Criar Primeiro Conteúdo (UNUSUAL MODELS)
+                  Criar Primeiro Conteúdo
                 </button>
               </div>
             )}
@@ -3759,7 +3760,7 @@ export const AdminPanel: React.FC = () => {
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-sans text-xs">
-                    {/* 1. Conteúdo Personalizado (UNUSUAL MODELS, Portfólio, etc.) */}
+                    {/* 1. Conteúdo Personalizado (Lookbook, Editorial, Portfólio, etc.) */}
                     <button
                       type="button"
                       onClick={() => {
@@ -3768,15 +3769,15 @@ export const AdminPanel: React.FC = () => {
                         const newBlock: SiteBlock = {
                           id: `block_${firstCustom ? firstCustom.slug : 'custom'}_${Date.now()}`,
                           block_type: 'custom_content',
-                          title: firstCustom?.internal_name || 'UNUSUAL MODELS',
-                          public_name: firstCustom?.title || 'UNUSUAL MODELS',
+                          title: firstCustom?.internal_name || 'EDITORIAL LOOKBOOK',
+                          public_name: firstCustom?.title || 'EDITORIAL LOOKBOOK',
                           subtitle: firstCustom?.subtitle || 'Portfolio / Conteúdo Personalizado',
                           content_type: 'custom',
                           custom_content_id: firstCustom?.id,
-                          slug: firstCustom?.slug || 'unusual-models',
+                          slug: firstCustom?.slug || 'editorial',
                           content: {
                             custom_content_id: firstCustom?.id,
-                            heading: firstCustom?.title || 'UNUSUAL MODELS',
+                            heading: firstCustom?.title || 'EDITORIAL LOOKBOOK',
                             subheading: firstCustom?.subtitle || 'Portfolio / Conteúdo Personalizado',
                             description: firstCustom?.description || '',
                             images: firstCustom?.images || [],
@@ -3796,7 +3797,7 @@ export const AdminPanel: React.FC = () => {
                         </strong>
                       </div>
                       <p className="text-[11px] text-[#777777]">
-                        UNUSUAL MODELS, Portfólio de Modelos, Lookbooks ou Campanhas editoriais.
+                        Lookbooks, Editoriais de Moda, Campanhas ou Galerias personalizadas.
                       </p>
                     </button>
 

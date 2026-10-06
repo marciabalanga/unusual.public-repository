@@ -103,15 +103,15 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
   }
 
   const timeWindows = [
-    { id: '10:00 - 14:00', label: 'Manhã / Almoço (10h - 14h)' },
-    { id: '14:00 - 18:00', label: 'Tarde (14h - 18h)' },
-    { id: '18:00 - 20:00', label: 'Fim de Tarde (18h - 20h)' },
+    { id: '10:00 - 14:00', label: language === 'en' ? 'Morning (10:00 - 14:00)' : 'Manhã / Almoço (10h - 14h)' },
+    { id: '14:00 - 18:00', label: language === 'en' ? 'Afternoon (14:00 - 18:00)' : 'Tarde (14h - 18h)' },
+    { id: '18:00 - 20:00', label: language === 'en' ? 'Evening (18:00 - 20:00)' : 'Fim de Tarde (18h - 20h)' },
   ];
 
   const handleConfirm = async () => {
     if (!selectedDate) {
       setError(
-        t('choose_delivery_date_error', 'Por favor escolha uma data para a entrega.')
+        language === 'en' ? 'Please choose a delivery date.' : t('choose_delivery_date_error', 'Por favor escolha uma data para a entrega.')
       );
       return;
     }
@@ -126,7 +126,7 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
         onScheduledSuccess();
       }
     } catch {
-      setError('Erro ao agendar a entrega. Tente novamente.');
+      setError(language === 'en' ? 'Error scheduling delivery. Please try again.' : 'Erro ao agendar a entrega. Tente novamente.');
     } finally {
       setIsSubmitting(false);
     }
@@ -139,7 +139,7 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
   };
 
   const formattedChosenDate = selectedDate
-    ? new Date(selectedDate + 'T00:00:00').toLocaleDateString('pt-PT', {
+    ? new Date(selectedDate + 'T00:00:00').toLocaleDateString(language === 'en' ? 'en-US' : 'pt-PT', {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -193,15 +193,15 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
 
             <div className="bg-[#121212] border border-[#1f1f1f] rounded-lg p-3 text-xs text-left text-[#999999] space-y-1">
               <div>
-                Código de Rastreio:{' '}
+                {language === 'en' ? 'Tracking Code: ' : 'Código de Rastreio: '}
                 <strong className="text-white font-mono">{order.tracking_code}</strong>
               </div>
               <div>
-                Destinatário:{' '}
+                {language === 'en' ? 'Recipient: ' : 'Destinatário: '}
                 <strong className="text-white">{order.customer_name}</strong> ({order.customer_phone})
               </div>
               <div>
-                Morada:{' '}
+                {language === 'en' ? 'Address: ' : 'Morada: '}
                 <strong className="text-white">{order.customer_address || order.customer_city}</strong>
               </div>
             </div>
@@ -209,9 +209,9 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
             <button
               type="button"
               onClick={handleClose}
-              className="mt-4 px-8 py-3 bg-white text-black font-sans font-bold text-xs uppercase rounded tracking-widest hover:bg-[#eaeaea] transition-all"
+              className="mt-4 px-8 py-3 bg-white text-black font-sans font-bold text-xs uppercase rounded tracking-widest hover:bg-[#eaeaea] transition-all cursor-pointer"
             >
-              CONCLUIR
+              {language === 'en' ? 'DONE' : 'CONCLUIR'}
             </button>
           </div>
         ) : (
@@ -219,7 +219,11 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
             <div className="space-y-1.5">
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[10px] font-mono tracking-widest uppercase">
                 <Truck className="w-3 h-3" />
-                <span>PRODUCTION COMPLETED / READY FOR DELIVERY</span>
+                <span>
+                  {language === 'en'
+                    ? 'PRODUCTION COMPLETED / READY FOR DELIVERY'
+                    : 'PRODUÇÃO CONCLUÍDA / PRONTO PARA ENTREGA'}
+                </span>
               </div>
 
               <h2 className="font-display font-bold uppercase text-xl sm:text-2xl text-white tracking-wider leading-tight">
@@ -237,15 +241,15 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
             {/* Order Reference Pill */}
             <div className="p-3 bg-[#121212] border border-[#222222] rounded text-xs space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-[#777777]">ENCOMENDA:</span>
+                <span className="text-[#777777]">{language === 'en' ? 'ORDER:' : 'ENCOMENDA:'}</span>
                 <span className="font-mono text-white font-bold">{order.tracking_code}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#777777]">CLIENTE:</span>
+                <span className="text-[#777777]">{language === 'en' ? 'CUSTOMER:' : 'CLIENTE:'}</span>
                 <span className="text-white">{order.customer_name}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[#777777]">PEÇAS:</span>
+                <span className="text-[#777777]">{language === 'en' ? 'PIECES:' : 'PEÇAS:'}</span>
                 <span className="text-white truncate max-w-[200px]">
                   {order.items.map((i) => `${i.name} (${i.size})`).join(', ')}
                 </span>
@@ -273,7 +277,7 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
                       key={slot.dateString}
                       type="button"
                       onClick={() => setSelectedDate(slot.dateString)}
-                      className={`p-3 rounded-lg border text-left transition-all ${
+                      className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
                         isSelected
                           ? 'bg-white text-black border-white shadow-lg'
                           : 'bg-[#141414] text-[#cccccc] border-[#242424] hover:border-white'
@@ -299,7 +303,7 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
             <div className="space-y-2">
               <label className="text-[11px] uppercase tracking-widest text-[#888888] font-semibold flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-[#666666]" />
-                <span>JANELA HORÁRIA PREFERENCIAL:</span>
+                <span>{language === 'en' ? 'PREFERRED TIME WINDOW:' : 'JANELA HORÁRIA PREFERENCIAL:'}</span>
               </label>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -308,13 +312,13 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
                     key={tw.id}
                     type="button"
                     onClick={() => setSelectedWindow(tw.id)}
-                    className={`py-2 px-2.5 text-xs rounded border transition-all text-center ${
+                    className={`py-2 px-2.5 text-xs rounded border transition-all text-center cursor-pointer ${
                       selectedWindow === tw.id
                         ? 'bg-white text-black border-white font-bold'
                         : 'bg-[#141414] text-[#888888] border-[#242424] hover:text-white'
                     }`}
                   >
-                    {tw.id}
+                    {tw.label}
                   </button>
                 ))}
               </div>
@@ -338,7 +342,7 @@ export const ScheduleDeliveryModal: React.FC<ScheduleDeliveryModalProps> = ({
               className="w-full py-4 bg-white hover:bg-[#eaeaea] text-black font-sans font-bold text-xs sm:text-sm tracking-[0.25em] uppercase rounded transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-95"
             >
               <CheckCircle2 className="w-4 h-4 text-black" />
-              <span>{isSubmitting ? 'A AGENDAR...' : t('btn_confirm_delivery_date', 'CONFIRM DELIVERY DATE')}</span>
+              <span>{isSubmitting ? (language === 'en' ? 'SCHEDULING...' : 'A AGENDAR...') : t('btn_confirm_delivery_date', 'CONFIRM DELIVERY DATE')}</span>
             </button>
           </div>
         )}

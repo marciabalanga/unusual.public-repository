@@ -5,7 +5,23 @@ import { Instagram, ShieldCheck, MapPin } from 'lucide-react';
 import { scrollToTop } from '../lib/scroll';
 
 export const SiteFooter: React.FC = () => {
-  const { setActiveTab, t, settings } = useStore();
+  const { setActiveTab, t, settings, language } = useStore();
+
+  const brandBio =
+    language === 'en'
+      ? settings.brand_bio_en ||
+        'Wearing Unusual — Brutalist silhouettes and architectural precision crafted and produced in Luanda, Angola. Limited on-demand editions.'
+      : settings.brand_bio ||
+        'Wearing Unusual — Silhuetas brutalistas e rigor arquitetural desenhados e produzidos em Luanda, Angola. Edições limitadas sob demanda.';
+
+  const locationText =
+    language === 'en'
+      ? settings.location_text_en || 'Luanda, Angola • Citywide Delivery'
+      : settings.location_text || 'Luanda, Angola • Entregas em Toda a Cidade';
+
+  const copyrightText =
+    (language === 'en' ? settings.copyright_text_en : settings.copyright_text) ||
+    t('footer_rights', 'TODOS OS DIREITOS RESERVADOS. LUANDA, ANGOLA.');
 
   return (
     <footer className="border-t border-[#1a1a1a] bg-[#070707] text-[#888888] font-sans text-xs pt-16 pb-12">
@@ -24,11 +40,11 @@ export const SiteFooter: React.FC = () => {
               <WULogo size="sm" imgClassName="h-7 sm:h-8 max-h-8 w-auto object-contain" />
             </div>
             <p className="text-xs text-[#777777] max-w-sm leading-relaxed">
-              {settings.brand_bio || 'Wearing Unusual — Silhuetas brutalistas e rigor arquitetural desenhados e produzidos em Luanda, Angola. Edições limitadas sob demanda.'}
+              {brandBio}
             </p>
             <div className="flex items-center gap-2 text-[11px] text-[#666666]">
               <MapPin className="w-3.5 h-3.5 text-[#888888]" />
-              <span>{settings.location_text || 'Luanda, Angola • Entregas em Toda a Cidade'}</span>
+              <span>{locationText}</span>
             </div>
             {settings.instagram_handle && (
               <div className="pt-1 text-[11px] text-[#777777]">
@@ -41,7 +57,7 @@ export const SiteFooter: React.FC = () => {
           {/* Quick Nav */}
           <div className="space-y-3">
             <span className="text-[10px] text-white font-bold uppercase tracking-[0.25em] block">
-              NAVEGAÇÃO
+              {t('footer_navigation', 'NAVEGAÇÃO')}
             </span>
             <ul className="space-y-2 text-xs">
               <li>
@@ -83,10 +99,10 @@ export const SiteFooter: React.FC = () => {
           {/* Payment & Security */}
           <div className="space-y-3">
             <span className="text-[10px] text-white font-bold uppercase tracking-[0.25em] block">
-              PAGAMENTO SEGURO
+              {t('footer_secure_payment', 'PAGAMENTO SEGURO')}
             </span>
             <p className="text-xs text-[#777777] leading-relaxed">
-              Transferências seguras via Multicaixa Express e IBAN com verificação rigorosa de comprovativo.
+              {t('footer_secure_payment_desc', 'Transferências seguras via Multicaixa Express e IBAN com verificação rigorosa de comprovativo.')}
             </p>
             <div className="pt-2">
               <span className="text-[10px] text-[#555555] uppercase block">IBAN:</span>
@@ -97,7 +113,7 @@ export const SiteFooter: React.FC = () => {
 
         {/* Bottom bar */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-[#555555]">
-          <p>© {new Date().getFullYear()} {settings.store_name || 'WEARING UNUSUAL'}. {settings.copyright_text || t('footer_rights', 'TODOS OS DIREITOS RESERVADOS. LUANDA, ANGOLA.')}</p>
+          <p>© {new Date().getFullYear()} {settings.store_name || 'WEARING UNUSUAL'}. {copyrightText}</p>
           <div className="flex items-center gap-4">
             <span className="text-[#444444]">LUANDA • ANGOLA</span>
           </div>

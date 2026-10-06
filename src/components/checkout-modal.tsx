@@ -42,6 +42,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     cartTotal,
     createOrder,
     settings,
+    language,
     t,
   } = useStore();
 
@@ -73,7 +74,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
     // Check size < 10MB
     if (file.size > 10 * 1024 * 1024) {
-      setErrorMessage('O ficheiro é demasiado grande. Limite máximo: 10MB.');
+      setErrorMessage(language === 'en' ? 'File too large. Maximum size: 10MB.' : 'O ficheiro é demasiado grande. Limite máximo: 10MB.');
       return;
     }
 
@@ -94,19 +95,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setErrorMessage(null);
 
     if (!customerName.trim()) {
-      setErrorMessage('Por favor, introduza o seu Nome Completo.');
+      setErrorMessage(language === 'en' ? 'Please enter your Full Name.' : 'Por favor, introduza o seu Nome Completo.');
       document.getElementById('customer-name-input')?.focus();
       return;
     }
 
     if (!customerPhone.trim()) {
-      setErrorMessage('Por favor, introduza o seu Telefone / WhatsApp.');
+      setErrorMessage(language === 'en' ? 'Please enter your Phone / WhatsApp.' : 'Por favor, introduza o seu Telefone / WhatsApp.');
       document.getElementById('customer-phone-input')?.focus();
       return;
     }
 
     if (!customerCity.trim()) {
-      setErrorMessage('Por favor, introduza o seu Endereço de Entrega em Luanda.');
+      setErrorMessage(language === 'en' ? 'Please enter your Delivery Address in Luanda.' : 'Por favor, introduza o seu Endereço de Entrega em Luanda.');
       document.getElementById('customer-city-input')?.focus();
       return;
     }
@@ -115,20 +116,30 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     if (settings.checkout_locked) {
       setErrorMessage(
         settings.checkout_lock_message ||
-          'O checkout encontra-se temporariamente suspenso para contagem de stock. Novas encomendas não podem ser processadas de momento.'
+          (language === 'en'
+            ? 'Checkout is temporarily paused for inventory stock check. New orders cannot be processed right now.'
+            : 'O checkout encontra-se temporariamente suspenso para contagem de stock. Novas encomendas não podem ser processadas de momento.')
       );
       return;
     }
 
     // O upload do comprovativo é 100% OBRIGATÓRIO para gerar o código
     if (!proofFile && !paymentProofBase64) {
-      setErrorMessage('O upload do comprovativo de pagamento é 100% obrigatório para confirmar o pedido e gerar o código de rastreio.');
+      setErrorMessage(
+        language === 'en'
+          ? 'Proof of payment upload is 100% required to confirm the order and generate the tracking code.'
+          : 'O upload do comprovativo de pagamento é 100% obrigatório para confirmar o pedido e gerar o código de rastreio.'
+      );
       document.getElementById('proof-upload-container')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
     setIsSubmitting(true);
-    setSubmittingStep('A validar comprovativo e a gerar código de rastreio...');
+    setSubmittingStep(
+      language === 'en'
+        ? 'Validating proof and generating tracking code...'
+        : 'A validar comprovativo e a gerar código de rastreio...'
+    );
 
     const isPreOrderCart = cart.some((i) => i.is_pre_order || i.product.enable_pre_order);
 
@@ -146,7 +157,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         }
       }
 
-      setSubmittingStep('A registar pedido e gerar código de rastreio...');
+      setSubmittingStep(
+        language === 'en'
+          ? 'Registering order and generating tracking code...'
+          : 'A registar pedido e gerar código de rastreio...'
+      );
 
       const orderItems = cart.length > 0
         ? cart.map((item) => ({
@@ -292,10 +307,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <WULogo size="sm" imgClassName="h-6 sm:h-7 max-h-7 w-auto object-contain" />
             <div>
               <span className="text-[10px] text-[#888888] font-sans tracking-[0.25em] uppercase block">
-                {settings.store_name || 'WEARING UNUSUAL'} • CHECKOUT
+                {settings.store_name || 'WEARING UNUSUAL'} • {language === 'en' ? 'CHECKOUT' : 'CHECKOUT'}
               </span>
               <h2 className="font-display uppercase text-base sm:text-xl text-white tracking-wider mt-0.5">
-                FINALIZAR ENCOMENDA
+                {language === 'en' ? 'COMPLETE ORDER' : 'FINALIZAR ENCOMENDA'}
               </h2>
             </div>
           </div>
@@ -303,7 +318,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             type="button"
             onClick={onClose}
             className="w-9 h-9 sm:w-10 sm:h-10 -mr-1 rounded-full flex items-center justify-center text-[#888888] hover:text-white hover:bg-[#1a1a1a] transition-colors"
-            aria-label="Fechar"
+            aria-label={language === 'en' ? 'Close' : 'Fechar'}
           >
             <X className="w-5 h-5" />
           </button>
@@ -324,18 +339,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <span className="w-5 h-5 rounded-full bg-[#222222] text-white flex items-center justify-center text-[10px] font-bold">
                 1
               </span>
-              <span>DADOS DO CLIENTE & MORADA EM LUANDA</span>
+              <span>{language === 'en' ? 'CUSTOMER DETAILS & DELIVERY ADDRESS' : 'DADOS DO CLIENTE & MORADA EM LUANDA'}</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] uppercase tracking-wider text-[#888888] mb-1.5">
-                  Nome Completo <span className="text-red-400">*</span>
+                  {language === 'en' ? 'Full Name' : 'Nome Completo'} <span className="text-red-400">*</span>
                 </label>
                 <input
                   id="customer-name-input"
                   type="text"
-                  placeholder="Ex: Manuel dos Santos"
+                  placeholder={language === 'en' ? 'e.g. John Doe' : 'Ex: Manuel dos Santos'}
                   value={customerName}
                   onChange={(e) => {
                     setCustomerName(e.target.value);
@@ -348,13 +363,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   }`}
                 />
                 {isNameMissing && (
-                  <span className="text-[10px] text-red-400 mt-1 block">Por favor, introduza o seu nome completo.</span>
+                  <span className="text-[10px] text-red-400 mt-1 block">{language === 'en' ? 'Please enter your full name.' : 'Por favor, introduza o seu nome completo.'}</span>
                 )}
               </div>
 
               <div>
                 <label className="block text-[11px] uppercase tracking-wider text-[#888888] mb-1.5">
-                  Telefone / WhatsApp <span className="text-red-400">*</span>
+                  {language === 'en' ? 'Phone / WhatsApp' : 'Telefone / WhatsApp'} <span className="text-red-400">*</span>
                 </label>
                 <input
                   id="customer-phone-input"
@@ -372,19 +387,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   }`}
                 />
                 {isPhoneMissing && (
-                  <span className="text-[10px] text-red-400 mt-1 block">Telefone ou WhatsApp obrigatório.</span>
+                  <span className="text-[10px] text-red-400 mt-1 block">{language === 'en' ? 'Phone or WhatsApp required.' : 'Telefone ou WhatsApp obrigatório.'}</span>
                 )}
               </div>
             </div>
 
             <div>
               <label className="block text-[11px] uppercase tracking-wider text-[#888888] mb-1.5">
-                Endereço de Entrega (Município / Bairro / Rua) <span className="text-red-400">*</span>
+                {language === 'en' ? 'Delivery Address (District / Street / House)' : 'Endereço de Entrega (Município / Bairro / Rua)'} <span className="text-red-400">*</span>
               </label>
               <input
                 id="customer-city-input"
                 type="text"
-                placeholder="Ex: Luanda, Talatona, Condomínio Morro Bento, Casa 14"
+                placeholder={language === 'en' ? 'e.g. Luanda, Talatona, Morro Bento, House 14' : 'Ex: Luanda, Talatona, Condomínio Morro Bento, Casa 14'}
                 value={customerCity}
                 onChange={(e) => {
                   setCustomerCity(e.target.value);
@@ -397,17 +412,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 }`}
               />
               {isCityMissing && (
-                <span className="text-[10px] text-red-400 mt-1 block">Endereço de entrega em Luanda obrigatório.</span>
+                <span className="text-[10px] text-red-400 mt-1 block">{language === 'en' ? 'Delivery address in Luanda is required.' : 'Endereço de entrega em Luanda obrigatório.'}</span>
               )}
             </div>
 
             <div>
               <label className="block text-[11px] uppercase tracking-wider text-[#888888] mb-1.5">
-                Notas / Ponto de Referência (Opcional)
+                {language === 'en' ? 'Notes / Reference Landmark (Optional)' : 'Notas / Ponto de Referência (Opcional)'}
               </label>
               <input
                 type="text"
-                placeholder="Ex: Ligar ao chegar na portaria"
+                placeholder={language === 'en' ? 'e.g. Call upon arriving at gate' : 'Ex: Ligar ao chegar na portaria'}
                 value={customerNotes}
                 onChange={(e) => setCustomerNotes(e.target.value)}
                 className="w-full px-3.5 py-3 sm:py-2.5 bg-[#141414] border border-[#262626] rounded text-white text-sm sm:text-xs font-sans focus:outline-none focus:border-white transition-colors"
@@ -421,14 +436,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <span className="w-5 h-5 rounded-full bg-[#222222] text-white flex items-center justify-center text-[10px] font-bold">
                 2
               </span>
-              <span>PAGAMENTO VIA MULTICAIXA EXPRESS / IBAN</span>
+              <span>{language === 'en' ? 'PAYMENT VIA MULTICAIXA EXPRESS / IBAN' : 'PAGAMENTO VIA MULTICAIXA EXPRESS / IBAN'}</span>
             </h3>
 
             <div className="bg-[#121212] border border-[#222222] rounded p-4 space-y-3 font-sans text-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#181818] p-3.5 rounded border border-[#262626]">
                 <div className="min-w-0 flex-1">
                   <span className="text-[10px] text-[#888888] uppercase tracking-wider block">
-                    IBAN PARA TRANSFERÊNCIA
+                    {language === 'en' ? 'IBAN FOR TRANSFER' : 'IBAN PARA TRANSFERÊNCIA'}
                   </span>
                   <span className="text-xs sm:text-sm font-mono text-white font-bold tracking-wider break-all select-all block mt-0.5">
                     {settings.iban}
@@ -440,17 +455,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   className="px-3.5 py-2 bg-[#262626] hover:bg-white hover:text-black text-xs font-medium text-[#cccccc] rounded transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-auto cursor-pointer"
                 >
                   {copiedIban ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedIban ? 'COPIADO' : 'COPIAR IBAN'}</span>
+                  <span>{copiedIban ? (language === 'en' ? 'COPIED' : 'COPIADO') : (language === 'en' ? 'COPY IBAN' : 'COPIAR IBAN')}</span>
                 </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[#aaaaaa] text-xs pt-1">
                 <div>
-                  <span className="text-[#666666] text-[10px] uppercase block tracking-wider">TITULAR DA CONTA</span>
+                  <span className="text-[#666666] text-[10px] uppercase block tracking-wider">{language === 'en' ? 'ACCOUNT HOLDER' : 'TITULAR DA CONTA'}</span>
                   <span className="text-white font-medium">{settings.account_holder}</span>
                 </div>
                 <div>
-                  <span className="text-[#666666] text-[10px] uppercase block tracking-wider">Nº DO EXPRESS</span>
+                  <span className="text-[#666666] text-[10px] uppercase block tracking-wider">{language === 'en' ? 'EXPRESS NUMBER' : 'Nº DO EXPRESS'}</span>
                   <span className="text-white font-medium font-mono">
                     {settings.account_number || settings.multicaixa_express_phone || '923 000 000'}
                   </span>
@@ -458,7 +473,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
 
               <div className="pt-2 border-t border-[#1c1c1c] text-[#888888] text-[11px] leading-relaxed">
-                Transfira o valor exato de <strong className="text-white font-mono">{formatAOA(cartTotal)}</strong> através do aplicativo Multicaixa Express ou ATM e anexe a captura de ecrã abaixo.
+                {language === 'en' ? (
+                  <>Transfer the exact amount of <strong className="text-white font-mono">{formatAOA(cartTotal)}</strong> through the Multicaixa Express app or ATM and attach the receipt screenshot below.</>
+                ) : (
+                  <>Transfira o valor exato de <strong className="text-white font-mono">{formatAOA(cartTotal)}</strong> através do aplicativo Multicaixa Express ou ATM e anexe a captura de ecrã abaixo.</>
+                )}
               </div>
             </div>
           </div>
@@ -471,11 +490,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   3
                 </span>
                 <span>
-                  COMPROVATIVO DE PAGAMENTO <span className="text-red-400">*</span>
+                  {language === 'en' ? 'PAYMENT PROOF' : 'COMPROVATIVO DE PAGAMENTO'} <span className="text-red-400">*</span>
                 </span>
               </h3>
               <span className="text-[10px] text-amber-400/90 font-mono uppercase bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
-                100% Obrigatório
+                {language === 'en' ? '100% Required' : '100% Obrigatório'}
               </span>
             </div>
 
@@ -498,12 +517,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <div className="flex flex-col items-center gap-2 text-emerald-400">
                   <CheckCircle2 className="w-8 h-8" />
                   <span className="text-xs font-semibold text-white truncate max-w-xs">
-                    {proofFileName || 'Comprovativo Anexado com Sucesso'}
+                    {proofFileName || (language === 'en' ? 'Proof Attached Successfully' : 'Comprovativo Anexado com Sucesso')}
                   </span>
                   <span className="text-[10px] text-emerald-400/90 font-mono">
-                    ✓ Comprovativo pronto para validação
+                    {language === 'en' ? '✓ Proof ready for bank validation' : '✓ Comprovativo pronto para validação'}
                   </span>
-                  <span className="text-[10px] text-[#888888]">Clique para substituir o ficheiro</span>
+                  <span className="text-[10px] text-[#888888]">{language === 'en' ? 'Click to replace file' : 'Clique para substituir o ficheiro'}</span>
                   {paymentProofBase64.startsWith('data:image') && (
                     <div className="mt-2 w-24 h-24 rounded border border-[#333333] overflow-hidden bg-black shadow-lg">
                       <img src={paymentProofBase64} alt="Preview do comprovativo" className="w-full h-full object-cover" />
@@ -515,14 +534,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <Upload className={`w-8 h-8 ${isProofMissing ? 'text-red-400' : 'text-[#999999]'}`} />
                   <span className={`text-xs font-medium ${isProofMissing ? 'text-red-300 font-semibold' : 'text-[#cccccc]'}`}>
                     {isProofMissing
-                      ? 'É obrigatório anexar o comprovativo Multicaixa Express para gerar o código'
-                      : 'Arraste ou clique para anexar o comprovativo Multicaixa Express'}
+                      ? (language === 'en' ? 'Attaching Multicaixa Express proof is required to generate tracking code' : 'É obrigatório anexar o comprovativo Multicaixa Express para gerar o código')
+                      : (language === 'en' ? 'Drag or click to attach Multicaixa Express proof' : 'Arraste ou clique para anexar o comprovativo Multicaixa Express')}
                   </span>
                   <div className="py-2 px-4 bg-white/10 hover:bg-white/20 border border-white/20 rounded text-[11px] font-sans font-bold text-white tracking-wider uppercase transition-colors">
-                    SELECIONAR COMPROVATIVO
+                    {language === 'en' ? 'SELECT PAYMENT PROOF' : 'SELECIONAR COMPROVATIVO'}
                   </div>
                   <span className="text-[10px] text-[#555555]">
-                    Formatos aceites: JPG, PNG, PDF (Máx. 10MB) • Obrigatório para gerar código
+                    {language === 'en' ? 'Accepted formats: JPG, PNG, PDF (Max. 10MB) • Required to generate code' : 'Formatos aceites: JPG, PNG, PDF (Máx. 10MB) • Obrigatório para gerar código'}
                   </span>
                 </div>
               )}
@@ -530,7 +549,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             {isProofMissing && (
               <p className="text-xs text-red-400 flex items-center gap-1.5 font-medium">
                 <AlertCircle className="w-3.5 h-3.5" />
-                <span>Por favor, anexe o comprovativo ou captura de ecrã para confirmar a encomenda.</span>
+                <span>{language === 'en' ? 'Please attach the transfer receipt or screenshot to confirm the order.' : 'Por favor, anexe o comprovativo ou captura de ecrã para confirmar a encomenda.'}</span>
               </p>
             )}
           </div>
@@ -545,11 +564,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   {isFreeShipping ? (
                     <span className="text-emerald-400 font-semibold flex items-center gap-1.5 text-xs">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      Parabéns! Você ganhou Entrega Grátis
+                      {language === 'en' ? 'Congratulations! You unlocked Free Shipping' : 'Parabéns! Ganhou Entrega Grátis'}
                     </span>
                   ) : (
                     <span className="text-[#cccccc] text-xs">
-                      Adicione mais <strong className="text-white font-bold">{formatAOA(amountUntilFreeShipping)}</strong> para ganhar Entrega Grátis!
+                      {language === 'en' ? (
+                        <>Add <strong className="text-white font-bold">{formatAOA(amountUntilFreeShipping)}</strong> more for Free Delivery!</>
+                      ) : (
+                        <>Adicione mais <strong className="text-white font-bold">{formatAOA(amountUntilFreeShipping)}</strong> para ganhar Entrega Grátis!</>
+                      )}
                     </span>
                   )}
                 </div>
@@ -566,7 +589,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               </div>
 
               <div className="flex items-center justify-between text-[10px] text-[#777777] font-sans">
-                <span>Entrega Grátis em compras a partir de {formatAOA(freeShippingThreshold)}</span>
+                <span>{language === 'en' ? `Free Delivery on orders over ${formatAOA(freeShippingThreshold)}` : `Entrega Grátis em compras a partir de ${formatAOA(freeShippingThreshold)}`}</span>
                 <span className="font-mono font-medium text-white">
                   {isFreeShipping ? '100%' : `${shippingProgressPercentage}%`}
                 </span>
@@ -576,21 +599,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             {/* Price breakdown */}
             <div className="bg-[#121212] border border-[#222222] rounded-lg p-3.5 space-y-2 text-xs font-sans">
               <div className="flex items-center justify-between text-[#888888]">
-                <span>SUBTOTAL DOS ARTIGOS</span>
+                <span>{language === 'en' ? 'ITEMS SUBTOTAL' : 'SUBTOTAL DOS ARTIGOS'}</span>
                 <span className="text-white font-semibold font-mono">{formatAOA(cartSubtotal)}</span>
               </div>
               <div className="flex items-center justify-between text-[#888888]">
-                <span>TAXA DE ENTREGA (LUANDA)</span>
+                <span>{language === 'en' ? 'DELIVERY FEE (LUANDA)' : 'TAXA DE ENTREGA (LUANDA)'}</span>
                 {deliveryFee === 0 ? (
                   <span className="text-emerald-400 font-semibold tracking-wider flex items-center gap-1 font-mono">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> GRÁTIS (0 AOA)
+                    <CheckCircle2 className="w-3.5 h-3.5" /> {language === 'en' ? 'FREE (0 AOA)' : 'GRÁTIS (0 AOA)'}
                   </span>
                 ) : (
                   <span className="text-white font-mono font-medium">{formatAOA(deliveryFee)}</span>
                 )}
               </div>
               <div className="flex items-center justify-between text-sm pt-2.5 border-t border-[#222222] text-white font-semibold">
-                <span className="tracking-wider">TOTAL A PAGAR</span>
+                <span className="tracking-wider">{language === 'en' ? 'TOTAL TO PAY' : 'TOTAL A PAGAR'}</span>
                 <span className="text-base text-white font-mono font-bold">{formatAOA(cartTotal)}</span>
               </div>
             </div>
@@ -610,11 +633,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <div className="p-4 bg-red-950/80 border border-red-800 rounded-lg text-center text-xs text-red-200 space-y-1.5 animate-in fade-in">
                 <div className="font-bold uppercase tracking-wider text-red-300 flex items-center justify-center gap-1.5 font-mono text-xs">
                   <Lock className="w-4 h-4 text-red-400" />
-                  <span>CHECKOUT TEMPORARIAMENTE SUSPENSO</span>
+                  <span>{language === 'en' ? 'CHECKOUT TEMPORARILY PAUSED' : 'CHECKOUT TEMPORARIAMENTE SUSPENSO'}</span>
                 </div>
                 <p className="text-[11px] text-red-200/90 font-sans leading-relaxed">
                   {settings.checkout_lock_message ||
-                    'O checkout encontra-se temporariamente suspenso para contagem de stock e inventário. Não é possível concluir novas encomendas neste momento.'}
+                    (language === 'en'
+                      ? 'Checkout is temporarily suspended for inventory and stock count. New orders cannot be completed right now.'
+                      : 'O checkout encontra-se temporariamente suspenso para contagem de stock e inventário. Não é possível concluir novas encomendas neste momento.')}
                 </p>
               </div>
             ) : (
@@ -627,11 +652,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 {isSubmitting ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                    <span>{submittingStep || 'A GERAR CÓDIGO DE RASTREIO ÚNICO...'}</span>
+                    <span>{submittingStep || (language === 'en' ? 'GENERATING UNIQUE TRACKING CODE...' : 'A GERAR CÓDIGO DE RASTREIO ÚNICO...')}</span>
                   </div>
                 ) : (
                   <>
-                    <span>CONFIRMAR E GERAR CÓDIGO DE RASTREIO</span>
+                    <span>{language === 'en' ? 'CONFIRM AND GENERATE TRACKING CODE' : 'CONFIRMAR E GERAR CÓDIGO DE RASTREIO'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
