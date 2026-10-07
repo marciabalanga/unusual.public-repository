@@ -363,9 +363,11 @@ const MainContent: React.FC = () => {
   }, [settings.site_logo_url, settings.logo_url]);
 
   // Find selected product for detail view
-  const selectedProduct = selectedProductSlug
-    ? products.find((p) => p.slug?.toLowerCase() === selectedProductSlug.toLowerCase()) || products[0]
-    : products[0];
+const selectedProduct = selectedProductSlug
+  ? products.find(
+      (p) => p.slug?.toLowerCase() === selectedProductSlug.toLowerCase()
+    ) || null
+  : null;
 
   const handleOrderSuccess = (order: Order) => {
     setIsCheckoutOpen(false);
