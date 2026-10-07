@@ -101,7 +101,7 @@ const isBadgeSoldOut =
 const isPreOrderEnabled =
   product.enable_pre_order === true &&
   settings.enable_pre_order_button !== false;
- isSoldOut =
+const isSoldOut =
   isBadgeSoldOut ||
   product.lifecycle === 'time_capsule' ||
   !hasSizes ||
