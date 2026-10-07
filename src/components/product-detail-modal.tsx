@@ -101,13 +101,7 @@ const isBadgeSoldOut =
 const isPreOrderEnabled =
   product.enable_pre_order === true &&
   settings.enable_pre_order_button !== false;
-const selectedColorObj = product.colors.find(
-  (c) => c.name === selectedColor
-);
-
-const isSelectedColorOutOfStock =
-  selectedColorObj?.in_stock === false;
-const isSoldOut =
+ isSoldOut =
   isBadgeSoldOut ||
   product.lifecycle === 'time_capsule' ||
   !hasSizes ||
@@ -122,6 +116,13 @@ const isSoldOut =
     const firstInStock = !isSoldOut ? product.colors.find((c) => c.in_stock !== false) : null;
     return firstInStock ? firstInStock.name : (product.colors[0]?.name || '');
   });
+const selectedColorObj = product.colors.find(
+  (c) => c.name === selectedColor
+);
+
+const isSelectedColorOutOfStock =
+  selectedColorObj?.in_stock === false;
+
   const [quantity, setQuantity] = useState(1);
   const [isAdded, setIsAdded] = useState(false);
   const [showSizeGuideModal, setShowSizeGuideModal] = useState(false);
