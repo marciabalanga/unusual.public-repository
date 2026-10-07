@@ -46,9 +46,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     <div
       id="splash-screen"
       onClick={handleSkip}
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-black cursor-pointer select-none transition-opacity duration-[1500ms] ${
-        isExiting ? 'fade-exit' : 'opacity-100'
-      }`}
+      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black"
       aria-label="Wearing Unusual Splash Screen"
     >
       <div className="flex flex-col items-center text-center space-y-8 animate-[fadeIn_1.5s_ease-in-out]">
