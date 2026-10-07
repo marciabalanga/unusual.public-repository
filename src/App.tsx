@@ -512,22 +512,19 @@ const selectedProduct = selectedProductSlug
         <main className="flex-1">
           {activeTab === 'store' && <PageBuilderRenderer />}
 
-    {activeTab === 'product_detail' && selectedProduct && (
-            <ProductDetailView
-              product={selectedProduct}
-              onBack={() => {
-                if (selectedProduct.lifecycle === 'time_capsule') {
-                  navigateTo({ tab: 'capsule' });
-                } else {
-                  navigateTo({ tab: 'store' });
-                }
-              }}
-              onOpenPreOrderCheckout={(item) => {
-                addToCart(item.product, item.size, item.color, item.quantity);
-                setIsCheckoutOpen(true);
-              }}
-            />
-          )}
+  {activeTab === 'product_detail' && selectedProduct && (
+  <div
+    style={{
+      padding: '40px',
+      color: 'white',
+      background: 'black',
+      minHeight: '100vh',
+    }}
+  >
+    TESTE PRODUTO: {selectedProduct.name}
+  </div>
+)}
+  
 
           {activeTab === 'capsule' && <TimeCapsuleView />}
 
