@@ -293,7 +293,6 @@ const MainContent: React.FC = () => {
       setSelectedProductSlug(null);
       setSelectedCustomSlug(null);
       setActiveTab('store');
-      setIsSplashActive(false);
     };
     handleUrlCheck();
     window.addEventListener('popstate', handleUrlCheck);
