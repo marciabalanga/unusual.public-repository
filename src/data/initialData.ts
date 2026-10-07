@@ -37,10 +37,7 @@ export const INITIAL_PRODUCTS: Product[] = [
         "size": "XL",
         "in_stock": false
       },
-      {
-        "size": "XXL",
-        "in_stock": false
-      }
+  
     ],
     "colors": [
       {
