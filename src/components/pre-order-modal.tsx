@@ -272,7 +272,7 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
           <span>
             {t(
               'preorder_disclaimer_notice',
-              '"A data de entrega exata será escolhida por ti assim que a peça estiver pronta para entrega.'
+              'A data de entrega exata será escolhida por ti assim que a peça estiver pronta para entrega.'
             )}
           </span>
         </div>
