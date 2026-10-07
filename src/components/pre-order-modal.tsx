@@ -272,7 +272,7 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
           <span>
             {t(
               'preorder_disclaimer_notice',
-              'A sua peça será confeccionada sob encomenda artesanal. A data de entrega exata será escolhida por si assim que a produção for concluída.'
+              '"A data de entrega exata será escolhida por si assim que a entrega estiver disponível para agendamento."'
             )}
           </span>
         </div>
