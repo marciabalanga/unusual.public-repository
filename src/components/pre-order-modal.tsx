@@ -92,7 +92,7 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
     product.pre_order_custom_notice ||
     t(
       'preorder_modal_desc',
-      'Limited availability. Secure yours before it’s gone • Disponibilidade limitada. Garante a tua peça antes que desapareça'
+      'Limited availability. Secure yours before it’s gone | Disponibilidade limitada. Garante a tua peça antes que desapareça'
     );
 
   const whatsappContact = settings.whatsapp_number || '+244 937 765 130';
