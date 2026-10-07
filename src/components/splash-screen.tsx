@@ -8,7 +8,7 @@ interface SplashScreenProps {
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({
   onComplete,
-  durationMs = 2400,
+  durationMs = 10000,
 }) => {
   const [isExiting, setIsExiting] = useState(false);
   const [isRendered, setIsRendered] = useState(true);
