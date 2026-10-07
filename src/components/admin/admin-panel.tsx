@@ -3160,7 +3160,13 @@ export const AdminPanel: React.FC = () => {
                           onClick={() => {
                             const newColors = [
                               ...(editingProduct.colors || []),
-                              { name: 'Nova Cor', hex: '#222222', image_url: '' },
+                              { name: 'Nova Cor',
+
+  hex: '#222222',
+
+  image_url: '',
+
+  image_urls: [], },
                             ];
                             setEditingProduct({ ...editingProduct, colors: newColors });
                           }}
@@ -3222,92 +3228,185 @@ export const AdminPanel: React.FC = () => {
                               </div>
                             </div>
 
-                            {/* Linked Image */}
-                            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                              {c.image_url && c.image_url.trim() !== '' ? (
-                                <div className="flex items-center gap-2">
-                                  <div className="w-9 h-11 bg-[#1a1a1a] rounded overflow-hidden border border-[#333333] shrink-0">
-                                    <img src={c.image_url} alt={c.name} className="w-full h-full object-cover" />
-                                  </div>
-                                  <label className="px-2 py-1 bg-[#1e1e1e] hover:bg-[#282828] text-[#cccccc] hover:text-white rounded text-[10px] font-bold uppercase cursor-pointer border border-[#333333]">
-                                    Trocar
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      className="hidden"
-                                      onChange={async (e) => {
-                                        const file = e.target.files?.[0];
-                                        if (!file) return;
-                                        try {
-                                          const url = await uploadImageToSupabase(file, 'products');
-                                          const nextColors = [...editingProduct.colors];
-                                          nextColors[cIdx] = { ...nextColors[cIdx], image_url: url };
-                                          setEditingProduct({ ...editingProduct, colors: nextColors });
-                                        } finally {
-                                          e.target.value = '';
-                                        }
-                                      }}
-                                    />
-                                  </label>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const nextColors = [...editingProduct.colors];
-                                      nextColors[cIdx] = { ...nextColors[cIdx], image_url: '' };
-                                      setEditingProduct({ ...editingProduct, colors: nextColors });
-                                    }}
-                                    className="p-1 text-[#666666] hover:text-red-400"
-                                    title="Remover foto vinculada"
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  {editingProduct.images && editingProduct.images.filter((img) => img && img.trim() !== '').length > 0 && (
-                                    <select
-                                      value={c.image_url || ''}
-                                      onChange={(e) => {
-                                        const nextColors = [...editingProduct.colors];
-                                        nextColors[cIdx] = { ...nextColors[cIdx], image_url: e.target.value };
-                                        setEditingProduct({ ...editingProduct, colors: nextColors });
-                                      }}
-                                      className="px-2 py-1 bg-[#181818] border border-[#2a2a2a] rounded text-white text-[10px] font-sans focus:outline-none"
-                                    >
-                                      <option value="">Vincular foto de slot...</option>
-                                      {editingProduct.images.map((imgUrl, imgIdx) => {
-                                        if (!imgUrl || imgUrl.trim() === '') return null;
-                                        return (
-                                          <option key={imgIdx} value={imgUrl}>
-                                            Espaço #{imgIdx + 1} {imgIdx === 0 ? '(Capa)' : ''}
-                                          </option>
-                                        );
-                                      })}
-                                    </select>
-                                  )}
-                                  <label className="px-2.5 py-1 bg-[#181818] hover:bg-[#222222] text-[#888888] hover:text-white rounded text-[10px] font-bold uppercase cursor-pointer border border-dashed border-[#333333] flex items-center gap-1 transition-colors">
-                                    <Plus className="w-3 h-3" />
-                                    <span>Upload Foto</span>
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      className="hidden"
-                                      onChange={async (e) => {
-                                        const file = e.target.files?.[0];
-                                        if (!file) return;
-                                        try {
-                                          const url = await uploadImageToSupabase(file, 'products');
-                                          const nextColors = [...editingProduct.colors];
-                                          nextColors[cIdx] = { ...nextColors[cIdx], image_url: url };
-                                          setEditingProduct({ ...editingProduct, colors: nextColors });
-                                        } finally {
-                                          e.target.value = '';
-                                        }
-                                      }}
-                                    />
-                                  </label>
-                                </div>
-                              )}
+                       {/* Linked Images */}
+<div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+  {(() => {
+    const linkedImages = Array.isArray(c.image_urls)
+      ? c.image_urls.filter((img) => typeof img === 'string' && img.trim() !== '')
+      : c.image_url && c.image_url.trim() !== ''
+        ? [c.image_url]
+        : [];
+
+    const addImageToColor = (url: string) => {
+      if (!url || !url.trim()) return;
+
+      const nextColors = [...editingProduct.colors];
+      const currentColor = nextColors[cIdx];
+
+      const currentImages = Array.isArray(currentColor.image_urls)
+        ? currentColor.image_urls.filter((img) => img && img.trim() !== '')
+        : currentColor.image_url && currentColor.image_url.trim() !== ''
+          ? [currentColor.image_url]
+          : [];
+
+      if (currentImages.includes(url)) return;
+
+      nextColors[cIdx] = {
+        ...currentColor,
+        image_url: currentImages[0] || url,
+        image_urls: [...currentImages, url],
+      };
+
+      setEditingProduct({
+        ...editingProduct,
+        colors: nextColors,
+      });
+    };
+
+    const removeImageFromColor = (url: string) => {
+      const nextColors = [...editingProduct.colors];
+      const currentColor = nextColors[cIdx];
+
+      const currentImages = Array.isArray(currentColor.image_urls)
+        ? currentColor.image_urls
+        : currentColor.image_url
+          ? [currentColor.image_url]
+          : [];
+
+      const remainingImages = currentImages.filter((img) => img !== url);
+
+      nextColors[cIdx] = {
+        ...currentColor,
+        image_url: remainingImages[0] || '',
+        image_urls: remainingImages,
+      };
+
+      setEditingProduct({
+        ...editingProduct,
+        colors: nextColors,
+      });
+    };
+
+    return (
+      <div className="flex items-center gap-2 flex-wrap">
+        {linkedImages.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {linkedImages.map((imgUrl, imgIdx) => (
+              <div
+                key={`${imgUrl}-${imgIdx}`}
+                className="relative w-9 h-11 bg-[#1a1a1a] rounded overflow-hidden border border-[#333333] shrink-0"
+              >
+                <img
+                  src={imgUrl}
+                  alt={`${c.name} ${imgIdx + 1}`}
+                  className="w-full h-full object-cover"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => removeImageFromColor(imgUrl)}
+                  className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center bg-black/80 text-white rounded-full hover:bg-red-600"
+                  title="Remover foto"
+                >
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {editingProduct.images &&
+          editingProduct.images.filter(
+            (img) => img && img.trim() !== ''
+          ).length > 0 && (
+            <select
+              value=""
+              onChange={(e) => {
+                addImageToColor(e.target.value);
+                e.target.value = '';
+              }}
+              className="px-2 py-1 bg-[#181818] border border-[#2a2a2a] rounded text-white text-[10px] font-sans focus:outline-none"
+            >
+              <option value="">Vincular foto de slot...</option>
+
+              {editingProduct.images.map((imgUrl, imgIdx) => {
+                if (!imgUrl || imgUrl.trim() === '') return null;
+
+                return (
+                  <option key={imgIdx} value={imgUrl}>
+                    Espaço #{imgIdx + 1}
+                    {imgIdx === 0 ? ' (Capa)' : ''}
+                  </option>
+                );
+              })}
+            </select>
+          )}
+
+        <label className="px-2.5 py-1 bg-[#181818] hover:bg-[#222222] text-[#888888] hover:text-white rounded text-[10px] font-bold uppercase cursor-pointer border border-dashed border-[#333333] flex items-center gap-1 transition-colors">
+          <Plus className="w-3 h-3" />
+          <span>Adicionar Foto</span>
+
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={async (e) => {
+              const files = Array.from(e.target.files || []);
+              if (files.length === 0) return;
+
+              try {
+                const uploadedUrls: string[] = [];
+
+                for (const file of files) {
+                  const url = await uploadImageToSupabase(file, 'products');
+
+                  if (url) {
+                    uploadedUrls.push(url);
+                  }
+                }
+
+                if (uploadedUrls.length > 0) {
+                  const nextColors = [...editingProduct.colors];
+                  const currentColor = nextColors[cIdx];
+
+                  const currentImages = Array.isArray(currentColor.image_urls)
+                    ? currentColor.image_urls.filter(
+                        (img) => img && img.trim() !== ''
+                      )
+                    : currentColor.image_url &&
+                      currentColor.image_url.trim() !== ''
+                      ? [currentColor.image_url]
+                      : [];
+
+                  const mergedImages = [
+                    ...currentImages,
+                    ...uploadedUrls.filter(
+                      (url) => !currentImages.includes(url)
+                    ),
+                  ];
+
+                  nextColors[cIdx] = {
+                    ...currentColor,
+                    image_url: mergedImages[0] || '',
+                    image_urls: mergedImages,
+                  };
+
+                  setEditingProduct({
+                    ...editingProduct,
+                    colors: nextColors,
+                  });
+                }
+              } finally {
+                e.target.value = '';
+              }
+            }}
+          />
+        </label>
+      </div>
+    );
+  })()}
+</div>
 
                               {/* Stock toggle for this color */}
                               <button
