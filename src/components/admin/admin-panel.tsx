@@ -3028,7 +3028,7 @@ export const AdminPanel: React.FC = () => {
                               <div className="space-y-2.5 mt-3 pt-3 border-t border-amber-500/20">
                                 <div>
                                   <label className="block text-[10px] uppercase tracking-wider text-amber-300/80 mb-1 font-mono">
-                                    Previsão de Entrega
+                                    Entregas a partir de
                                   </label>
                                   <input
                                     type="text"
