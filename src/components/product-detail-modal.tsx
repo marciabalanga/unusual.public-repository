@@ -101,7 +101,12 @@ const isBadgeSoldOut =
 const isPreOrderEnabled =
   product.enable_pre_order === true &&
   settings.enable_pre_order_button !== false;
+const selectedColorObj = product.colors.find(
+  (c) => c.name === selectedColor
+);
 
+const isSelectedColorOutOfStock =
+  selectedColorObj?.in_stock === false;
 const isSoldOut =
   isBadgeSoldOut ||
   product.lifecycle === 'time_capsule' ||
@@ -517,7 +522,7 @@ const isSoldOut =
               </div>
             )}
 
-            {/* 1. PRE-ORDER: Controlado pelo toggle enable_pre_order do produto */}{isPreOrderEnabled ? (
+            {/* 1. PRE-ORDER: Controlado pelo toggle enable_pre_order do produto */}{isPreOrderEnabled && !isSelectedColorOutOfStock ? (
               <div className="space-y-2.5">
                 {settings.checkout_locked ? (
                   <div className="p-3.5 bg-red-950/60 border border-red-800 rounded-lg text-center text-xs text-red-200 flex items-center justify-center gap-2 font-sans">
