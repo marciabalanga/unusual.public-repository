@@ -512,7 +512,7 @@ const selectedProduct = selectedProductSlug
         <main className="flex-1">
           {activeTab === 'store' && <PageBuilderRenderer />}
 
-       {activeTab === 'product_detail' && (
+    {activeTab === 'product_detail' && selectedProduct && (
             <ProductDetailView
               product={selectedProduct}
               onBack={() => {
