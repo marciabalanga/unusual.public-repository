@@ -3436,13 +3436,13 @@ export const AdminPanel: React.FC = () => {
                                 className="p-1.5 text-[#555555] hover:text-red-400 rounded transition-colors"
                                 title="Remover cor"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                                          </button>
-                            </div>
+                                                             <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
+                  </div>
 
                   <div className="pt-4 border-t border-[#1c1c1c] flex items-center justify-between gap-3">
                     {!isCreatingProduct ? (
