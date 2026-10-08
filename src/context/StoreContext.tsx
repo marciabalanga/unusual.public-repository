@@ -234,7 +234,13 @@ export const sanitizeProductVariants = (product: Product): Product => {
     product.sizes.every((s) => !s.in_stock);
 
   let currentBadge = product.badge;
-  if (allSizesOutOfStock || (currentBadge && currentBadge.trim().toUpperCase() === 'ESGOTADO')) {
+
+  if (
+    allSizesOutOfStock ||
+    (currentBadge && currentBadge.trim().toUpperCase() === 'ESGOTADO')
+  ) {
+    currentBadge = 'ESGOTADO';
+  }
 
   return {
     ...product,
