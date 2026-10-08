@@ -92,7 +92,7 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
     product.pre_order_custom_notice ||
     t(
       'preorder_modal_desc',
-      'Limited availability. Secure yours before it’s gone | Disponibilidade limitada. Garante a tua peça antes que desapareça'
+      'This is a pre-order item. Your piece will be produced specifically for this restock.'
     );
 
   const whatsappContact = settings.whatsapp_number || '+244 937 765 130';
@@ -272,7 +272,7 @@ export const PreOrderModal: React.FC<PreOrderModalProps> = ({
           <span>
             {t(
               'preorder_disclaimer_notice',
-              'A data de entrega exata será escolhida por ti assim que a peça estiver pronta para entrega.'
+              'A sua peça será confeccionada sob encomenda artesanal. A data de entrega exata será escolhida por si assim que a produção for concluída.'
             )}
           </span>
         </div>

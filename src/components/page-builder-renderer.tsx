@@ -21,6 +21,7 @@ export const PageBuilderRenderer: React.FC = () => {
     t,
     getLocalizedProduct,
     isPreviewMode,
+    navigateTo,
   } = useStore();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -33,14 +34,7 @@ export const PageBuilderRenderer: React.FC = () => {
 
   const handleProductClick = (product: Product) => {
     scrollToTop(true);
-    setSelectedProductSlug(product.slug);
-    setActiveTab('product_detail');
-    try {
-      const url = isPreviewMode
-        ? `/preview?product=${encodeURIComponent(product.slug)}`
-        : `/peca/${encodeURIComponent(product.slug)}`;
-      window.history.pushState({ productSlug: product.slug, tab: 'product_detail' }, '', url);
-    } catch {}
+    navigateTo({ tab: 'product_detail', slug: product.slug });
   };
 
   const categories = ['all', 'T-Shirts & Tops', 'Hoodies', 'Sweatshirts', 'Denim', 'Outerwear'];
@@ -278,7 +272,10 @@ export const PageBuilderRenderer: React.FC = () => {
                         {/* Dynamic Badge & Pre-Order Status Badge */}
                         <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
                           {(() => {
-                            const effectiveBadge = product.badge;
+                            const isSoldOut =
+                              product.badge?.toUpperCase() === 'ESGOTADO' ||
+                              (product.sizes && product.sizes.length > 0 && product.sizes.every((s) => !s.in_stock));
+                            const effectiveBadge = isSoldOut ? 'ESGOTADO' : product.badge;
 
                             const badgeText = getProductBadgeDisplay(effectiveBadge, language);
                             const returnDate = getProductReturnDateDisplay(product);
@@ -549,7 +546,10 @@ export const PageBuilderRenderer: React.FC = () => {
                           )}
                           <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
                             {(() => {
-                          const effectiveBadge = product.badge;
+                              const isSoldOut =
+                                product.badge?.toUpperCase() === 'ESGOTADO' ||
+                                (product.sizes && product.sizes.length > 0 && product.sizes.every((s) => !s.in_stock));
+                              const effectiveBadge = isSoldOut ? 'ESGOTADO' : product.badge;
 
                               const badgeText = getProductBadgeDisplay(effectiveBadge, language);
                               const returnDate = getProductReturnDateDisplay(product);

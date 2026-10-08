@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { WULogo } from './wu-logo';
 
 interface SplashScreenProps {
@@ -12,6 +12,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 }) => {
   const [isExiting, setIsExiting] = useState(false);
   const [isRendered, setIsRendered] = useState(true);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
 
   useEffect(() => {
     // Start exit transition after durationMs
@@ -24,20 +26,19 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
 
   useEffect(() => {
     if (isExiting) {
-      // Allow 1.5s fade-exit transition to complete before removing from DOM
+      // Allow fade-exit transition to complete before removing from DOM
       const exitTimer = setTimeout(() => {
         setIsRendered(false);
-        onComplete();
-      }, 1500);
+        onCompleteRef.current?.();
+      }, 800);
 
       return () => clearTimeout(exitTimer);
     }
-  }, [isExiting, onComplete]);
+  }, [isExiting]);
 
   const handleSkip = () => {
-    if (!isExiting) {
-      setIsExiting(true);
-    }
+    setIsRendered(false);
+    onCompleteRef.current?.();
   };
 
   if (!isRendered) return null;
@@ -47,8 +48,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
       id="splash-screen"
       onClick={handleSkip}
       className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-black cursor-pointer select-none transition-opacity duration-[1500ms] ${
-  isExiting ? 'opacity-0' : 'opacity-100'
-}`}
+        isExiting ? 'fade-exit' : 'opacity-100'
+      }`}
       aria-label="Wearing Unusual Splash Screen"
     >
       <div className="flex flex-col items-center text-center space-y-8 animate-[fadeIn_1.5s_ease-in-out]">

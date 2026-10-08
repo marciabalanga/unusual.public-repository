@@ -10,7 +10,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const isProduction = process.env.NODE_ENV === 'production';
-const PORT = Number(process.env.PORT) || 3000;
+const portArgIdx = process.argv.indexOf('--port');
+const cliPort = portArgIdx !== -1 && process.argv[portArgIdx + 1] ? Number(process.argv[portArgIdx + 1]) : null;
+const PORT = cliPort && !isNaN(cliPort) && cliPort > 0 ? cliPort : (Number(process.env.PORT) || 3000);
 const APP_VERSION = '20261004_v9';
 
 const SUPABASE_URL = 'https://tmryqhilyisbfdpnsiwo.supabase.co';
@@ -596,8 +598,7 @@ async function startServer() {
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
-        hmr: process.env.DISABLE_HMR !== 'true',
-        watch: process.env.DISABLE_HMR === 'true' ? null : {},
+        hmr: false,
       },
       appType: 'spa',
     });

@@ -232,18 +232,23 @@ const MainContent: React.FC = () => {
 
       // Check product direct route (/peca/:slug or /produto/:slug)
       if (path.startsWith('/peca/') || path.startsWith('/produto/')) {
-        const cleanProductSlug = path.replace(/^\/(peca|produto)\//i, '').replace(/\/+$/, '');
+        const rawSlug = path.replace(/^\/(peca|produto)\//i, '').replace(/\/+$/, '');
+        let cleanProductSlug = rawSlug;
+        try {
+          cleanProductSlug = decodeURIComponent(rawSlug).trim();
+        } catch {}
         if (cleanProductSlug) {
           const matched = products.find(
-            (p) => p.slug?.toLowerCase() === cleanProductSlug.toLowerCase() || p.id === cleanProductSlug
+            (p) =>
+              p.slug?.toLowerCase() === cleanProductSlug.toLowerCase() ||
+              p.id?.toLowerCase() === cleanProductSlug.toLowerCase() ||
+              p.id === cleanProductSlug
           );
-          if (matched) {
-            setSelectedCustomSlug(null);
-            setSelectedProductSlug(matched.slug);
-            setActiveTab('product_detail');
-            setIsSplashActive(false);
-            return;
-          }
+          setSelectedCustomSlug(null);
+          setSelectedProductSlug(matched ? matched.slug : cleanProductSlug);
+          setActiveTab('product_detail');
+          setIsSplashActive(false);
+          return;
         }
       }
 
@@ -293,6 +298,7 @@ const MainContent: React.FC = () => {
       setSelectedProductSlug(null);
       setSelectedCustomSlug(null);
       setActiveTab('store');
+      setIsSplashActive(false);
     };
     handleUrlCheck();
     window.addEventListener('popstate', handleUrlCheck);
@@ -363,11 +369,20 @@ const MainContent: React.FC = () => {
   }, [settings.site_logo_url, settings.logo_url]);
 
   // Find selected product for detail view
-const selectedProduct = selectedProductSlug
-  ? products.find(
-      (p) => p.slug?.toLowerCase() === selectedProductSlug.toLowerCase()
-    ) || null
-  : null;
+  const selectedProduct = selectedProductSlug
+    ? products.find(
+        (p) =>
+          p.slug?.toLowerCase() === selectedProductSlug.toLowerCase() ||
+          p.id?.toLowerCase() === selectedProductSlug.toLowerCase() ||
+          p.id === selectedProductSlug
+      ) || products[0]
+    : products[0];
+
+  useEffect(() => {
+    if (activeTab === 'product_detail' && isSplashActive) {
+      setIsSplashActive(false);
+    }
+  }, [activeTab, isSplashActive]);
 
   const handleOrderSuccess = (order: Order) => {
     setIsCheckoutOpen(false);
@@ -512,23 +527,29 @@ const selectedProduct = selectedProductSlug
         <main className="flex-1">
           {activeTab === 'store' && <PageBuilderRenderer />}
 
- {activeTab === 'product_detail' && selectedProduct && (
-  <ProductDetailView
-    product={selectedProduct}
-    onBack={() => {
-      if (selectedProduct.lifecycle === 'time_capsule') {
-        navigateTo({ tab: 'capsule' });
-      } else {
-        navigateTo({ tab: 'store' });
-      }
-    }}
-    onOpenPreOrderCheckout={(item) => {
-      addToCart(item.product, item.size, item.color, item.quantity);
-      setIsCheckoutOpen(true);
-    }}
-  />
-)}
-  
+          {activeTab === 'product_detail' && (
+            selectedProduct ? (
+              <ProductDetailView
+                product={selectedProduct}
+                onBack={() => {
+                  if (selectedProduct.lifecycle === 'time_capsule') {
+                    navigateTo({ tab: 'capsule' });
+                  } else {
+                    navigateTo({ tab: 'store' });
+                  }
+                }}
+                onOpenPreOrderCheckout={(item) => {
+                  addToCart(item.product, item.size, item.color, item.quantity);
+                  setIsCheckoutOpen(true);
+                }}
+              />
+            ) : (
+              <div className="min-h-[70vh] flex flex-col items-center justify-center font-mono text-xs text-[#888888] gap-3">
+                <div className="w-5 h-5 border-2 border-[#333333] border-t-white rounded-full animate-spin" />
+                <p className="tracking-widest uppercase">A carregar peça...</p>
+              </div>
+            )
+          )}
 
           {activeTab === 'capsule' && <TimeCapsuleView />}
 

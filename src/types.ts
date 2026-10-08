@@ -12,8 +12,8 @@ export interface ProductSize {
 export interface ProductColor {
   name: string;
   hex: string;
-  image_url?: string; // compatibilidade com produtos antigos
-  image_urls?: string[]; // várias imagens da mesma cor
+  image_url?: string;
+  image_urls?: string[];
   in_stock?: boolean;
 }
 

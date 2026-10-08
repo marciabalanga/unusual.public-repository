@@ -185,24 +185,64 @@ export const sanitizeProductVariants = (product: Product): Product => {
 
   let colors = Array.isArray(product.colors) ? [...product.colors] : [];
 
-// As cores são controladas pelo Admin.
-// Mantemos apenas cores válidas e removemos duplicadas.
-const seenColorNames = new Set<string>();
+  // Exclusividade estrita de cores por peça:
+  // "welcome to luanda" (censored e uncensored) existe EXCLUSIVAMENTE em Pure White (#ffffff).
+  // Não pode conter Black/Preto/Carbon nem qualquer outra cor inventada.
+  const isLuandaTee =
+    product.id === 'prod-void-tee' ||
+    product.id === 'prod-1790698781209' ||
+    (product.slug && product.slug.includes('welcome-to-luanda')) ||
+    (product.name && product.name.toLowerCase().includes('welcome to luanda'));
 
-colors = colors.filter((c) => {
-  if (!c || !c.name || typeof c.name !== 'string') return false;
+  if (isLuandaTee) {
+    const luandaImg =
+      product.images?.[0] ||
+      'https://tmryqhilyisbfdpnsiwo.supabase.co/storage/v1/object/public/receipts/products/1789571217741_24y7a.jpeg';
+    colors = [
+      {
+        hex: '#ffffff',
+        name: 'Pure White',
+        in_stock: false,
+        image_url: luandaImg,
+        image_urls: [luandaImg],
+      },
+    ];
+  } else {
+    // Filtro estrito: cada peça possui exclusivamente as suas próprias variantes reais
+    const seenColorNames = new Set<string>();
+    colors = colors
+      .filter((c) => {
+        if (!c || !c.name || typeof c.name !== 'string') return false;
+        const cleanName = c.name.trim().toLowerCase();
+        if (seenColorNames.has(cleanName)) return false;
+        seenColorNames.add(cleanName);
+        return true;
+      })
+      .map((c) => {
+        const rawUrls = Array.isArray(c.image_urls) ? c.image_urls : (c.image_url ? [c.image_url] : []);
+        const cleanUrls = Array.from(new Set(rawUrls.map((u) => (typeof u === 'string' ? u.trim() : '')).filter(Boolean)));
+        const primaryImage = cleanUrls[0] || (c.image_url ? c.image_url.trim() : '') || undefined;
+        return {
+          ...c,
+          image_url: primaryImage,
+          image_urls: cleanUrls,
+          in_stock: c.in_stock !== false,
+        };
+      });
+  }
 
-  const cleanName = c.name.trim().toLowerCase();
+  // Consistência estrita de Stock vs Badges:
+  // Se todos os tamanhos estiverem sem stock OU o produto for um produto esgotado (como welcome to luanda):
+  // O badge NUNCA pode ser NOVO ou NEW! Deve ser estritamente ESGOTADO.
+  const allSizesOutOfStock =
+    Array.isArray(product.sizes) &&
+    product.sizes.length > 0 &&
+    product.sizes.every((s) => !s.in_stock);
 
-  if (seenColorNames.has(cleanName)) return false;
-
-  seenColorNames.add(cleanName);
-  return true;
-});
-
-    // O badge é controlado pelo Admin.
-  // O stock determina apenas a disponibilidade para compra.
-  const currentBadge = product.badge;
+  let currentBadge = product.badge;
+  if (isLuandaTee || allSizesOutOfStock || (currentBadge && currentBadge.trim().toUpperCase() === 'ESGOTADO')) {
+    currentBadge = 'ESGOTADO';
+  }
 
   return {
     ...product,
@@ -2266,9 +2306,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Cart Management
   const addToCart = (product: Product, size: string, color: string, quantity = 1) => {
     const isPreOrder = Boolean(
-  product.enable_pre_order &&
-  settings.enable_pre_order_button !== false
-);
+      product.enable_pre_order &&
+      settings.enable_pre_order_button !== false &&
+      product.badge?.toUpperCase() === 'NOVO'
+    );
 
     // Validação estrita de stock: impede adicionar ao saco itens normais esgotados (mas permite pre-orders)
     if (!isPreOrder) {

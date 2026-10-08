@@ -44,7 +44,7 @@ import {
 import { useStore } from '../../context/StoreContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatAOA, formatDate } from '../../lib/format';
-import { Product, Order, OrderStatus, SiteBlock, DictionaryEntry, SiteSettings, BlockType, RestockRequest, CustomContent, CustomContentItem, SiteMenuItem } from '../../types';
+import { Product, ProductColor, Order, OrderStatus, SiteBlock, DictionaryEntry, SiteSettings, BlockType, RestockRequest, CustomContent, CustomContentItem, SiteMenuItem } from '../../types';
 import { SUPABASE_SCHEMA_SQL, SUPABASE_FIX_RLS_SQL } from '../../data/initialData';
 import { BlockEditorModal } from './block-editor-modal';
 import { CustomContentEditorModal } from './custom-content-editor-modal';
@@ -390,6 +390,114 @@ export const AdminPanel: React.FC = () => {
     };
     await saveProduct(updated);
     showToast(`Pre-Order ATIVADO para "${prod.name}"! O botão [ PRE-ORDER ] já está visível na loja pública.`);
+  };
+
+  // Helper functions for Product Color Variations (multiple images & stock per color)
+  const [isUploadingColorImages, setIsUploadingColorImages] = useState<number | null>(null);
+
+  const handleAddColor = () => {
+    if (!editingProduct) return;
+    const newColors: ProductColor[] = [
+      ...(editingProduct.colors || []),
+      { name: 'Nova Cor', hex: '#222222', image_url: '', image_urls: [], in_stock: true },
+    ];
+    setEditingProduct({ ...editingProduct, colors: newColors });
+  };
+
+  const handleUpdateColorHex = (cIdx: number, hex: string) => {
+    if (!editingProduct) return;
+    const nextColors = [...(editingProduct.colors || [])];
+    nextColors[cIdx] = { ...nextColors[cIdx], hex };
+    setEditingProduct({ ...editingProduct, colors: nextColors });
+  };
+
+  const handleUpdateColorName = (cIdx: number, name: string) => {
+    if (!editingProduct) return;
+    const nextColors = [...(editingProduct.colors || [])];
+    nextColors[cIdx] = { ...nextColors[cIdx], name };
+    setEditingProduct({ ...editingProduct, colors: nextColors });
+  };
+
+  const handleToggleColorStock = (cIdx: number) => {
+    if (!editingProduct) return;
+    const nextColors = [...(editingProduct.colors || [])];
+    const isCurrentlyInStock = nextColors[cIdx].in_stock !== false;
+    nextColors[cIdx] = { ...nextColors[cIdx], in_stock: !isCurrentlyInStock };
+    setEditingProduct({ ...editingProduct, colors: nextColors });
+  };
+
+  const handleRemoveColor = (cIdx: number) => {
+    if (!editingProduct) return;
+    const nextColors = (editingProduct.colors || []).filter((_, idx) => idx !== cIdx);
+    setEditingProduct({ ...editingProduct, colors: nextColors });
+  };
+
+  const handleAddImagesToColor = (cIdx: number, newUrls: string[]) => {
+    if (!editingProduct || newUrls.length === 0) return;
+    const nextColors = [...(editingProduct.colors || [])];
+    const targetColor = nextColors[cIdx];
+    const existingUrls = Array.isArray(targetColor.image_urls)
+      ? targetColor.image_urls
+      : (targetColor.image_url ? [targetColor.image_url] : []);
+
+    const merged = Array.from(
+      new Set(
+        [...existingUrls, ...newUrls]
+          .map((u) => (typeof u === 'string' ? u.trim() : ''))
+          .filter(Boolean)
+      )
+    );
+
+    nextColors[cIdx] = {
+      ...targetColor,
+      image_urls: merged,
+      image_url: merged[0] || '',
+    };
+    setEditingProduct({ ...editingProduct, colors: nextColors });
+  };
+
+  const handleRemoveImageFromColor = (cIdx: number, imgUrlToRemove: string) => {
+    if (!editingProduct) return;
+    const nextColors = [...(editingProduct.colors || [])];
+    const targetColor = nextColors[cIdx];
+    const existingUrls = Array.isArray(targetColor.image_urls)
+      ? targetColor.image_urls
+      : (targetColor.image_url ? [targetColor.image_url] : []);
+
+    const filtered = existingUrls.filter(
+      (u) => typeof u === 'string' && u.trim() !== imgUrlToRemove.trim()
+    );
+
+    nextColors[cIdx] = {
+      ...targetColor,
+      image_urls: filtered,
+      image_url: filtered[0] || '',
+    };
+    setEditingProduct({ ...editingProduct, colors: nextColors });
+  };
+
+  const handleUploadImagesForColor = async (cIdx: number, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setIsUploadingColorImages(cIdx);
+    try {
+      const uploadedUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file) {
+          const url = await uploadImageToSupabase(file, 'products');
+          if (url) uploadedUrls.push(url);
+        }
+      }
+      if (uploadedUrls.length > 0) {
+        handleAddImagesToColor(cIdx, uploadedUrls);
+        showToast(`${uploadedUrls.length} imagem(ns) adicionada(s) à cor!`);
+      }
+    } catch (err) {
+      console.error('Erro no upload das imagens da cor:', err);
+      showToast('Erro ao carregar imagens para a cor.');
+    } finally {
+      setIsUploadingColorImages(null);
+    }
   };
 
   return (
@@ -3028,7 +3136,7 @@ export const AdminPanel: React.FC = () => {
                               <div className="space-y-2.5 mt-3 pt-3 border-t border-amber-500/20">
                                 <div>
                                   <label className="block text-[10px] uppercase tracking-wider text-amber-300/80 mb-1 font-mono">
-                                    Entregas a partir de
+                                    Previsão de Entrega
                                   </label>
                                   <input
                                     type="text"
@@ -3152,24 +3260,12 @@ export const AdminPanel: React.FC = () => {
                             VARIAÇÕES DE COR ({(editingProduct.colors || []).length})
                           </span>
                           <span className="text-[11px] text-[#666666]">
-                            Defina o nome da cor, a amostra visual e a foto vinculada que muda dinamicamente na página do produto.
+                            Defina o nome da cor, a amostra visual, as fotos vinculadas à cor e a disponibilidade (stock).
                           </span>
                         </div>
                         <button
                           type="button"
-                          onClick={() => {
-                            const newColors = [
-                              ...(editingProduct.colors || []),
-                              { name: 'Nova Cor',
-
-  hex: '#222222',
-
-  image_url: '',
-
-  image_urls: [], },
-                            ];
-                            setEditingProduct({ ...editingProduct, colors: newColors });
-                          }}
+                          onClick={handleAddColor}
                           className="px-2.5 py-1 bg-[#1f1f1f] hover:bg-[#2a2a2a] text-white rounded text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 border border-[#333333] transition-colors"
                         >
                           <Plus className="w-3 h-3" />
@@ -3177,270 +3273,164 @@ export const AdminPanel: React.FC = () => {
                         </button>
                       </div>
 
-                      <div className="space-y-2.5">
-                        {(editingProduct.colors || []).map((c, cIdx) => (
-                          <div
-                            key={cIdx}
-                            className="p-3 bg-[#121212] border border-[#222222] rounded-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
-                          >
-                            {/* Color sample & Inputs */}
-                            <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                              <label
-                                className="relative w-7 h-7 rounded-full border border-[#444444] cursor-pointer shrink-0 shadow-inner flex items-center justify-center overflow-hidden"
-                                style={{ backgroundColor: c.hex || '#141414' }}
-                                title="Clique para escolher a cor visual"
-                              >
-                                <input
-                                  type="color"
-                                  value={c.hex && c.hex.startsWith('#') && c.hex.length === 7 ? c.hex : '#141414'}
-                                  onChange={(e) => {
-                                    const nextColors = [...editingProduct.colors];
-                                    nextColors[cIdx] = { ...nextColors[cIdx], hex: e.target.value };
-                                    setEditingProduct({ ...editingProduct, colors: nextColors });
-                                  }}
-                                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                                />
-                              </label>
+                      <div className="space-y-3">
+                        {(editingProduct.colors || []).map((c, cIdx) => {
+                          const colorImages = Array.isArray(c.image_urls) && c.image_urls.length > 0
+                            ? c.image_urls.filter((u): u is string => typeof u === 'string' && u.trim() !== '')
+                            : (c.image_url && c.image_url.trim() !== '' ? [c.image_url.trim()] : []);
 
-                              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                <input
-                                  type="text"
-                                  value={c.name}
-                                  placeholder="Nome da cor (ex: Carbon Black)"
-                                  onChange={(e) => {
-                                    const nextColors = [...editingProduct.colors];
-                                    nextColors[cIdx] = { ...nextColors[cIdx], name: e.target.value };
-                                    setEditingProduct({ ...editingProduct, colors: nextColors });
-                                  }}
-                                  className="px-2.5 py-1.5 bg-[#181818] border border-[#2a2a2a] rounded text-white text-xs"
-                                />
-                                <input
-                                  type="text"
-                                  value={c.hex}
-                                  placeholder="Hex (ex: #141414)"
-                                  onChange={(e) => {
-                                    const nextColors = [...editingProduct.colors];
-                                    nextColors[cIdx] = { ...nextColors[cIdx], hex: e.target.value };
-                                    setEditingProduct({ ...editingProduct, colors: nextColors });
-                                  }}
-                                  className="px-2.5 py-1.5 bg-[#181818] border border-[#2a2a2a] rounded text-white text-xs font-mono"
-                                />
+                          return (
+                            <div
+                              key={cIdx}
+                              className="p-3 bg-[#121212] border border-[#222222] rounded-md space-y-3"
+                            >
+                              {/* Top row: Color Picker, Name, Hex, Stock Toggle, Delete Color */}
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                <div className="flex items-center gap-2.5 flex-1 min-w-0 w-full sm:w-auto">
+                                  <label
+                                    className="relative w-7 h-7 rounded-full border border-[#444444] cursor-pointer shrink-0 shadow-inner flex items-center justify-center overflow-hidden"
+                                    style={{ backgroundColor: c.hex || '#141414' }}
+                                    title="Clique para escolher a cor visual"
+                                  >
+                                    <input
+                                      type="color"
+                                      value={c.hex && c.hex.startsWith('#') && c.hex.length === 7 ? c.hex : '#141414'}
+                                      onChange={(e) => handleUpdateColorHex(cIdx, e.target.value)}
+                                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                    />
+                                  </label>
+
+                                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    <input
+                                      type="text"
+                                      value={c.name}
+                                      placeholder="Nome da cor (ex: Carbon Black)"
+                                      onChange={(e) => handleUpdateColorName(cIdx, e.target.value)}
+                                      className="px-2.5 py-1.5 bg-[#181818] border border-[#2a2a2a] rounded text-white text-xs"
+                                    />
+                                    <input
+                                      type="text"
+                                      value={c.hex}
+                                      placeholder="Hex (ex: #141414)"
+                                      onChange={(e) => handleUpdateColorHex(cIdx, e.target.value)}
+                                      className="px-2.5 py-1.5 bg-[#181818] border border-[#2a2a2a] rounded text-white text-xs font-mono"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                                  {/* Stock toggle for this color */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleColorStock(cIdx)}
+                                    className={`px-2.5 py-1 rounded text-[10px] font-mono uppercase font-bold border transition-colors shrink-0 ${
+                                      c.in_stock !== false
+                                        ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800 hover:bg-emerald-900/80'
+                                        : 'bg-red-950/60 text-red-300 border-red-800 hover:bg-red-900/80'
+                                    }`}
+                                    title="Alternar disponibilidade de stock desta cor"
+                                  >
+                                    {c.in_stock !== false ? 'Em Stock' : 'Sem Stock'}
+                                  </button>
+
+                                  {/* Delete color */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveColor(cIdx)}
+                                    className="p-1.5 text-[#555555] hover:text-red-400 rounded transition-colors"
+                                    title="Remover cor"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Second row: Linked Images for this color */}
+                              <div className="pt-2 border-t border-[#1a1a1a] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                {/* Thumbnails list */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-[10px] uppercase font-mono text-[#666666] tracking-wider shrink-0">
+                                    Fotos ({colorImages.length}):
+                                  </span>
+
+                                  {colorImages.map((imgUrl, imgIdx) => (
+                                    <div
+                                      key={imgIdx}
+                                      className="relative w-9 h-11 bg-[#1a1a1a] rounded overflow-hidden border border-[#333333] shrink-0 group"
+                                    >
+                                      <img
+                                        src={imgUrl}
+                                        alt={`${c.name} ${imgIdx + 1}`}
+                                        className="w-full h-full object-cover"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveImageFromColor(cIdx, imgUrl)}
+                                        className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-400 hover:text-white transition-opacity"
+                                        title="Remover apenas esta imagem da cor"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  ))}
+
+                                  {colorImages.length === 0 && (
+                                    <span className="text-[10px] text-[#555555] italic">
+                                      Nenhuma foto vinculada
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Actions to add images to color */}
+                                <div className="flex items-center gap-2 flex-wrap self-end sm:self-auto shrink-0">
+                                  {/* Slot image picker dropdown */}
+                                  {editingProduct.images && editingProduct.images.filter((img) => img && img.trim() !== '').length > 0 && (
+                                    <select
+                                      value=""
+                                      onChange={(e) => {
+                                        if (e.target.value) {
+                                          handleAddImagesToColor(cIdx, [e.target.value]);
+                                        }
+                                      }}
+                                      className="px-2 py-1 bg-[#181818] border border-[#2a2a2a] rounded text-white text-[10px] font-sans focus:outline-none"
+                                    >
+                                      <option value="">+ Vincular foto de slot...</option>
+                                      {editingProduct.images.map((imgUrl, slotIdx) => {
+                                        if (!imgUrl || imgUrl.trim() === '') return null;
+                                        const isAlreadyLinked = colorImages.includes(imgUrl.trim());
+                                        return (
+                                          <option key={slotIdx} value={imgUrl}>
+                                            Espaço #{slotIdx + 1} {slotIdx === 0 ? '(Capa)' : ''} {isAlreadyLinked ? '✓ (Já vinculada)' : ''}
+                                          </option>
+                                        );
+                                      })}
+                                    </select>
+                                  )}
+
+                                  {/* Upload multiple new images */}
+                                  <label className="px-2.5 py-1 bg-[#181818] hover:bg-[#222222] text-[#888888] hover:text-white rounded text-[10px] font-bold uppercase cursor-pointer border border-dashed border-[#333333] flex items-center gap-1 transition-colors">
+                                    <Plus className="w-3 h-3" />
+                                    <span>
+                                      {isUploadingColorImages === cIdx ? 'A carregar...' : 'Upload Fotos'}
+                                    </span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      multiple
+                                      disabled={isUploadingColorImages === cIdx}
+                                      className="hidden"
+                                      onChange={async (e) => {
+                                        await handleUploadImagesForColor(cIdx, e.target.files);
+                                        e.target.value = '';
+                                      }}
+                                    />
+                                  </label>
+                                </div>
                               </div>
                             </div>
-
-                       {/* Linked Images */}
-<div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-  {(() => {
-    const linkedImages = Array.isArray(c.image_urls)
-      ? c.image_urls.filter((img) => typeof img === 'string' && img.trim() !== '')
-      : c.image_url && c.image_url.trim() !== ''
-        ? [c.image_url]
-        : [];
-
-    const addImageToColor = (url: string) => {
-      if (!url || !url.trim()) return;
-
-      const nextColors = [...editingProduct.colors];
-      const currentColor = nextColors[cIdx];
-
-      const currentImages = Array.isArray(currentColor.image_urls)
-        ? currentColor.image_urls.filter((img) => img && img.trim() !== '')
-        : currentColor.image_url && currentColor.image_url.trim() !== ''
-          ? [currentColor.image_url]
-          : [];
-
-      if (currentImages.includes(url)) return;
-
-      nextColors[cIdx] = {
-        ...currentColor,
-        image_url: currentImages[0] || url,
-        image_urls: [...currentImages, url],
-      };
-
-      setEditingProduct({
-        ...editingProduct,
-        colors: nextColors,
-      });
-    };
-
-    const removeImageFromColor = (url: string) => {
-      const nextColors = [...editingProduct.colors];
-      const currentColor = nextColors[cIdx];
-
-      const currentImages = Array.isArray(currentColor.image_urls)
-        ? currentColor.image_urls
-        : currentColor.image_url
-          ? [currentColor.image_url]
-          : [];
-
-      const remainingImages = currentImages.filter((img) => img !== url);
-
-      nextColors[cIdx] = {
-        ...currentColor,
-        image_url: remainingImages[0] || '',
-        image_urls: remainingImages,
-      };
-
-      setEditingProduct({
-        ...editingProduct,
-        colors: nextColors,
-      });
-    };
-
-    return (
-      <div className="flex items-center gap-2 flex-wrap">
-        {linkedImages.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap">
-            {linkedImages.map((imgUrl, imgIdx) => (
-              <div
-                key={`${imgUrl}-${imgIdx}`}
-                className="relative w-9 h-11 bg-[#1a1a1a] rounded overflow-hidden border border-[#333333] shrink-0"
-              >
-                <img
-                  src={imgUrl}
-                  alt={`${c.name} ${imgIdx + 1}`}
-                  className="w-full h-full object-cover"
-                />
-
-                <button
-                  type="button"
-                  onClick={() => removeImageFromColor(imgUrl)}
-                  className="absolute top-0.5 right-0.5 w-4 h-4 flex items-center justify-center bg-black/80 text-white rounded-full hover:bg-red-600"
-                  title="Remover foto"
-                >
-                  <X className="w-2.5 h-2.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {editingProduct.images &&
-          editingProduct.images.filter(
-            (img) => img && img.trim() !== ''
-          ).length > 0 && (
-            <select
-              value=""
-              onChange={(e) => {
-                addImageToColor(e.target.value);
-                e.target.value = '';
-              }}
-              className="px-2 py-1 bg-[#181818] border border-[#2a2a2a] rounded text-white text-[10px] font-sans focus:outline-none"
-            >
-              <option value="">Vincular foto de slot...</option>
-
-              {editingProduct.images.map((imgUrl, imgIdx) => {
-                if (!imgUrl || imgUrl.trim() === '') return null;
-
-                return (
-                  <option key={imgIdx} value={imgUrl}>
-                    Espaço #{imgIdx + 1}
-                    {imgIdx === 0 ? ' (Capa)' : ''}
-                  </option>
-                );
-              })}
-            </select>
-          )}
-
-        <label className="px-2.5 py-1 bg-[#181818] hover:bg-[#222222] text-[#888888] hover:text-white rounded text-[10px] font-bold uppercase cursor-pointer border border-dashed border-[#333333] flex items-center gap-1 transition-colors">
-          <Plus className="w-3 h-3" />
-          <span>Adicionar Foto</span>
-
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={async (e) => {
-              const files = Array.from(e.target.files || []);
-              if (files.length === 0) return;
-
-              try {
-                const uploadedUrls: string[] = [];
-
-                for (const file of files) {
-                  const url = await uploadImageToSupabase(file, 'products');
-
-                  if (url) {
-                    uploadedUrls.push(url);
-                  }
-                }
-
-                if (uploadedUrls.length > 0) {
-                  const nextColors = [...editingProduct.colors];
-                  const currentColor = nextColors[cIdx];
-
-                  const currentImages = Array.isArray(currentColor.image_urls)
-                    ? currentColor.image_urls.filter(
-                        (img) => img && img.trim() !== ''
-                      )
-                    : currentColor.image_url &&
-                      currentColor.image_url.trim() !== ''
-                      ? [currentColor.image_url]
-                      : [];
-
-                  const mergedImages = [
-                    ...currentImages,
-                    ...uploadedUrls.filter(
-                      (url) => !currentImages.includes(url)
-                    ),
-                  ];
-
-                  nextColors[cIdx] = {
-                    ...currentColor,
-                    image_url: mergedImages[0] || '',
-                    image_urls: mergedImages,
-                  };
-
-                  setEditingProduct({
-                    ...editingProduct,
-                    colors: nextColors,
-                  });
-                }
-              } finally {
-                e.target.value = '';
-              }
-            }}
-          />
-        </label>
-      </div>
-    );
-  })()}
-</div>
-
-                              {/* Stock toggle for this color */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const nextColors = [...editingProduct.colors];
-                                  const isCurrentlyInStock = nextColors[cIdx].in_stock !== false;
-                                  nextColors[cIdx] = { ...nextColors[cIdx], in_stock: !isCurrentlyInStock };
-                                  setEditingProduct({ ...editingProduct, colors: nextColors });
-                                }}
-                                className={`px-2 py-1 rounded text-[10px] font-mono uppercase font-bold border transition-colors shrink-0 ${
-                                  c.in_stock !== false
-                                    ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800 hover:bg-emerald-900/80'
-                                    : 'bg-red-950/60 text-red-300 border-red-800 hover:bg-red-900/80'
-                                }`}
-                                title="Alternar disponibilidade de stock desta cor"
-                              >
-                                {c.in_stock !== false ? 'Em Stock' : 'Sem Stock'}
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const nextColors = editingProduct.colors.filter((_, idx) => idx !== cIdx);
-                                  setEditingProduct({ ...editingProduct, colors: nextColors });
-                                }}
-                                className="p-1.5 text-[#555555] hover:text-red-400 rounded transition-colors"
-                                title="Remover cor"
-                              >
-                                                             <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          );
+                        })}
                       </div>
-                      ))}
                     </div>
                   </div>
 

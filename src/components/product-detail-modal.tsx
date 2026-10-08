@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   ArrowLeft,
   Check,
@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useStore, sanitizeProductVariants } from '../context/StoreContext';
 import { formatAOA, isComingBackSoonBadge, getProductBadgeDisplay, getProductReturnDateDisplay } from '../lib/format';
-import { Product } from '../types';
+import { Product, ProductColor } from '../types';
 import { scrollToTop } from '../lib/scroll';
 import { PreOrderModal } from './pre-order-modal';
 import { RestockRequestModal } from './restock-request-modal';
@@ -49,6 +49,17 @@ const isLightColor = (hex?: string) => {
   return false;
 };
 
+const getColorImages = (color?: ProductColor | null): string[] => {
+  if (!color) return [];
+  if (Array.isArray(color.image_urls) && color.image_urls.length > 0) {
+    return color.image_urls.filter((u): u is string => typeof u === 'string' && u.trim() !== '');
+  }
+  if (color.image_url && color.image_url.trim() !== '') {
+    return [color.image_url.trim()];
+  }
+  return [];
+};
+
 export const ProductDetailView: React.FC<ProductDetailProps> = ({
   product: rawProduct,
   onBack,
@@ -66,21 +77,34 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
     (img): img is string => typeof img === 'string' && img.trim() !== ''
   );
 
-  // All available product photos including direct color linked images
+  // All available product photos including direct color linked images (both image_urls and image_url fallback)
   const allAvailableImages = React.useMemo(() => {
     const list = [...validImages];
-    product.colors.forEach((c) => {
-      if (c.image_url && c.image_url.trim() !== '' && !list.includes(c.image_url.trim())) {
-        list.push(c.image_url.trim());
-      }
+    (product.colors || []).forEach((c) => {
+      const colorImgs = getColorImages(c);
+      colorImgs.forEach((img) => {
+        if (!list.includes(img)) {
+          list.push(img);
+        }
+      });
     });
     return list;
   }, [validImages, product.colors]);
 
+  const findColorForImage = useCallback((imgUrl: string): ProductColor | undefined => {
+    if (!imgUrl) return undefined;
+    const clean = imgUrl.trim();
+    return (product.colors || []).find((c) => {
+      const imgs = getColorImages(c);
+      return imgs.includes(clean);
+    });
+  }, [product.colors]);
+
   const [activeColorImage, setActiveColorImage] = useState<string | null>(() => {
     const firstColor = product.colors[0];
-    if (firstColor?.image_url && firstColor.image_url.trim() !== '') {
-      return firstColor.image_url.trim();
+    if (firstColor) {
+      const imgs = getColorImages(firstColor);
+      if (imgs.length > 0) return imgs[0];
     }
     return validImages[0] || null;
   });
@@ -89,23 +113,12 @@ export const ProductDetailView: React.FC<ProductDetailProps> = ({
     product.lifecycle === 'time_capsule' ||
     (product.category && (product.category.toLowerCase().includes('capsul') || product.category.toLowerCase().includes('cápsul')));
 
-const hasSizes =
-  Array.isArray(product.sizes) && product.sizes.length > 0;
-
-const allSizesOutOfStock =
-  hasSizes && product.sizes.every((s) => !s.in_stock);
-
-const isBadgeSoldOut =
-  product.badge?.trim().toUpperCase() === 'ESGOTADO';
-
-const isPreOrderEnabled =
-  product.enable_pre_order === true &&
-  settings.enable_pre_order_button !== false;
-const isSoldOut =
-  isBadgeSoldOut ||
-  product.lifecycle === 'time_capsule' ||
-  !hasSizes ||
-  allSizesOutOfStock;
+  const isSoldOut =
+    product.badge?.toUpperCase() === 'ESGOTADO' ||
+    product.lifecycle === 'time_capsule' ||
+    !product.sizes ||
+    product.sizes.length === 0 ||
+    product.sizes.every((s) => !s.in_stock);
 
   const [selectedSize, setSelectedSize] = useState<string>(() => {
     if (isSoldOut) return '';
@@ -116,12 +129,9 @@ const isSoldOut =
     const firstInStock = !isSoldOut ? product.colors.find((c) => c.in_stock !== false) : null;
     return firstInStock ? firstInStock.name : (product.colors[0]?.name || '');
   });
-const selectedColorObj = product.colors.find(
-  (c) => c.name === selectedColor
-);
 
-const isSelectedColorOutOfStock =
-  selectedColorObj?.in_stock === false;
+  const currentColorObj = (product.colors || []).find((c) => c.name === selectedColor);
+  const isSelectedColorOutOfStock = currentColorObj ? currentColorObj.in_stock === false : false;
 
   const [quantity, setQuantity] = useState(1);
   const [isAdded, setIsAdded] = useState(false);
@@ -134,15 +144,24 @@ const isSelectedColorOutOfStock =
   useEffect(() => {
     scrollToTop(true);
     const availableColor = (!isSoldOut ? product.colors.find((c) => c.in_stock !== false) : null) || product.colors[0];
-    if (availableColor?.image_url && availableColor.image_url.trim() !== '') {
-      setActiveColorImage(availableColor.image_url.trim());
+    if (availableColor) {
+      const imgs = getColorImages(availableColor);
+      if (imgs.length > 0) {
+        setActiveColorImage(imgs[0]);
+      } else if (validImages[0]) {
+        setActiveColorImage(validImages[0]);
+      } else {
+        setActiveColorImage(null);
+      }
+      setSelectedColor(availableColor.name);
     } else if (validImages[0]) {
       setActiveColorImage(validImages[0]);
+      setSelectedColor('');
     } else {
       setActiveColorImage(null);
+      setSelectedColor('');
     }
     setSelectedImageIndex(0);
-    setSelectedColor(availableColor?.name || product.colors[0]?.name || '');
   }, [product.id, product.slug, isSoldOut]);
 
   useEffect(() => {
@@ -151,15 +170,15 @@ const isSelectedColorOutOfStock =
     };
   }, []);
 
-  // Vínculo bidirecional: Clique na cor ativa e troca a fotografia correspondente imediatamente
+  // Vínculo bidirecional: Selecionar a cor ativa e troca a fotografia correspondente imediatamente
   const handleColorSelect = (colorName: string) => {
-    const colorObj = product.colors.find((c) => c.name === colorName);
-    if (!colorObj || colorObj.in_stock === false) {
-      return; // Impedir seleção dessa cor sem stock
-    }
+    const colorObj = (product.colors || []).find((c) => c.name === colorName);
+    if (!colorObj) return;
+
     setSelectedColor(colorName);
-    if (colorObj?.image_url && colorObj.image_url.trim() !== '') {
-      const targetUrl = colorObj.image_url.trim();
+    const colorImgs = getColorImages(colorObj);
+    if (colorImgs.length > 0) {
+      const targetUrl = colorImgs[0];
       setActiveColorImage(targetUrl);
       const matchedIdx = allAvailableImages.findIndex((img) => img === targetUrl);
       if (matchedIdx !== -1) {
@@ -167,7 +186,7 @@ const isSelectedColorOutOfStock =
       }
     } else {
       // Se a cor não tiver foto exclusiva, tenta o índice posicional na galeria ou a foto principal
-      const colorIdx = product.colors.findIndex((c) => c.name === colorName);
+      const colorIdx = (product.colors || []).findIndex((c) => c.name === colorName);
       if (colorIdx >= 0 && validImages[colorIdx]) {
         setActiveColorImage(validImages[colorIdx]);
         setSelectedImageIndex(colorIdx);
@@ -189,11 +208,10 @@ const isSelectedColorOutOfStock =
   };
 
   const handleAddToCart = () => {
-    if (isSoldOut) return;
+    if (isSoldOut || isSelectedColorOutOfStock) return;
     const currentSizeObj = product.sizes.find((s) => s.size === selectedSize);
     if (currentSizeObj && !currentSizeObj.in_stock) return;
 
-    const currentColorObj = product.colors.find((c) => c.name === selectedColor);
     if (!currentColorObj || currentColorObj.in_stock === false) {
       return; // Impedir que essa variante seja adicionada ao carrinho
     }
@@ -249,7 +267,7 @@ const isSelectedColorOutOfStock =
               <ShoppingBag className="w-16 h-16 text-[#333333]" />
             )}
             {(() => {
-              const effectiveBadge = product.badge;
+              const effectiveBadge = isSoldOut && product.lifecycle !== 'time_capsule' ? 'ESGOTADO' : product.badge;
               const badgeText = getProductBadgeDisplay(effectiveBadge, language);
               if (!badgeText) return null;
               const returnDate = getProductReturnDateDisplay(product);
@@ -300,9 +318,7 @@ const isSelectedColorOutOfStock =
                     onClick={() => {
                       setActiveColorImage(img);
                       setSelectedImageIndex(idx);
-                      const matchedColor = product.colors.find(
-                        (c) => c.image_url && c.image_url.trim() === img
-                      );
+                      const matchedColor = findColorForImage(img);
                       if (matchedColor) {
                         setSelectedColor(matchedColor.name);
                       }
@@ -350,11 +366,18 @@ const isSelectedColorOutOfStock =
                 <span className="text-[#888888] uppercase tracking-wider">
                   {language === 'en' ? 'SELECTED COLOR:' : 'COR SELECIONADA:'}
                 </span>
-                <span className="text-white font-medium">{selectedColor || product.colors[0]?.name || ''}</span>
+                <span className="text-white font-medium">
+                  {selectedColor || product.colors[0]?.name || ''}
+                  {isSelectedColorOutOfStock && (
+                    <span className="ml-2 text-red-400 text-[10px] uppercase font-mono tracking-wider">
+                      ({language === 'en' ? 'OUT OF STOCK' : 'SEM STOCK'})
+                    </span>
+                  )}
+                </span>
               </div>
               <div className="flex items-center gap-3">
                 {product.colors.map((c) => {
-                  const isOutOfStock = c.in_stock === false;
+                  const isOutOfStock = c.in_stock === false || isSoldOut;
                   const isSelected = selectedColor === c.name;
                   const isLight = isLightColor(c.hex);
 
@@ -362,17 +385,15 @@ const isSelectedColorOutOfStock =
                     <button
                       key={c.name}
                       type="button"
-                      disabled={isOutOfStock}
-                      onClick={() => !isOutOfStock && handleColorSelect(c.name)}
-                      className={`relative w-7 h-7 rounded-full overflow-hidden transition-transform flex items-center justify-center ${
-                        isOutOfStock
-                          ? 'cursor-not-allowed ring-1 ring-[#333333]'
-                          : isSelected
-                          ? 'cursor-pointer ring-2 ring-white scale-110 shadow-lg'
-                          : 'cursor-pointer ring-1 ring-[#333333] hover:ring-[#777777]'
+                      onClick={() => handleColorSelect(c.name)}
+                      className={`relative w-7 h-7 rounded-full overflow-hidden transition-transform flex items-center justify-center cursor-pointer ${
+                        isSelected
+                          ? 'ring-2 ring-white scale-110 shadow-lg'
+                          : 'ring-1 ring-[#333333] hover:ring-[#777777]'
                       }`}
                       style={{ backgroundColor: c.hex }}
-                      aria-label={`${c.name}${isOutOfStock ? (language === 'en' ? ' (Unavailable)' : ' (Indisponível)') : ''}`}
+                      title={`${c.name}${isOutOfStock ? (language === 'en' ? ' (Out of stock)' : ' (Sem stock)') : ''}`}
+                      aria-label={`${c.name}${isOutOfStock ? (language === 'en' ? ' (Out of stock)' : ' (Sem stock)') : ''}`}
                     >
                       {isOutOfStock ? (
                         <svg
@@ -523,13 +544,21 @@ const isSelectedColorOutOfStock =
               </div>
             )}
 
-            {/* 1. PRE-ORDER: Controlado pelo toggle enable_pre_order do produto */}{isPreOrderEnabled && !isSelectedColorOutOfStock ? (
+            {/* 1. PRE-ORDER: Permitido EXCLUSIVAMENTE para produtos com badge NOVO e enable_pre_order ativo */}
+            {product.badge?.toUpperCase() === 'NOVO' && product.enable_pre_order && settings.enable_pre_order_button !== false ? (
               <div className="space-y-2.5">
                 {settings.checkout_locked ? (
                   <div className="p-3.5 bg-red-950/60 border border-red-800 rounded-lg text-center text-xs text-red-200 flex items-center justify-center gap-2 font-sans">
                     <Lock className="w-3.5 h-3.5 text-red-400 shrink-0" />
                     <span>{settings.checkout_lock_message || 'Checkout temporariamente suspenso para inventário.'}</span>
                   </div>
+                ) : isSelectedColorOutOfStock ? (
+                  <button
+                    disabled
+                    className="w-full py-3.5 bg-[#141414] border border-red-900/60 text-red-300 font-sans font-semibold text-xs tracking-[0.25em] uppercase rounded cursor-not-allowed"
+                  >
+                    {t('badge_sold_out', 'SOLD OUT')} • SEM STOCK
+                  </button>
                 ) : (
                   <button
                     type="button"
@@ -544,7 +573,7 @@ const isSelectedColorOutOfStock =
                     </span>
                   </button>
                 )}
-                {product.pre_order_estimated_delivery && (
+                {product.pre_order_estimated_delivery && !isSelectedColorOutOfStock && (
                   <p className="text-[11px] text-center text-amber-300 font-mono tracking-wider">
                     Previsão de Entrega: {product.pre_order_estimated_delivery}
                   </p>
@@ -571,8 +600,8 @@ const isSelectedColorOutOfStock =
                   {product.return_date && product.return_date.trim() !== '' ? ` • ${product.return_date.trim()}` : ''}
                 </button>
               </div>
-            ) : isSoldOut ? (
-              /* Sem Stock de tamanhos */
+            ) : isSoldOut || isSelectedColorOutOfStock ? (
+              /* Sem Stock de tamanhos ou cor selecionada sem stock */
               <div className="space-y-2.5">
                 <button
                   disabled
