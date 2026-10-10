@@ -56,10 +56,7 @@ export const SiteFooter: React.FC = () => {
     }).tiktok_handle,
     'tiktok'
   );
-  const navigateTo = (tab: 'store' | 'capsule' | 'track') => {
-    setActiveTab(tab);
-    scrollToTop(true);
-  };
+  
   return (
     <footer className="border-t border-[#1a1a1a] bg-[#070707] text-[#888888] font-sans text-xs pt-16 pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
