@@ -298,8 +298,8 @@ const MainContent: React.FC = () => {
 setSelectedProductSlug(null);
 setSelectedCustomSlug(null);
 setActiveTab('store');
-// Mantém o Splash Screen activo na página inicial.
-      
+  }
+}
     handleUrlCheck();
     window.addEventListener('popstate', handleUrlCheck);
     window.addEventListener('hashchange', handleUrlCheck);
