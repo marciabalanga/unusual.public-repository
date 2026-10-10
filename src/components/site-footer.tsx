@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { scrollToTop } from '../lib/scroll';
 export const SiteFooter: React.FC = () => {
-  const { setActiveTab, t, settings, language } = useStore();
+  const { navigateTo, t, settings, language } = useStore();
   const brandBio =
     language === 'en'
       ? settings.brand_bio_en ||
@@ -122,7 +122,7 @@ export const SiteFooter: React.FC = () => {
               <li>
                 <button
                   type="button"
-                  onClick={() => navigateTo('store')}
+                  onClick={() => navigateTo({ tab: 'store', anchorId: 'drop-atual' })}
                   className="hover:text-white transition-colors text-left"
                 >
                   {t('nav_drop', 'DROP ATUAL')}
@@ -131,7 +131,7 @@ export const SiteFooter: React.FC = () => {
               <li>
                 <button
                   type="button"
-                  onClick={() => navigateTo('capsule')}
+                  onClick={() => navigateTo({ tab: 'capsule' })}
                   className="hover:text-white transition-colors text-left"
                 >
                   {t('nav_capsule', 'CÁPSULA DO TEMPO')}
@@ -140,7 +140,7 @@ export const SiteFooter: React.FC = () => {
               <li>
                 <button
                   type="button"
-                  onClick={() => navigateTo('track')}
+                  onClick={() => navigateTo({ tab: 'track' })}
                   className="hover:text-white transition-colors text-left"
                 >
                   {t('nav_track', 'RASTREAR ENCOMENDA')}
