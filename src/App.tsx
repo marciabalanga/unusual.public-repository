@@ -294,20 +294,32 @@ const MainContent: React.FC = () => {
         }
       }
 
-      // Default root / homepage
-setSelectedProductSlug(null);
-setSelectedCustomSlug(null);
-setActiveTab('store');
-  }
-};
+            // Default root / homepage
+      setSelectedProductSlug(null);
+      setSelectedCustomSlug(null);
+      setActiveTab('store');
+    };
+
     handleUrlCheck();
+
     window.addEventListener('popstate', handleUrlCheck);
     window.addEventListener('hashchange', handleUrlCheck);
+
     return () => {
       window.removeEventListener('popstate', handleUrlCheck);
       window.removeEventListener('hashchange', handleUrlCheck);
     };
-  }, [setActiveTab, setSelectedProductSlug, setSelectedCustomSlug, getOrderByTrackingCode, setDeliveryDateOrderCode, isAuthenticated, isPreviewMode, products, customContents]);
+  }, [
+    setActiveTab,
+    setSelectedProductSlug,
+    setSelectedCustomSlug,
+    getOrderByTrackingCode,
+    setDeliveryDateOrderCode,
+    isAuthenticated,
+    isPreviewMode,
+    products,
+    customContents,
+  ]);
 
   // Garantia Universal: sempre que a aba ou o produto selecionado mudar,
   // reposiciona imediatamente a janela no topo absoluto (Y = 0),
