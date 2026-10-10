@@ -46,19 +46,13 @@ export const SiteFooter: React.FC = () => {
       : `https://www.tiktok.com/@${username.replace(/\/$/, '')}`;
   };
   const instagramUrl = getSocialUrl(
-    settings.instagram_handle,
-    'instagram'
-  );
+  settings.instagram_handle,
+  'instagram'
+);
+
 const tiktokUrl = 'https://www.tiktok.com/@wearingunusual';
 
-const whatsappUrl =
-  'https://wa.me/244937765130';
-  const tiktokUrl = getSocialUrl(
-    (settings as typeof settings & {
-      tiktok_handle?: string | null;
-    }).tiktok_handle,
-    'tiktok'
-  );
+const whatsappUrl = 'https://wa.me/244937765130';
   
   return (
     <footer className="border-t border-[#1a1a1a] bg-[#070707] text-[#888888] font-sans text-xs pt-16 pb-12">
