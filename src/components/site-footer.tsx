@@ -185,4 +185,4 @@ export const SiteFooter: React.FC = () => {
       </div>
     </footer>
   );
-};      </div>};};
+}; 
