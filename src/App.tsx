@@ -299,7 +299,7 @@ setSelectedProductSlug(null);
 setSelectedCustomSlug(null);
 setActiveTab('store');
   }
-}
+};
     handleUrlCheck();
     window.addEventListener('popstate', handleUrlCheck);
     window.addEventListener('hashchange', handleUrlCheck);
