@@ -1248,3 +1248,55 @@ FOR UPDATE USING (bucket_id = 'receipts');
 CREATE POLICY "Public Delete Receipts" ON storage.objects
 FOR DELETE USING (bucket_id = 'receipts');
 `;
+
+export const SUPABASE_PUSH_NOTIFICATIONS_SQL = `-- ==============================================================================
+-- WEARING UNUSUAL: NOTIFICAÇÕES PUSH PARA O IPHONE (SAFARI PWA)
+-- Tabela de subscrições com Row Level Security (RLS) estrito
+-- Execute no SQL Editor do Supabase: https://supabase.com/dashboard/project/tmryqhilyisbfdpnsiwo/sql
+-- ==============================================================================
+
+-- 1. Criação da tabela de subscrições push de administradores
+CREATE TABLE IF NOT EXISTS public.admin_push_subscriptions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 2. Habilitação de Row Level Security (RLS)
+ALTER TABLE public.admin_push_subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- 3. Restrição de privilégios de acesso: bloqueio estrito para utilizadores anónimos
+REVOKE ALL ON public.admin_push_subscriptions FROM anon;
+GRANT ALL ON public.admin_push_subscriptions TO authenticated, service_role;
+
+-- 4. Limpeza de políticas existentes
+DO $$ 
+DECLARE
+  r RECORD;
+BEGIN
+  FOR r IN (
+    SELECT schemaname, tablename, policyname 
+    FROM pg_policies 
+    WHERE schemaname = 'public' AND tablename = 'admin_push_subscriptions'
+  ) LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', r.policyname, r.schemaname, r.tablename);
+  END LOOP;
+END $$;
+
+-- 5. Criação de políticas RLS: apenas administradores autenticados e para os seus próprios aparelhos
+CREATE POLICY "Admins manage own push subscriptions"
+  ON public.admin_push_subscriptions
+  FOR ALL
+  TO authenticated
+  USING (auth.role() = 'authenticated' AND auth.uid() = user_id)
+  WITH CHECK (auth.role() = 'authenticated' AND auth.uid() = user_id);
+
+-- 6. Índice de alta performance por administrador
+CREATE INDEX IF NOT EXISTS idx_push_subs_user_id ON public.admin_push_subscriptions(user_id);
+`;
+

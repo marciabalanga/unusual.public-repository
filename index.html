@@ -32,11 +32,6 @@
               }
             } catch(e) {}
             try {
-              if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(function(regs) {
-                  for (var r of regs) { r.unregister(); }
-                });
-              }
               if ('caches' in window) {
                 caches.keys().then(function(names) {
                   for (var name of names) { caches.delete(name); }

@@ -67,16 +67,12 @@ const MainContent: React.FC = () => {
         hash === '#/admin' ||
         path === '/preview' ||
         hash === '#preview' ||
+        hash === '#/preview' ||
         path.startsWith('/choose-delivery-date') ||
         hash.includes('choose-delivery-date')
       ) {
         return false;
       }
-      try {
-        if (localStorage.getItem('wu_is_preview_mode_v1') === 'true') {
-          return false;
-        }
-      } catch {}
     }
     return true;
   });
@@ -190,7 +186,6 @@ const MainContent: React.FC = () => {
         setSelectedProductSlug(null);
         setSelectedCustomSlug(null);
         setActiveTab('capsule');
-        setIsSplashActive(false);
         return;
       }
 
@@ -204,7 +199,6 @@ const MainContent: React.FC = () => {
         setSelectedProductSlug(null);
         setSelectedCustomSlug(null);
         setActiveTab('store');
-        setIsSplashActive(false);
         setTimeout(() => {
           const el = document.getElementById('lookbook-section') || document.getElementById('block_lookbook');
           if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -222,7 +216,6 @@ const MainContent: React.FC = () => {
         setSelectedProductSlug(null);
         setSelectedCustomSlug(null);
         setActiveTab('store');
-        setIsSplashActive(false);
         setTimeout(() => {
           const el = document.getElementById('manifesto-section') || document.getElementById('block_manifesto');
           if (el) el.scrollIntoView({ behavior: 'smooth' });
@@ -247,7 +240,6 @@ const MainContent: React.FC = () => {
           setSelectedCustomSlug(null);
           setSelectedProductSlug(matched ? matched.slug : cleanProductSlug);
           setActiveTab('product_detail');
-          setIsSplashActive(false);
           return;
         }
       }
@@ -277,7 +269,6 @@ const MainContent: React.FC = () => {
           setSelectedProductSlug(null);
           setSelectedCustomSlug(matchedCustom.slug);
           setActiveTab('custom_content');
-          setIsSplashActive(false);
           return;
         }
 
@@ -289,7 +280,6 @@ const MainContent: React.FC = () => {
           setSelectedCustomSlug(null);
           setSelectedProductSlug(matchedProduct.slug);
           setActiveTab('product_detail');
-          setIsSplashActive(false);
           return;
         }
       }
@@ -389,12 +379,6 @@ const MainContent: React.FC = () => {
           p.id === selectedProductSlug
       ) || products[0]
     : products[0];
-
-  useEffect(() => {
-    if (activeTab === 'product_detail' && isSplashActive) {
-      setIsSplashActive(false);
-    }
-  }, [activeTab, isSplashActive]);
 
   const handleOrderSuccess = (order: Order) => {
     setIsCheckoutOpen(false);

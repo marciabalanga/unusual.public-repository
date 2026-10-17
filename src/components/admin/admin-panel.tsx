@@ -39,13 +39,24 @@ import {
   Calendar,
   Compass,
   UploadCloud,
-  Globe
+  Globe,
+  Smartphone,
+  BellOff,
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatAOA, formatDate } from '../../lib/format';
 import { Product, ProductColor, Order, OrderStatus, SiteBlock, DictionaryEntry, SiteSettings, BlockType, RestockRequest, CustomContent, CustomContentItem, SiteMenuItem } from '../../types';
-import { SUPABASE_SCHEMA_SQL, SUPABASE_FIX_RLS_SQL } from '../../data/initialData';
+import { SUPABASE_SCHEMA_SQL, SUPABASE_FIX_RLS_SQL, SUPABASE_PUSH_NOTIFICATIONS_SQL } from '../../data/initialData';
+import {
+  isPushSupported,
+  isIOS,
+  isIOSStandalone,
+  isSubscribedToPush,
+  subscribeAdminToPush,
+  unsubscribeAdminFromPush,
+  sendTestPushNotification,
+} from '../../lib/push-notifications';
 import { BlockEditorModal } from './block-editor-modal';
 import { CustomContentEditorModal } from './custom-content-editor-modal';
 import { MenuEditorModal } from './menu-editor-modal';
@@ -132,6 +143,93 @@ export const AdminPanel: React.FC = () => {
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
   const [copiedFixSql, setCopiedFixSql] = useState(false);
+
+  // Push Notifications State (Safari iOS PWA)
+  const [isPushModalOpen, setIsPushModalOpen] = useState(false);
+  const [isPushActiveOnDevice, setIsPushActiveOnDevice] = useState(false);
+  const [isPushLoading, setIsPushLoading] = useState(false);
+  const [isPushTesting, setIsPushTesting] = useState(false);
+  const [pushMessage, setPushMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [copiedPushSql, setCopiedPushSql] = useState(false);
+
+  useEffect(() => {
+    if (isPushSupported()) {
+      isSubscribedToPush().then((active) => {
+        setIsPushActiveOnDevice(active);
+      }).catch(() => {});
+    }
+  }, []);
+
+  const handleActivatePush = async () => {
+    if (!user) {
+      setPushMessage({ type: 'error', text: 'Sessão de administrador não encontrada.' });
+      return;
+    }
+    setIsPushLoading(true);
+    setPushMessage(null);
+    try {
+      const res = await subscribeAdminToPush(user.id);
+      if (res.success) {
+        setIsPushActiveOnDevice(true);
+        setPushMessage({ type: 'success', text: 'Notificações push ativadas com sucesso neste dispositivo!' });
+        showToast('Notificações no iPhone ativadas com sucesso!');
+      } else {
+        setPushMessage({ type: 'error', text: res.error || 'Erro ao ativar notificações.' });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setPushMessage({ type: 'error', text: msg });
+    } finally {
+      setIsPushLoading(false);
+    }
+  };
+
+  const handleDeactivatePush = async () => {
+    if (!user) return;
+    setIsPushLoading(true);
+    setPushMessage(null);
+    try {
+      const res = await unsubscribeAdminFromPush(user.id);
+      if (res.success) {
+        setIsPushActiveOnDevice(false);
+        setPushMessage({ type: 'success', text: 'Notificações desativadas para este dispositivo.' });
+        showToast('Notificações desativadas neste aparelho.');
+      } else {
+        setPushMessage({ type: 'error', text: res.error || 'Erro ao desativar.' });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setPushMessage({ type: 'error', text: msg });
+    } finally {
+      setIsPushLoading(false);
+    }
+  };
+
+  const handleSendTestPush = async () => {
+    setIsPushTesting(true);
+    setPushMessage(null);
+    try {
+      const res = await sendTestPushNotification();
+      if (res.success) {
+        setPushMessage({ type: 'success', text: res.message || 'Notificação de teste enviada com sucesso!' });
+        showToast('Notificação de teste enviada para o seu iPhone!');
+      } else {
+        setPushMessage({ type: 'error', text: res.error || 'Falha ao enviar notificação de teste.' });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setPushMessage({ type: 'error', text: msg });
+    } finally {
+      setIsPushTesting(false);
+    }
+  };
+
+  const handleCopyPushSql = () => {
+    navigator.clipboard.writeText(SUPABASE_PUSH_NOTIFICATIONS_SQL);
+    setCopiedPushSql(true);
+    showToast('SQL das notificações push copiado!');
+    setTimeout(() => setCopiedPushSql(false), 2000);
+  };
 
   // Manual settings form state (ensures edits are only committed when the admin clicks Save)
   const [settingsForm, setSettingsForm] = useState<SiteSettings>(settings);
@@ -548,6 +646,23 @@ export const AdminPanel: React.FC = () => {
                   ? 'Supabase Conectado'
                   : 'Supabase: Requer SQL'}
               </span>
+            </button>
+
+            {/* Botão Notificações Push iPhone (Safari Web Push PWA) */}
+            <button
+              type="button"
+              onClick={() => setIsPushModalOpen(true)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded text-[11px] font-sans border transition-all ${
+                isPushActiveOnDevice
+                  ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300 hover:bg-emerald-900/40'
+                  : 'bg-[#151515] border-[#2a2a2a] text-[#888888] hover:text-white hover:border-[#444444]'
+              }`}
+              title="Gerir Notificações Push no iPhone (Safari / Ecrã Principal)"
+            >
+              <BellRing className={`w-3.5 h-3.5 ${isPushActiveOnDevice ? 'text-emerald-400' : 'text-[#888888]'}`} />
+              <span className="hidden sm:inline">Alertas iPhone</span>
+              <span className="sm:hidden">Alertas</span>
+              <span className={`w-1.5 h-1.5 rounded-full ${isPushActiveOnDevice ? 'bg-emerald-400 animate-pulse' : 'bg-neutral-600'}`} />
             </button>
 
             {user && (
@@ -5982,6 +6097,174 @@ export const AdminPanel: React.FC = () => {
             onClose={() => setEditingCustomContent(null)}
             showToast={showToast}
           />
+        )}
+
+        {/* Modal de Gestão de Notificações Push no iPhone */}
+        {isPushModalOpen && (
+          <div
+            id="push-modal-backdrop"
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto"
+            onClick={(e) => {
+              if ((e.target as HTMLElement).id === 'push-modal-backdrop') {
+                setIsPushModalOpen(false);
+              }
+            }}
+          >
+            <div className="w-full max-w-lg bg-[#0e0e0e] border border-[#262626] rounded-xl p-6 space-y-5 shadow-2xl animate-in fade-in my-8 text-neutral-200 font-sans">
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 border-b border-[#222222] pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-neutral-900 border border-[#2a2a2a] flex items-center justify-center text-white">
+                    <BellRing className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-display uppercase text-sm text-white tracking-wider">
+                      Notificações Push • iPhone
+                    </h3>
+                    <p className="text-[11px] text-[#777777]">
+                      Alertas no ecrã de bloqueio para novas encomendas na loja.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPushModalOpen(false)}
+                  className="p-1 rounded text-[#777777] hover:text-white hover:bg-[#1a1a1a] transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Status Box */}
+              <div
+                className={`p-4 rounded-lg border text-xs leading-relaxed space-y-2 ${
+                  isPushActiveOnDevice
+                    ? 'bg-emerald-950/20 border-emerald-800/60 text-emerald-200'
+                    : isIOS() && !isIOSStandalone()
+                    ? 'bg-amber-950/20 border-amber-800/60 text-amber-200'
+                    : 'bg-[#141414] border-[#222222] text-[#888888]'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      isPushActiveOnDevice
+                        ? 'bg-emerald-400 animate-pulse'
+                        : isIOS() && !isIOSStandalone()
+                        ? 'bg-amber-400'
+                        : 'bg-neutral-600'
+                    }`}
+                  />
+                  <span className="font-bold uppercase tracking-wider text-[11px] text-white">
+                    {isPushActiveOnDevice
+                      ? 'Notificações Ativas Neste Aparelho'
+                      : isIOS() && !isIOSStandalone()
+                      ? 'Requer Adicionar ao Ecrã Principal no iPhone'
+                      : 'Notificações Inativas Neste Aparelho'}
+                  </span>
+                </div>
+
+                <p className="text-[11px]">
+                  {isPushActiveOnDevice
+                    ? 'Este dispositivo está subscrito com sucesso. Sempre que um cliente concluir uma encomenda na loja, receberá um alerta imediato com som e vibração.'
+                    : isIOS() && !isIOSStandalone()
+                    ? 'A Apple (iOS 16.4+) apenas entrega notificações push a aplicações web adicionadas ao Ecrã Principal do iPhone.'
+                    : 'Ative as notificações para que este dispositivo seja registado de forma segura no Supabase através de chaves VAPID.'}
+                </p>
+
+                {isIOS() && !isIOSStandalone() && (
+                  <div className="pt-2 border-t border-amber-800/30 text-[11px] space-y-1.5 text-amber-300/90 font-sans">
+                    <p className="font-semibold uppercase text-[10px] tracking-wider text-amber-200">
+                      Como ativar no Safari do iPhone:
+                    </p>
+                    <ol className="list-decimal pl-4 space-y-1">
+                      <li>Toque no botão <strong>Partilhar</strong> do Safari (ícone de quadrado com seta para cima).</li>
+                      <li>Deslize para baixo e toque em <strong>«Adicionar ao Ecrã Principal»</strong>.</li>
+                      <li>Abra a aplicação a partir do novo ícone no iPhone e volte aqui para autorizar.</li>
+                    </ol>
+                  </div>
+                )}
+              </div>
+
+              {/* Feedback Message */}
+              {pushMessage && (
+                <div
+                  className={`p-3 rounded text-xs border ${
+                    pushMessage.type === 'success'
+                      ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300'
+                      : 'bg-rose-950/40 border-rose-800 text-rose-300'
+                  }`}
+                >
+                  {pushMessage.text}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="space-y-2 pt-1">
+                {!isPushActiveOnDevice ? (
+                  <button
+                    type="button"
+                    disabled={isPushLoading}
+                    onClick={handleActivatePush}
+                    className="w-full py-2.5 px-4 bg-white hover:bg-neutral-200 text-black font-semibold uppercase text-xs tracking-wider rounded transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg"
+                  >
+                    <BellRing className="w-4 h-4 text-black" />
+                    <span>{isPushLoading ? 'A Configurar Chaves...' : 'Ativar Notificações no iPhone'}</span>
+                  </button>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={isPushTesting}
+                      onClick={handleSendTestPush}
+                      className="py-2.5 px-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-white font-semibold uppercase text-[11px] tracking-wider rounded transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      title="Envia uma notificação direta para o seu aparelho sem criar pedidos de compra"
+                    >
+                      <Send className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{isPushTesting ? 'A Enviar...' : 'Enviar Teste'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isPushLoading}
+                      onClick={handleDeactivatePush}
+                      className="py-2.5 px-3 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/60 text-rose-300 font-semibold uppercase text-[11px] tracking-wider rounded transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      <BellOff className="w-3.5 h-3.5" />
+                      <span>Desativar</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Guia Técnico Supabase e SQL */}
+              <div className="pt-4 border-t border-[#1f1f1f] space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-[#777777] tracking-wider">
+                    Configuração Supabase (Tabela & Webhook)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCopyPushSql}
+                    className="flex items-center gap-1.5 px-2 py-1 bg-[#161616] hover:bg-[#222222] text-[#cccccc] hover:text-white rounded text-[10px] font-mono border border-[#2a2a2a] transition-colors"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>{copiedPushSql ? 'Copiado ✓' : 'Copiar SQL da Tabela'}</span>
+                  </button>
+                </div>
+                <div className="p-3 bg-black/60 rounded border border-[#1f1f1f] text-[11px] text-[#777777] space-y-1.5 font-mono">
+                  <p className="text-white text-[10px] font-sans">
+                    • <strong>Tabela:</strong> <code className="text-emerald-400">public.admin_push_subscriptions</code> com RLS estrito.
+                  </p>
+                  <p className="text-white text-[10px] font-sans">
+                    • <strong>Edge Function:</strong> <code className="text-emerald-400">supabase/functions/notify-order</code>.
+                  </p>
+                  <p className="text-white text-[10px] font-sans">
+                    • <strong>Webhook no Supabase:</strong> Tabela <code className="text-neutral-300">orders</code> em eventos de <code className="text-neutral-300">INSERT</code>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

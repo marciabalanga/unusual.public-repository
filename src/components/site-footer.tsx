@@ -62,7 +62,7 @@ const whatsappUrl = 'https://wa.me/244937765130';
           <div className="md:col-span-2 space-y-4">
             <button
               type="button"
-              onClick={() => navigateTo('store')}
+              onClick={() => navigateTo({ tab: 'store' })}
               className="inline-flex items-center gap-3 select-none hover:opacity-85 transition-opacity"
               title={settings.store_name || 'Wearing Unusual'}
               aria-label="Voltar à loja"

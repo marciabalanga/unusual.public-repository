@@ -1,0 +1,6 @@
+{
+  "summary": "Plano de implementação final e validado para notificações push no iPhone. Inclui biblioteca nativa Deno jsr:@negrel/webpush (compatível com Deno e iOS Safari), autorização reforçada com RLS estrito (auth.role() = 'authenticated' AND auth.uid() = user_id), proteção por x-webhook-secret na Edge Function, Service Worker e interface administrativa.",
+  "updatedAt": "2026-10-16T06:34:51.636388839Z",
+  "requestFeedback": true,
+  "userFacing": true
+}
