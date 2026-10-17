@@ -61,6 +61,11 @@ const MainContent: React.FC = () => {
     if (typeof window !== 'undefined') {
       const hash = window.location.hash.toLowerCase();
       const path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+      const isStandalone =
+        Boolean((window.navigator as unknown as { standalone?: boolean }).standalone) ||
+        window.matchMedia('(display-mode: standalone)').matches;
+      const preferAdmin = localStorage.getItem('wu_pwa_default_route') === 'admin';
+
       if (
         path === '/admin' ||
         hash === '#admin' ||
@@ -69,7 +74,8 @@ const MainContent: React.FC = () => {
         hash === '#preview' ||
         hash === '#/preview' ||
         path.startsWith('/choose-delivery-date') ||
-        hash.includes('choose-delivery-date')
+        hash.includes('choose-delivery-date') ||
+        (isStandalone && preferAdmin)
       ) {
         return false;
       }
@@ -165,7 +171,31 @@ const MainContent: React.FC = () => {
         return;
       }
 
+      // Auto-rota para Painel Admin caso a app tenha sido aberta em modo PWA Standalone no iPhone
+      // e o administrador tenha definido a preferência de abrir diretamente no Admin
+      const isStandaloneMode = typeof window !== 'undefined' && (
+        Boolean((window.navigator as unknown as { standalone?: boolean }).standalone) ||
+        window.matchMedia('(display-mode: standalone)').matches
+      );
+      const preferAdmin = typeof window !== 'undefined' && localStorage.getItem('wu_pwa_default_route') === 'admin';
+
+      if (isStandaloneMode && preferAdmin && (path === '' || path === '/') && !scheduleCode && !trackCode && !hash) {
+        setSelectedProductSlug(null);
+        setSelectedCustomSlug(null);
+        setActiveTab('admin');
+        setIsSplashActive(false);
+        try {
+          window.history.replaceState({ tab: 'admin' }, '', '/admin');
+        } catch {}
+        return;
+      }
+
       if (path === '/admin' || hash === '#admin' || hash === '#/admin') {
+        try {
+          localStorage.setItem('wu_admin_device', 'true');
+          localStorage.setItem('wu_pwa_default_route', 'admin');
+        } catch {}
+
         if (isPreviewMode) {
           if (activeTab !== 'product_detail') {
             setSelectedProductSlug(null);
@@ -344,11 +374,6 @@ const MainContent: React.FC = () => {
     updateOrCreateLink('link[rel="icon"][type="image/png"]', 'icon', faviconPngUrl, 'image/png');
     updateOrCreateLink('link[rel="shortcut icon"]', 'shortcut icon', faviconIcoUrl);
 
-    // 2. Definir título oficial e meta tags de partilha social (WhatsApp preview / OpenGraph / Twitter)
-    document.title = 'UNUSUAL';
-
-    const absoluteSocialPreviewUrl = `${window.location.origin}/og-preview.png`;
-
     const updateOrCreateMeta = (attrName: string, attrVal: string, content: string) => {
       let meta = document.querySelector(`meta[${attrName}="${attrVal}"]`) as HTMLMetaElement | null;
       if (!meta) {
@@ -359,6 +384,25 @@ const MainContent: React.FC = () => {
       meta.content = content;
     };
 
+    // 2. Definir título oficial e meta tags de partilha social (WhatsApp preview / OpenGraph / Twitter)
+    if (activeTab === 'admin') {
+      document.title = 'WU Admin • Wearing Unusual';
+      updateOrCreateLink('link[rel="manifest"]', 'manifest', `/admin.webmanifest?v=${logoVersion}`);
+      updateOrCreateLink('link[rel="canonical"]', 'canonical', `${window.location.origin}/admin`);
+      updateOrCreateMeta('name', 'apple-mobile-web-app-title', 'WU Admin');
+      try {
+        localStorage.setItem('wu_admin_device', 'true');
+        localStorage.setItem('wu_pwa_default_route', 'admin');
+      } catch {}
+    } else {
+      document.title = 'UNUSUAL';
+      updateOrCreateLink('link[rel="manifest"]', 'manifest', `/site.webmanifest?v=${logoVersion}`);
+      updateOrCreateLink('link[rel="canonical"]', 'canonical', `${window.location.origin}/`);
+      updateOrCreateMeta('name', 'apple-mobile-web-app-title', 'UNUSUAL');
+    }
+
+    const absoluteSocialPreviewUrl = `${window.location.origin}/og-preview.png`;
+
     updateOrCreateMeta('name', 'description', 'Wearing Unusual – Inspired by the fear of being average.');
     updateOrCreateMeta('property', 'og:site_name', 'UNUSUAL');
     updateOrCreateMeta('property', 'og:title', 'Wearing Unusual – Inspired by the fear of being average.');
@@ -368,7 +412,7 @@ const MainContent: React.FC = () => {
     updateOrCreateMeta('name', 'twitter:title', 'Wearing Unusual – Inspired by the fear of being average.');
     updateOrCreateMeta('name', 'twitter:description', 'Wearing Unusual – Inspired by the fear of being average.');
     updateOrCreateMeta('name', 'twitter:image', absoluteSocialPreviewUrl);
-  }, [settings.site_logo_url, settings.logo_url]);
+  }, [settings.site_logo_url, settings.logo_url, activeTab]);
 
   // Find selected product for detail view
   const selectedProduct = selectedProductSlug
@@ -480,6 +524,31 @@ const MainContent: React.FC = () => {
               scrollToTop(true);
             }}
           />
+        )}
+
+        {/* Barra de Acesso Rápido para Administradores Autenticados ou Aparelho Reconhecido (Modo PWA / Standalone) */}
+        {((isAuthenticated || (typeof window !== 'undefined' && localStorage.getItem('wu_admin_device') === 'true')) && !isPreviewMode) && (
+          <div className="bg-[#101010] border-b border-[#222222] px-4 py-2 text-xs font-sans text-neutral-300 flex items-center justify-between z-40">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
+              <span className="text-[11px] font-mono text-neutral-400">
+                {isAuthenticated ? 'Sessão de Administrador Ativa' : 'Aparelho de Administrador Reconhecido'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.history.pushState(null, '', '/admin');
+                }
+                setActiveTab('admin');
+                scrollToTop(true);
+              }}
+              className="px-2.5 py-1 bg-white hover:bg-neutral-200 text-black text-[10px] font-bold uppercase rounded tracking-wider transition-colors cursor-pointer"
+            >
+              Abrir Painel Admin
+            </button>
+          </div>
         )}
         {/* Maintenance Mode Banner if active (apenas visível para administradores autenticados) */}
         {settings.maintenance_mode && isAuthenticated && (

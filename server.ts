@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import potrace from 'potrace';
 import { createClient } from '@supabase/supabase-js';
+import notifyOrderHandler from './api/notify-order';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -224,6 +225,9 @@ async function startServer() {
   // Parse JSON payloads up to 50MB (for images/products)
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+  // Push Notifications API route (Vercel & Local Node compatible)
+  app.all('/api/notify-order', (req, res) => notifyOrderHandler(req, res));
 
   // API 1: GET /api/store-state
   app.get('/api/store-state', async (req, res) => {

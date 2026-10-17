@@ -31,5 +31,14 @@
       "type": "image/png",
       "purpose": "any"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Painel Admin",
+      "short_name": "Admin",
+      "description": "Painel Administrativo Wearing Unusual",
+      "url": "/admin",
+      "icons": [{ "src": "/apple-touch-icon.png", "sizes": "180x180" }]
+    }
   ]
 }

@@ -70,19 +70,19 @@ export interface PushSubscriptionResult {
 
 // Subscribe the authenticated administrator's device to Web Push
 export async function subscribeAdminToPush(userId: string): Promise<PushSubscriptionResult> {
-  if (!isPushSupported()) {
-    return {
-      success: false,
-      error: 'O seu navegador ou versão do iOS não suporta notificações Web Push.',
-    };
-  }
-
-  // On iOS, Web Push is exclusively supported when launched from Home Screen
+  // On iOS, Safari hides window.Notification and PushManager until opened from Home Screen (PWA)
   if (isIOS() && !isIOSStandalone()) {
     return {
       success: false,
       isIOSInBrowser: true,
-      error: 'No iPhone, o Safari exige que adicione a aplicação ao Ecrã Principal antes de ativar notificações.',
+      error: 'No iPhone, é obrigatório adicionar a aplicação ao Ecrã Principal para ativar as notificações. Siga os 3 passos indicados no quadro acima.',
+    };
+  }
+
+  if (!isPushSupported()) {
+    return {
+      success: false,
+      error: 'O seu navegador ou versão do iOS não suporta notificações Web Push.',
     };
   }
 
@@ -194,22 +194,49 @@ export async function sendTestPushNotification(): Promise<{ success: boolean; me
       return { success: false, error: 'Sessão de administrador não encontrada ou expirada.' };
     }
 
-    const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/notify-order`;
+    // Try local / Vercel API endpoint first, fallback to Supabase Edge Function
+    let res: Response | null = null;
+    let lastError = '';
 
-    const res = await fetch(edgeFunctionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ action: 'test' }),
-    });
+    try {
+      res = await fetch('/api/notify-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ action: 'test' }),
+      });
+    } catch (e: any) {
+      lastError = e?.message || '';
+    }
 
-    if (!res.ok) {
-      const errText = await res.text();
+    if (!res || !res.ok) {
+      const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/notify-order`;
+      try {
+        const edgeRes = await fetch(edgeFunctionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ action: 'test' }),
+        });
+        if (edgeRes.ok) {
+          res = edgeRes;
+        } else if (!res) {
+          res = edgeRes;
+        }
+      } catch (e: any) {
+        lastError = e?.message || lastError;
+      }
+    }
+
+    if (!res || !res.ok) {
+      const errText = res ? await res.text().catch(() => '') : lastError;
       return {
         success: false,
-        error: `A função de notificações respondeu com erro (${res.status}): ${errText}`,
+        error: `A função de notificações respondeu com erro (${res?.status || 'falha de rede'}): ${errText || 'Serviço indisponível'}`,
       };
     }
 

@@ -8,7 +8,7 @@
     <meta http-equiv="Expires" content="0" />
     <script>
       (function() {
-        var APP_VERSION = '20261004_v9';
+        var APP_VERSION = '20261004_v10';
         try {
           var v = localStorage.getItem('wu_build_version');
           if (v !== APP_VERSION) {
@@ -17,7 +17,13 @@
               for (var i = localStorage.length - 1; i >= 0; i--) {
                 var k = localStorage.key(i);
                 if (k && (k.indexOf('wu_') === 0 || k.indexOf('product') !== -1 || k.indexOf('block') !== -1 || k.indexOf('store') !== -1)) {
-                  if (k !== 'wu_build_version' && k !== 'wu_cart_v1' && k !== 'wu_wishlist_v1') {
+                  if (
+                    k !== 'wu_build_version' &&
+                    k !== 'wu_cart_v1' &&
+                    k !== 'wu_wishlist_v1' &&
+                    k.indexOf('wu_admin') !== 0 &&
+                    k.indexOf('wu_pwa') !== 0
+                  ) {
                     localStorage.removeItem(k);
                   }
                 }
@@ -44,7 +50,14 @@
     </script>
     <title>UNUSUAL</title>
     <meta name="description" content="Wearing Unusual – Inspired by the fear of being average." />
-    <link rel="canonical" href="https://wearingunusual.com/" />
+    <!-- Apple iOS Safari PWA / Add to Home Screen Capabilities -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="UNUSUAL" id="meta-apple-title" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#080808" />
+
+    <link rel="canonical" id="main-canonical" href="https://wearingunusual.com/" />
     <meta property="og:site_name" content="UNUSUAL" />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://wearingunusual.com/" />
@@ -62,15 +75,33 @@
     <meta name="twitter:description" content="Wearing Unusual – Inspired by the fear of being average." />
     <meta name="twitter:image" content="/og-preview.png" />
     <!-- Dynamic SVG Favicon adapting to device theme (Light / Dark mode) -->
-    <link rel="icon" href="/brand-icon.svg?v=20261004_v9" type="image/svg+xml" />
+    <link rel="icon" href="/brand-icon.svg?v=20261004_v10" type="image/svg+xml" />
     <!-- Apple Touch Icon & Safari Tab Switcher Overview -->
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20261004_v9" />
-    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png?v=20261004_v9" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20261004_v10" />
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png?v=20261004_v10" />
     <!-- Standard PNG Favicons -->
-    <link rel="icon" type="image/png" sizes="192x192" href="/brand-favicon.png?v=20261004_v9" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/brand-favicon.png?v=20261004_v9" />
-    <link rel="shortcut icon" href="/favicon.ico?v=20261004_v9" />
-    <link rel="manifest" href="/site.webmanifest?v=20261004_v9" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/brand-favicon.png?v=20261004_v10" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand-favicon.png?v=20261004_v10" />
+    <link rel="shortcut icon" href="/favicon.ico?v=20261004_v10" />
+    <link rel="manifest" id="main-manifest" href="/site.webmanifest?v=20261004_v10" />
+    <script>
+      (function() {
+        try {
+          var p = window.location.pathname.toLowerCase();
+          var h = window.location.hash.toLowerCase();
+          var isAdmin = p.indexOf('/admin') !== -1 || h.indexOf('admin') !== -1;
+          var manifestEl = document.getElementById('main-manifest');
+          var canonicalEl = document.getElementById('main-canonical');
+          var appleTitleEl = document.getElementById('meta-apple-title');
+          if (isAdmin) {
+            if (manifestEl) manifestEl.href = '/admin.webmanifest?v=20261004_v10';
+            if (canonicalEl) canonicalEl.href = window.location.origin + '/admin';
+            if (appleTitleEl) appleTitleEl.content = 'WU Admin';
+            document.title = 'WU Admin • Wearing Unusual';
+          }
+        } catch(e) {}
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet" />

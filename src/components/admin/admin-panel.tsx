@@ -151,6 +151,18 @@ export const AdminPanel: React.FC = () => {
   const [isPushTesting, setIsPushTesting] = useState(false);
   const [pushMessage, setPushMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [copiedPushSql, setCopiedPushSql] = useState(false);
+  const [pwaAutoAdmin, setPwaAutoAdmin] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('wu_pwa_default_route') !== 'store';
+  });
+
+  const handleTogglePwaAutoAdmin = (val: boolean) => {
+    setPwaAutoAdmin(val);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('wu_pwa_default_route', val ? 'admin' : 'store');
+      localStorage.setItem('wu_admin_device', 'true');
+    }
+  };
 
   useEffect(() => {
     if (isPushSupported()) {
@@ -6172,16 +6184,45 @@ export const AdminPanel: React.FC = () => {
                     : 'Ative as notificações para que este dispositivo seja registado de forma segura no Supabase através de chaves VAPID.'}
                 </p>
 
-                {isIOS() && !isIOSStandalone() && (
-                  <div className="pt-2 border-t border-amber-800/30 text-[11px] space-y-1.5 text-amber-300/90 font-sans">
-                    <p className="font-semibold uppercase text-[10px] tracking-wider text-amber-200">
-                      Como ativar no Safari do iPhone:
-                    </p>
-                    <ol className="list-decimal pl-4 space-y-1">
-                      <li>Toque no botão <strong>Partilhar</strong> do Safari (ícone de quadrado com seta para cima).</li>
-                      <li>Deslize para baixo e toque em <strong>«Adicionar ao Ecrã Principal»</strong>.</li>
-                      <li>Abra a aplicação a partir do novo ícone no iPhone e volte aqui para autorizar.</li>
-                    </ol>
+                {isIOS() && (
+                  <div className="pt-3 border-t border-[#262626] text-[11px] space-y-2.5 font-sans">
+                    <div className="flex items-center justify-between gap-3 bg-neutral-900/90 p-3 rounded-lg border border-[#222222]">
+                      <div>
+                        <strong className="text-white block text-[11px] uppercase tracking-wider">
+                          Abrir sempre no Admin ao iniciar pelo ícone
+                        </strong>
+                        <span className="text-[10px] text-neutral-400">
+                          Ao abrir o ícone no seu iPhone, salta automaticamente para o Painel Admin.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePwaAutoAdmin(!pwaAutoAdmin)}
+                        className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer shrink-0 ${
+                          pwaAutoAdmin ? 'bg-emerald-500 justify-end' : 'bg-neutral-700 justify-start'
+                        }`}
+                      >
+                        <span className="w-4 h-4 bg-white rounded-full shadow-md" />
+                      </button>
+                    </div>
+
+                    {!isIOSStandalone() ? (
+                      <div className="space-y-1.5 text-amber-300/90 bg-amber-950/20 p-3 rounded-lg border border-amber-800/40">
+                        <p className="font-semibold uppercase text-[10px] tracking-wider text-amber-200">
+                          Como adicionar o Admin ao seu Ecrã Principal:
+                        </p>
+                        <ol className="list-decimal pl-4 space-y-1 text-[11px]">
+                          <li>Aqui no Safari, toque no botão <strong>Partilhar</strong> (quadrado com seta para cima).</li>
+                          <li>Toque em <strong>«Adicionar ao Ecrã Principal»</strong>. O Safari agora deteta automaticamente o manifesto <strong>«WU Admin»</strong> com URL direto para o Admin!</li>
+                          <li>Toque em <strong>Adicionar</strong> no topo direito.</li>
+                          <li>Abra pelo novo ícone <strong>«WU Admin»</strong> e clique em <strong>«Ativar Notificações no iPhone»</strong>.</li>
+                        </ol>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 bg-emerald-950/20 border border-emerald-800/40 rounded text-emerald-300 text-[10px]">
+                        ✓ Aplicação a correr em modo Ecrã Principal (Standalone PWA) no iPhone.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
