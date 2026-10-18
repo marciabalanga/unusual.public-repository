@@ -526,13 +526,13 @@ const MainContent: React.FC = () => {
           />
         )}
 
-        {/* Barra de Acesso Rápido para Administradores Autenticados ou Aparelho Reconhecido (Modo PWA / Standalone) */}
-        {((isAuthenticated || (typeof window !== 'undefined' && localStorage.getItem('wu_admin_device') === 'true')) && !isPreviewMode) && (
+        {/* Barra de Acesso Rápido para Administradores Autenticados (apenas se tiver sessão iniciada) */}
+        {isAuthenticated && !isPreviewMode && (
           <div className="bg-[#101010] border-b border-[#222222] px-4 py-2 text-xs font-sans text-neutral-300 flex items-center justify-between z-40">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
               <span className="text-[11px] font-mono text-neutral-400">
-                {isAuthenticated ? 'Sessão de Administrador Ativa' : 'Aparelho de Administrador Reconhecido'}
+                Sessão de Administrador Ativa
               </span>
             </div>
             <button

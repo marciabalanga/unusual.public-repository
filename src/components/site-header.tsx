@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, ShoppingBag, Menu, X, PackageCheck, Heart, Lock } from 'lucide-react';
+import { Search, ShoppingBag, Menu, X, PackageCheck, Heart } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { WULogo } from './wu-logo';
 import { scrollToTop } from '../lib/scroll';
@@ -386,22 +386,6 @@ export const SiteHeader: React.FC = () => {
                 EN
               </button>
             </div>
-          </div>
-
-          {/* Quick link to Admin Panel inside standalone PWA */}
-          <div className="pt-3 border-t border-[#181818] flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                navigateTo({ tab: 'admin' });
-                scrollToTop(true);
-              }}
-              className="text-[10px] font-mono tracking-widest text-[#555555] hover:text-[#aaaaaa] transition-colors flex items-center gap-1.5 uppercase p-1"
-            >
-              <Lock className="w-3 h-3 text-[#555555]" />
-              <span>Painel Admin</span>
-            </button>
           </div>
         </div>
       )}

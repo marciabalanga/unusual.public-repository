@@ -2645,6 +2645,26 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
     }
 
+    // Dispara notificação push instantânea para os iPhones dos administradores
+    try {
+      fetch('/api/notify-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'INSERT',
+          record: {
+            id: orderId,
+            tracking_code: code,
+            customer_name: orderData.customer_name,
+            total_aoa: orderData.total_aoa,
+            order_type: isPreOrder ? 'pre_order' : 'regular',
+          },
+        }),
+      }).catch((notifyErr) => {
+        console.warn('[Push] Aviso ao disparar notificação de encomenda:', notifyErr);
+      });
+    } catch {}
+
     clearCart();
     return newOrder;
   };

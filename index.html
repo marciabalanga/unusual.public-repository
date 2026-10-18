@@ -8,6 +8,24 @@
     <meta http-equiv="Expires" content="0" />
     <script>
       (function() {
+        // Suppress Vite dev WebSocket connection errors in iframe environment (HMR is disabled)
+        window.addEventListener('unhandledrejection', function(event) {
+          var msg = (event && event.reason && (event.reason.message || String(event.reason))) || '';
+          if (msg.indexOf('WebSocket') !== -1 || msg.indexOf('vite') !== -1) {
+            event.preventDefault();
+          }
+        });
+        window.addEventListener('error', function(event) {
+          var msg = (event && (event.message || '')) || '';
+          var fn = (event && event.filename) || '';
+          if (msg.indexOf('WebSocket') !== -1 || fn.indexOf('@vite/client') !== -1) {
+            event.preventDefault();
+          }
+        });
+      })();
+    </script>
+    <script>
+      (function() {
         var APP_VERSION = '20261004_v10';
         try {
           var v = localStorage.getItem('wu_build_version');

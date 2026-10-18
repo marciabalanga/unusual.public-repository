@@ -4,7 +4,6 @@ import { WULogo } from './wu-logo';
 import {
   Instagram,
   MapPin,
-  Lock,
 } from 'lucide-react';
 import { scrollToTop } from '../lib/scroll';
 export const SiteFooter: React.FC = () => {
@@ -201,19 +200,6 @@ const whatsappUrl = 'https://wa.me/244937765130';
             <span className="text-[#444444]">
               LUANDA • ANGOLA
             </span>
-            <span className="text-[#222222]">•</span>
-            <button
-              type="button"
-              onClick={() => {
-                navigateTo({ tab: 'admin' });
-                scrollToTop(true);
-              }}
-              className="text-[#444444] hover:text-[#999999] transition-colors flex items-center gap-1 font-mono text-[10px] tracking-wider uppercase p-0.5"
-              title="Acesso ao Painel Administrativo"
-            >
-              <Lock className="w-3 h-3 text-[#555555]" />
-              <span>Painel Admin</span>
-            </button>
           </div>
         </div>
       </div>
