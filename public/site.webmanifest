@@ -1,8 +1,10 @@
 {
+  "id": "/",
   "name": "UNUSUAL",
   "short_name": "UNUSUAL",
   "description": "Wearing Unusual – Inspired by the fear of being average.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#080808",
   "theme_color": "#080808",

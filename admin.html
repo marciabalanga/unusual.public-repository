@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <script>
+      (function() {
+        // Suppress Vite dev WebSocket connection errors in iframe environment (HMR is disabled)
+        window.addEventListener('unhandledrejection', function(event) {
+          var msg = (event && event.reason && (event.reason.message || String(event.reason))) || '';
+          if (msg.indexOf('WebSocket') !== -1 || msg.indexOf('vite') !== -1) {
+            event.preventDefault();
+          }
+        });
+        window.addEventListener('error', function(event) {
+          var msg = (event && (event.message || '')) || '';
+          var fn = (event && event.filename) || '';
+          if (msg.indexOf('WebSocket') !== -1 || fn.indexOf('@vite/client') !== -1) {
+            event.preventDefault();
+          }
+        });
+      })();
+    </script>
+    <script>
+      (function() {
+        var APP_VERSION = '20261004_v11';
+        try {
+          var v = localStorage.getItem('wu_build_version');
+          if (v !== APP_VERSION) {
+            localStorage.setItem('wu_build_version', APP_VERSION);
+            try {
+              for (var i = localStorage.length - 1; i >= 0; i--) {
+                var k = localStorage.key(i);
+                if (k && (k.indexOf('wu_') === 0 || k.indexOf('product') !== -1 || k.indexOf('block') !== -1 || k.indexOf('store') !== -1)) {
+                  if (
+                    k !== 'wu_build_version' &&
+                    k !== 'wu_cart_v1' &&
+                    k !== 'wu_wishlist_v1' &&
+                    k.indexOf('wu_admin') !== 0 &&
+                    k.indexOf('wu_pwa') !== 0
+                  ) {
+                    localStorage.removeItem(k);
+                  }
+                }
+              }
+            } catch(e) {}
+            try {
+              if (window.sessionStorage) sessionStorage.clear();
+            } catch(e) {}
+            try {
+              if (window.indexedDB && window.indexedDB.deleteDatabase) {
+                window.indexedDB.deleteDatabase('wearing_unusual_store');
+              }
+            } catch(e) {}
+            try {
+              if ('caches' in window) {
+                caches.keys().then(function(names) {
+                  for (var name of names) { caches.delete(name); }
+                });
+              }
+            } catch(e) {}
+          }
+        } catch(e) {}
+      })();
+    </script>
+    <title>WU Admin • Wearing Unusual</title>
+    <meta name="description" content="Painel Administrativo Wearing Unusual" />
+    <!-- Apple iOS Safari PWA / Add to Home Screen Capabilities (Admin) -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="WU Admin" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#080808" />
+
+    <link rel="canonical" id="main-canonical" href="https://wearingunusual.com/admin" />
+    <meta property="og:site_name" content="WU Admin" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://wearingunusual.com/admin" />
+    <meta property="og:title" content="WU Admin • Wearing Unusual" />
+    <meta property="og:description" content="Painel Administrativo Wearing Unusual" />
+    <meta property="og:image" content="/apple-touch-icon.png" />
+    <!-- Dynamic SVG Favicon adapting to device theme (Light / Dark mode) -->
+    <link rel="icon" href="/brand-icon.svg?v=20261004_v11" type="image/svg+xml" />
+    <!-- Apple Touch Icon & Safari Tab Switcher Overview -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20261004_v11" />
+    <link rel="apple-touch-icon-precomposed" sizes="180x180" href="/apple-touch-icon.png?v=20261004_v11" />
+    <!-- Standard PNG Favicons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/brand-favicon.png?v=20261004_v11" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/brand-favicon.png?v=20261004_v11" />
+    <link rel="shortcut icon" href="/favicon.ico?v=20261004_v11" />
+    <!-- Dedicated Admin Web Manifest -->
+    <link rel="manifest" id="main-manifest" href="/admin.webmanifest?v=20261004_v11" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Syne:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  </head>
+  <body class="bg-[#080808] text-[#f2f2f2] antialiased selection:bg-[#f2f2f2] selection:text-[#080808]">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

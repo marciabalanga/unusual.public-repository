@@ -1,9 +1,10 @@
 {
+  "id": "/admin",
   "name": "WU Admin",
   "short_name": "WU Admin",
   "description": "Painel Administrativo Wearing Unusual",
   "start_url": "/admin",
-  "scope": "/",
+  "scope": "/admin",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#080808",

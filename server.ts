@@ -619,7 +619,10 @@ async function startServer() {
 
       if (isHtmlRequest) {
         try {
-          const indexPath = path.resolve(__dirname, 'index.html');
+          const cleanUrl = url.split('?')[0].replace(/\/+$/, '');
+          const isAdminRoute = cleanUrl === '/admin' || cleanUrl.startsWith('/admin/');
+          const htmlFileName = isAdminRoute ? 'admin.html' : 'index.html';
+          const indexPath = path.resolve(__dirname, htmlFileName);
           let template = fs.readFileSync(indexPath, 'utf-8');
           template = await vite.transformIndexHtml(url, template);
           const finalHtml = formatHtmlResponse(template, req);
@@ -641,7 +644,10 @@ async function startServer() {
     // Production mode: serve dist static files and SPA fallback with formatHtmlResponse
     app.use(express.static(path.resolve(__dirname, 'dist')));
     app.get('*', (req, res) => {
-      const indexPath = path.resolve(__dirname, 'dist/index.html');
+      const cleanPath = req.path.replace(/\/+$/, '');
+      const isAdminRoute = cleanPath === '/admin' || cleanPath.startsWith('/admin/');
+      const htmlFileName = isAdminRoute ? 'dist/admin.html' : 'dist/index.html';
+      const indexPath = path.resolve(__dirname, htmlFileName);
       if (fs.existsSync(indexPath)) {
         let rawHtml = fs.readFileSync(indexPath, 'utf-8');
         const finalHtml = formatHtmlResponse(rawHtml, req);
