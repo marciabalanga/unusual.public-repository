@@ -77,8 +77,13 @@ function saveLocalSubscription(sub: any) {
   memorySubscriptions.set(sub.endpoint, sub);
   try {
     const filePath = getSubsFilePath();
-    const list = readLocalSubscriptions();
-    const filtered = list.filter((item: any) => item.endpoint !== sub.endpoint);
+    let list: any[] = [];
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) list = parsed;
+    }
+    const filtered = list.filter((item: any) => item && item.endpoint !== sub.endpoint);
     filtered.push(sub);
     const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -93,8 +98,13 @@ function removeLocalSubscription(endpoint: string) {
   memorySubscriptions.delete(endpoint);
   try {
     const filePath = getSubsFilePath();
-    const list = readLocalSubscriptions();
-    const filtered = list.filter((item: any) => item.endpoint !== endpoint);
+    let list: any[] = [];
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) list = parsed;
+    }
+    const filtered = list.filter((item: any) => item && item.endpoint !== endpoint);
     fs.writeFileSync(filePath, JSON.stringify(filtered, null, 2), 'utf-8');
   } catch (e) {
     console.warn('[push] Could not remove local subscription:', e);

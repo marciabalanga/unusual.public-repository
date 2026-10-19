@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Layers,
   ShoppingBag,
@@ -466,6 +466,43 @@ export const AdminPanel: React.FC = () => {
     setSuccessToast(msg);
     setTimeout(() => setSuccessToast(null), 3000);
   };
+
+  // Synthesize pleasant chime on new order
+  const playNewOrderChime = useCallback(() => {
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, now); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.12); // A5
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } catch {}
+  }, []);
+
+  // Listen to new orders dispatched from Realtime or polling
+  useEffect(() => {
+    const handleNewOrder = (e: Event) => {
+      const detail = (e as CustomEvent<Order>)?.detail;
+      playNewOrderChime();
+      const tracking = detail?.tracking_code || '';
+      const customer = detail?.customer_name ? ` (${detail.customer_name})` : '';
+      showToast(`Nova encomenda recebida: ${tracking}${customer}!`);
+    };
+
+    window.addEventListener('wu:new_order', handleNewOrder);
+    return () => {
+      window.removeEventListener('wu:new_order', handleNewOrder);
+    };
+  }, [playNewOrderChime]);
 
   const filteredDictionaryEntries = Object.values(dictionary).filter((entry) => {
     const matchesSearch =

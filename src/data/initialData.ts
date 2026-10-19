@@ -1270,9 +1270,9 @@ CREATE TABLE IF NOT EXISTS public.admin_push_subscriptions (
 -- 2. Habilitação de Row Level Security (RLS)
 ALTER TABLE public.admin_push_subscriptions ENABLE ROW LEVEL SECURITY;
 
--- 3. Concessão de privilégios estritos para authenticated e service_role (e SELECT para consulta do serviço de notificações)
+-- 3. Concessão estrita de privilégios: authenticated e service_role apenas (Nenhum acesso para anon)
+REVOKE ALL ON public.admin_push_subscriptions FROM anon;
 GRANT ALL ON public.admin_push_subscriptions TO authenticated, service_role;
-GRANT SELECT ON public.admin_push_subscriptions TO anon;
 
 -- 4. Limpeza de políticas existentes
 DO $$ 
@@ -1295,12 +1295,6 @@ CREATE POLICY "Admins manage own push subscriptions"
   TO authenticated
   USING (auth.role() = 'authenticated' AND auth.uid() = user_id)
   WITH CHECK (auth.role() = 'authenticated' AND auth.uid() = user_id);
-
-CREATE POLICY "Allow notification service lookup"
-  ON public.admin_push_subscriptions
-  FOR SELECT
-  TO anon, authenticated
-  USING (true);
 
 -- 6. Índice de alta performance por administrador
 CREATE INDEX IF NOT EXISTS idx_push_subs_user_id ON public.admin_push_subscriptions(user_id);

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Product,
   Order,
@@ -1412,6 +1412,124 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     syncWithSupabase();
   }, [syncWithSupabase]);
+
+  // Set to track order IDs already processed, preventing duplicate alerts or duplicate additions
+  const processedOrderIdsRef = useRef<Set<string>>(new Set());
+
+  // Populate processedOrderIdsRef with existing orders to prevent re-alerting on app start
+  useEffect(() => {
+    orders.forEach((o) => {
+      if (o.id) processedOrderIdsRef.current.add(o.id);
+      if (o.tracking_code) processedOrderIdsRef.current.add(o.tracking_code);
+    });
+  }, [orders]);
+
+  // Supabase Realtime Listener + Polling Fallback for Orders
+  useEffect(() => {
+    if (!supabase) return;
+
+    const handleIncomingOrder = (rawOrder: any) => {
+      if (!rawOrder || (!rawOrder.id && !rawOrder.tracking_code)) return;
+
+      const orderKey = rawOrder.tracking_code || rawOrder.id;
+      if (processedOrderIdsRef.current.has(orderKey)) {
+        return; // Already processed, avoid duplicate alerts
+      }
+
+      processedOrderIdsRef.current.add(orderKey);
+      if (rawOrder.id) processedOrderIdsRef.current.add(rawOrder.id);
+      if (rawOrder.tracking_code) processedOrderIdsRef.current.add(rawOrder.tracking_code);
+
+      const activeEv = rawOrder.status_timeline?.find((ev: any) => ev.active);
+      const noteEv = rawOrder.status_timeline?.find((ev: any) => ev.admin_note && ev.admin_note.trim() !== '');
+      const hydratedNotes =
+        rawOrder.admin_notes ||
+        noteEv?.admin_note ||
+        (activeEv && !activeEv.description?.includes('vaga reservada') ? activeEv.description : undefined);
+
+      const newOrder: Order = {
+        ...rawOrder,
+        admin_notes: hydratedNotes,
+      };
+
+      setOrders((prev) => {
+        // Prevent duplicate in state
+        if (prev.some((o) => o.id === newOrder.id || (newOrder.tracking_code && o.tracking_code === newOrder.tracking_code))) {
+          return prev;
+        }
+        return [newOrder, ...prev];
+      });
+
+      // Dispatch custom event for admin-panel notification chime and toast
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('wu:new_order', {
+            detail: newOrder,
+          })
+        );
+      }
+    };
+
+    const handleUpdatedOrder = (rawOrder: any) => {
+      if (!rawOrder || (!rawOrder.id && !rawOrder.tracking_code)) return;
+      setOrders((prev) =>
+        prev.map((o) => {
+          if (o.id === rawOrder.id || (rawOrder.tracking_code && o.tracking_code === rawOrder.tracking_code)) {
+            return {
+              ...o,
+              ...rawOrder,
+            };
+          }
+          return o;
+        })
+      );
+    };
+
+    // 1. Subscribe to Supabase Realtime 'orders' table
+    const ordersChannel = supabase
+      .channel('public:orders:realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders' },
+        (payload) => {
+          console.log('[Supabase Realtime] Nova encomenda detetada:', payload.new);
+          handleIncomingOrder(payload.new);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders' },
+        (payload) => {
+          handleUpdatedOrder(payload.new);
+        }
+      )
+      .subscribe((status) => {
+        console.log('[Supabase Realtime] Orders channel status:', status);
+      });
+
+    // 2. Safety Polling (Every 25 seconds if document is visible)
+    const pollInterval = setInterval(async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      try {
+        const { data: latestOrders, error } = await supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (!error && Array.isArray(latestOrders)) {
+          for (const ord of latestOrders) {
+            handleIncomingOrder(ord);
+          }
+        }
+      } catch {}
+    }, 25000);
+
+    return () => {
+      clearInterval(pollInterval);
+      supabase.removeChannel(ordersChannel);
+    };
+  }, []);
 
   // Translation helper with strict graceful fallback
   const t = useCallback(
