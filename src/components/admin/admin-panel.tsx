@@ -167,10 +167,12 @@ export const AdminPanel: React.FC = () => {
   useEffect(() => {
     if (isPushSupported()) {
       isSubscribedToPush().then((active) => {
-        setIsPushActiveOnDevice(active);
+        // Only mark active if both browser has subscription AND device was registered
+        const wasRegistered = typeof window !== 'undefined' ? localStorage.getItem('wu_push_device_subscribed') === 'true' : true;
+        setIsPushActiveOnDevice(active && wasRegistered);
       }).catch(() => {});
     }
-  }, []);
+  }, [isPushModalOpen]);
 
   const handleActivatePush = async () => {
     if (!user) {
@@ -183,13 +185,15 @@ export const AdminPanel: React.FC = () => {
       const res = await subscribeAdminToPush(user.id);
       if (res.success) {
         setIsPushActiveOnDevice(true);
-        setPushMessage({ type: 'success', text: 'Notificações push ativadas com sucesso neste dispositivo!' });
+        setPushMessage({ type: 'success', text: 'Notificações push ativadas e registadas com sucesso neste dispositivo!' });
         showToast('Notificações no iPhone ativadas com sucesso!');
       } else {
+        setIsPushActiveOnDevice(false);
         setPushMessage({ type: 'error', text: res.error || 'Erro ao ativar notificações.' });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
+      setIsPushActiveOnDevice(false);
       setPushMessage({ type: 'error', text: msg });
     } finally {
       setIsPushLoading(false);

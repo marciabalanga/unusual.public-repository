@@ -48,7 +48,11 @@ export function isIOSStandalone(): boolean {
 export async function getBrowserPushSubscription(): Promise<PushSubscription | null> {
   if (!isPushSupported()) return null;
   try {
-    const registration = await navigator.serviceWorker.getRegistration('/sw.js') || await navigator.serviceWorker.ready;
+    const registration =
+      (await navigator.serviceWorker.ready) ||
+      (await navigator.serviceWorker.getRegistration('/admin')) ||
+      (await navigator.serviceWorker.getRegistration('/')) ||
+      (await navigator.serviceWorker.getRegistration());
     if (!registration) return null;
     return await registration.pushManager.getSubscription();
   } catch {
@@ -87,7 +91,7 @@ export async function subscribeAdminToPush(userId: string): Promise<PushSubscrip
   }
 
   try {
-    // 1. Register Service Worker
+    // 1. Register Service Worker with scope / to control all routes including /admin
     const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
     await navigator.serviceWorker.ready;
 
@@ -127,11 +131,19 @@ export async function subscribeAdminToPush(userId: string): Promise<PushSubscrip
       };
     }
 
+    // Get current auth session to attach bearer token
+    const { data: { session } } = await supabase.auth.getSession();
+
     // 5. Save to /api/notify-order backend for immediate high-resilience push delivery
+    let apiSuccess = false;
+    let apiError: string | null = null;
     try {
-      await fetch('/api/notify-order', {
+      const apiRes = await fetch('/api/notify-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           action: 'subscribe',
           userId,
@@ -141,13 +153,23 @@ export async function subscribeAdminToPush(userId: string): Promise<PushSubscrip
           },
         }),
       });
-    } catch (apiErr) {
+
+      const apiData = await apiRes.json().catch(() => ({}));
+      if (apiRes.ok && apiData.success) {
+        apiSuccess = true;
+      } else {
+        apiError = apiData.error || `Erro HTTP ${apiRes.status}`;
+      }
+    } catch (apiErr: any) {
+      apiError = apiErr?.message || String(apiErr);
       console.warn('[push] Aviso ao sincronizar com /api/notify-order:', apiErr);
     }
 
     // 6. Save to Supabase public.admin_push_subscriptions with strict RLS (auth.uid() = user_id)
+    let dbSuccess = false;
+    let dbError: string | null = null;
     try {
-      await supabase
+      const { error: upsertErr } = await supabase
         .from('admin_push_subscriptions')
         .upsert(
           {
@@ -160,8 +182,28 @@ export async function subscribeAdminToPush(userId: string): Promise<PushSubscrip
           },
           { onConflict: 'endpoint' }
         );
-    } catch (dbErr) {
-      console.warn('[push] Aviso ao sincronizar com base de dados remota:', dbErr);
+
+      if (!upsertErr) {
+        dbSuccess = true;
+      } else {
+        dbError = upsertErr.message;
+        console.warn('[push] Erro ao sincronizar com Supabase:', upsertErr.code, upsertErr.message);
+      }
+    } catch (dbErr: any) {
+      dbError = dbErr?.message || String(dbErr);
+      console.warn('[push] Aviso de exceção na base de dados:', dbErr);
+    }
+
+    // REQUIREMENT 3: Only report success if the subscription has been effectively saved!
+    if (!apiSuccess && !dbSuccess) {
+      return {
+        success: false,
+        error: `A permissão foi concedida, mas a subscrição não pôde ser guardada no servidor: ${dbError || apiError || 'Falha de comunicação.'}`,
+      };
+    }
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('wu_push_device_subscribed', 'true');
     }
 
     return { success: true };
@@ -203,6 +245,11 @@ export async function unsubscribeAdminFromPush(userId: string): Promise<{ succes
         });
       } catch {}
     }
+
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('wu_push_device_subscribed');
+    }
+
     return { success: true };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -215,10 +262,31 @@ export async function sendTestPushNotification(): Promise<{ success: boolean; me
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) {
-      return { success: false, error: 'Sessão de administrador não encontrada ou expirada.' };
+      return { success: false, error: 'Sessão de administrador não encontrada ou expirada. Inicie sessão novamente.' };
     }
 
-    // Try local / Vercel API endpoint first, fallback to Supabase Edge Function
+    // Extract current device subscription to guarantee direct, targeted delivery without duplicates
+    const sub = await getBrowserPushSubscription();
+    let currentSubscription: { endpoint: string; keys: Record<string, string> } | null = null;
+    if (sub) {
+      const subJson = sub.toJSON();
+      if (sub.endpoint && subJson.keys?.p256dh && subJson.keys?.auth) {
+        currentSubscription = {
+          endpoint: sub.endpoint,
+          keys: {
+            p256dh: subJson.keys.p256dh,
+            auth: subJson.keys.auth,
+          },
+        };
+      }
+    }
+
+    const payload = {
+      action: 'test',
+      currentSubscription,
+    };
+
+    // Call /api/notify-order with authentication header and current subscription
     let res: Response | null = null;
     let lastError = '';
 
@@ -229,12 +297,13 @@ export async function sendTestPushNotification(): Promise<{ success: boolean; me
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ action: 'test' }),
+        body: JSON.stringify(payload),
       });
     } catch (e: any) {
-      lastError = e?.message || '';
+      lastError = e?.message || 'Falha de rede';
     }
 
+    // If fetch failed or server error, attempt fallback to Supabase Edge Function if deployed
     if (!res || !res.ok) {
       const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/notify-order`;
       try {
@@ -244,7 +313,7 @@ export async function sendTestPushNotification(): Promise<{ success: boolean; me
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ action: 'test' }),
+          body: JSON.stringify(payload),
         });
         if (edgeRes.ok) {
           res = edgeRes;
@@ -256,21 +325,30 @@ export async function sendTestPushNotification(): Promise<{ success: boolean; me
       }
     }
 
-    if (!res || !res.ok) {
-      const errText = res ? await res.text().catch(() => '') : lastError;
+    if (!res) {
       return {
         success: false,
-        error: `A função de notificações respondeu com erro (${res?.status || 'falha de rede'}): ${errText || 'Serviço indisponível'}`,
+        error: `Falha ao contactar servidor de notificações: ${lastError || 'Serviço indisponível'}`,
       };
     }
 
     const data = await res.json().catch(() => ({}));
+
+    // REQUIREMENT 4: Check res.ok AND data.success to prevent false positives
+    if (!res.ok || data.success === false) {
+      const errorMsg = data.error || data.message || `Servidor respondeu com código ${res.status}`;
+      return {
+        success: false,
+        error: errorMsg,
+      };
+    }
+
     return {
       success: true,
-      message: data.message || 'Notificação de teste enviada com sucesso para os seus dispositivos.',
+      message: data.message || 'Notificação de teste enviada com sucesso para o seu iPhone.',
     };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    return { success: false, error: `Falha ao contactar servidor de notificações: ${msg}` };
+    return { success: false, error: `Falha ao enviar notificação de teste: ${msg}` };
   }
 }
