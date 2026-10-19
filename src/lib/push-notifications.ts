@@ -1,4 +1,4 @@
-import { supabase, SUPABASE_URL } from './supabase';
+import { supabase } from './supabase';
 
 // Convert base64url string to Uint8Array for PushManager applicationServerKey
 export function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -60,24 +60,92 @@ export async function getBrowserPushSubscription(): Promise<PushSubscription | n
   }
 }
 
-// Check if current device is subscribed in the browser
+// Check if current device has an active subscription in the browser PushManager
 export async function isSubscribedToPush(): Promise<boolean> {
   const sub = await getBrowserPushSubscription();
   return sub !== null;
 }
 
+export interface DeviceSubscriptionStatus {
+  browserSubscribed: boolean;
+  persistedInDatabase: boolean;
+  endpoint?: string;
+  error?: string;
+}
+
+/**
+ * Rigorously checks whether the current device is both subscribed in the browser
+ * AND genuinely persisted in the Supabase public.admin_push_subscriptions table.
+ */
+export async function checkDeviceSubscriptionStatus(userId?: string): Promise<DeviceSubscriptionStatus> {
+  const sub = await getBrowserPushSubscription();
+  if (!sub || !sub.endpoint) {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('wu_push_device_subscribed');
+    }
+    return { browserSubscribed: false, persistedInDatabase: false };
+  }
+
+  // Check Supabase database persistence
+  try {
+    let query = supabase
+      .from('admin_push_subscriptions')
+      .select('id, endpoint')
+      .eq('endpoint', sub.endpoint);
+
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data, error } = await query.maybeSingle();
+
+    if (error) {
+      return {
+        browserSubscribed: true,
+        persistedInDatabase: false,
+        endpoint: sub.endpoint,
+        error: error.message,
+      };
+    }
+
+    const isPersisted = Boolean(data && data.endpoint);
+    if (typeof window !== 'undefined') {
+      if (isPersisted) {
+        localStorage.setItem('wu_push_device_subscribed', 'true');
+      } else {
+        localStorage.removeItem('wu_push_device_subscribed');
+      }
+    }
+
+    return {
+      browserSubscribed: true,
+      persistedInDatabase: isPersisted,
+      endpoint: sub.endpoint,
+    };
+  } catch (err: any) {
+    return {
+      browserSubscribed: true,
+      persistedInDatabase: false,
+      endpoint: sub.endpoint,
+      error: err?.message || String(err),
+    };
+  }
+}
+
 export interface PushSubscriptionResult {
   success: boolean;
+  savedToDatabase?: boolean;
   error?: string;
   isIOSInBrowser?: boolean;
 }
 
 // Subscribe the authenticated administrator's device to Web Push
 export async function subscribeAdminToPush(userId: string): Promise<PushSubscriptionResult> {
-  // On iOS, Safari hides window.Notification and PushManager until opened from Home Screen (PWA)
+  // On iOS, Safari requires standalone PWA mode (Add to Home Screen) for Web Push
   if (isIOS() && !isIOSStandalone()) {
     return {
       success: false,
+      savedToDatabase: false,
       isIOSInBrowser: true,
       error: 'No iPhone, é obrigatório adicionar a aplicação ao Ecrã Principal para ativar as notificações. Siga os 3 passos indicados no quadro acima.',
     };
@@ -86,6 +154,7 @@ export async function subscribeAdminToPush(userId: string): Promise<PushSubscrip
   if (!isPushSupported()) {
     return {
       success: false,
+      savedToDatabase: false,
       error: 'O seu navegador ou versão do iOS não suporta notificações Web Push.',
     };
   }
@@ -100,6 +169,7 @@ export async function subscribeAdminToPush(userId: string): Promise<PushSubscrip
     if (permission !== 'granted') {
       return {
         success: false,
+        savedToDatabase: false,
         error: permission === 'denied'
           ? 'Permissão de notificações recusada nas definições do dispositivo.'
           : 'Pedido de permissão de notificações não foi autorizado.',
@@ -114,10 +184,10 @@ export async function subscribeAdminToPush(userId: string): Promise<PushSubscrip
     // 4. Subscribe on PushManager
     const applicationServerKey = urlBase64ToUint8Array(rawVapidKey);
     const existingSub = await registration.pushManager.getSubscription();
-    const subscription = existingSub || await registration.pushManager.subscribe({
+    const subscription = existingSub || (await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey,
-    });
+    }));
 
     const subJson = subscription.toJSON();
     const endpoint = subscription.endpoint;
@@ -127,16 +197,19 @@ export async function subscribeAdminToPush(userId: string): Promise<PushSubscrip
     if (!endpoint || !p256dh || !auth) {
       return {
         success: false,
+        savedToDatabase: false,
         error: 'Não foi possível extrair as credenciais criptográficas da subscrição.',
       };
     }
 
-    // Get current auth session to attach bearer token
+    // 5. Get current auth session to attach bearer token
     const { data: { session } } = await supabase.auth.getSession();
 
-    // 5. Save to /api/notify-order backend for immediate high-resilience push delivery
+    // 6. Persist to backend /api/notify-order (requires backend service_role confirmation)
     let apiSuccess = false;
     let apiError: string | null = null;
+    let savedToDatabase = false;
+
     try {
       const apiRes = await fetch('/api/notify-order', {
         method: 'POST',
@@ -155,19 +228,19 @@ export async function subscribeAdminToPush(userId: string): Promise<PushSubscrip
       });
 
       const apiData = await apiRes.json().catch(() => ({}));
-      if (apiRes.ok && apiData.success) {
+
+      if (apiRes.ok && apiData.success && apiData.savedToDatabase === true) {
         apiSuccess = true;
+        savedToDatabase = true;
       } else {
-        apiError = apiData.error || `Erro HTTP ${apiRes.status}`;
+        apiError = apiData.error || `Erro de persistência no servidor (HTTP ${apiRes.status})`;
       }
     } catch (apiErr: any) {
-      apiError = apiErr?.message || String(apiErr);
-      console.warn('[push] Aviso ao sincronizar com /api/notify-order:', apiErr);
+      apiError = apiErr?.message || 'Falha de comunicação com o servidor de notificações.';
+      console.warn('[push] Falha ao comunicar com /api/notify-order:', apiErr);
     }
 
-    // 6. Save to Supabase public.admin_push_subscriptions with strict RLS (auth.uid() = user_id)
-    let dbSuccess = false;
-    let dbError: string | null = null;
+    // 7. Also attempt direct client-side sync to Supabase (authenticated user session via RLS)
     try {
       const { error: upsertErr } = await supabase
         .from('admin_push_subscriptions')
@@ -184,33 +257,43 @@ export async function subscribeAdminToPush(userId: string): Promise<PushSubscrip
         );
 
       if (!upsertErr) {
-        dbSuccess = true;
+        savedToDatabase = true;
       } else {
-        dbError = upsertErr.message;
-        console.warn('[push] Erro ao sincronizar com Supabase:', upsertErr.code, upsertErr.message);
+        console.warn('[push] Aviso de sincronização direta com Supabase:', upsertErr.message);
       }
-    } catch (dbErr: any) {
-      dbError = dbErr?.message || String(dbErr);
-      console.warn('[push] Aviso de exceção na base de dados:', dbErr);
+    } catch (dbErr) {
+      console.warn('[push] Exceção na base de dados:', dbErr);
     }
 
-    // REQUIREMENT 3: Only report success if the subscription has been effectively saved!
-    if (!apiSuccess && !dbSuccess) {
+    // STRICT REQUIREMENT: Only confirm success if the subscription has been effectively saved in the database!
+    if (!savedToDatabase) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('wu_push_device_subscribed');
+      }
       return {
         success: false,
-        error: `A permissão foi concedida, mas a subscrição não pôde ser guardada no servidor: ${dbError || apiError || 'Falha de comunicação.'}`,
+        savedToDatabase: false,
+        error: apiError || 'A permissão foi concedida no navegador, mas a subscrição NÃO pôde ser gravada na base de dados Supabase.',
       };
     }
 
+    // Mark verified subscription in localStorage
     if (typeof window !== 'undefined') {
       localStorage.setItem('wu_push_device_subscribed', 'true');
     }
 
-    return { success: true };
+    return {
+      success: true,
+      savedToDatabase: true,
+    };
   } catch (err: unknown) {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('wu_push_device_subscribed');
+    }
     const msg = err instanceof Error ? err.message : String(err);
     return {
       success: false,
+      savedToDatabase: false,
       error: `Falha ao ativar notificações: ${msg}`,
     };
   }
@@ -257,7 +340,7 @@ export async function unsubscribeAdminFromPush(userId: string): Promise<{ succes
   }
 }
 
-// Send isolated test push to authenticated administrator only (no fake orders created)
+// Send isolated test push to authenticated administrator only
 export async function sendTestPushNotification(): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     const { data: { session } } = await supabase.auth.getSession();
@@ -283,63 +366,34 @@ export async function sendTestPushNotification(): Promise<{ success: boolean; me
 
     const payload = {
       action: 'test',
+      userId: session.user?.id,
       currentSubscription,
     };
 
-    // Call /api/notify-order with authentication header and current subscription
-    let res: Response | null = null;
-    let lastError = '';
-
-    try {
-      res = await fetch('/api/notify-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-    } catch (e: any) {
-      lastError = e?.message || 'Falha de rede';
-    }
-
-    // If fetch failed or server error, attempt fallback to Supabase Edge Function if deployed
-    if (!res || !res.ok) {
-      const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/notify-order`;
-      try {
-        const edgeRes = await fetch(edgeFunctionUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify(payload),
-        });
-        if (edgeRes.ok) {
-          res = edgeRes;
-        } else if (!res) {
-          res = edgeRes;
-        }
-      } catch (e: any) {
-        lastError = e?.message || lastError;
-      }
-    }
-
-    if (!res) {
-      return {
-        success: false,
-        error: `Falha ao contactar servidor de notificações: ${lastError || 'Serviço indisponível'}`,
-      };
-    }
+    const res = await fetch('/api/notify-order', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify(payload),
+    });
 
     const data = await res.json().catch(() => ({}));
 
-    // REQUIREMENT 4: Check res.ok AND data.success to prevent false positives
+    // Check res.ok AND data.success AND positive sent count to prevent false positives
     if (!res.ok || data.success === false) {
       const errorMsg = data.error || data.message || `Servidor respondeu com código ${res.status}`;
       return {
         success: false,
         error: errorMsg,
+      };
+    }
+
+    if (!data.sent || data.sent === 0) {
+      return {
+        success: false,
+        error: data.error || 'Nenhuma notificação foi aceite pelos servidores Web Push para o seu aparelho.',
       };
     }
 

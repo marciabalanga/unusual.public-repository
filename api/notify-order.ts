@@ -1,22 +1,28 @@
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 
+// Load local environment variables if present
+dotenv.config();
+
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://tmryqhilyisbfdpnsiwo.supabase.co';
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || '';
+const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || '').trim();
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'wu_webhook_secret_2026';
 
-const VAPID_PUBLIC_KEY =
+const VAPID_PUBLIC_KEY = (
   process.env.VITE_VAPID_PUBLIC_KEY ||
   process.env.VAPID_PUBLIC_KEY ||
-  'BB6OqfeKOSrINtwTJ5BxZXx4By6atSWSLnUAuy9EntqGlQkCKbdkuavDXrdZUWx0uCIO_oFt3PP91274QDXlTBs';
+  'BB6OqfeKOSrINtwTJ5BxZXx4By6atSWSLnUAuy9EntqGlQkCKbdkuavDXrdZUWx0uCIO_oFt3PP91274QDXlTBs'
+).trim();
 
-const VAPID_PRIVATE_KEY =
+const VAPID_PRIVATE_KEY = (
   process.env.VAPID_PRIVATE_KEY ||
-  'G9Z-5Tv0HqZFTVY7G8ASBVMvDBBdcayMSeKMCf7e43Y';
+  'G9Z-5Tv0HqZFTVY7G8ASBVMvDBBdcayMSeKMCf7e43Y'
+).trim();
 
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:admin@wearingunusual.com';
+const VAPID_SUBJECT = (process.env.VAPID_SUBJECT || 'mailto:admin@wearingunusual.com').trim();
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   try {
@@ -26,10 +32,9 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   }
 }
 
-// In-memory cache to ensure instant subscription access within the runtime container
+// In-memory cache as secondary fallback within the active container
 const memorySubscriptions = new Map<string, any>();
 
-// Multi-environment file storage path (/tmp for serverless Vercel/Lambda, public/data for local Node)
 function getSubsFilePath(): string {
   if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
     return '/tmp/push_subscriptions.json';
@@ -46,7 +51,6 @@ function getSubsFilePath(): string {
 
 function readLocalSubscriptions(): any[] {
   const result: any[] = [];
-  // 1. Load from file
   try {
     const filePath = getSubsFilePath();
     if (fs.existsSync(filePath)) {
@@ -63,7 +67,6 @@ function readLocalSubscriptions(): any[] {
     }
   } catch {}
 
-  // 2. Merge memory subscriptions
   for (const item of memorySubscriptions.values()) {
     if (!result.some((r) => r.endpoint === item.endpoint)) {
       result.push(item);
@@ -111,49 +114,18 @@ function removeLocalSubscription(endpoint: string) {
   }
 }
 
-// Helper to instantiate the appropriate Supabase client
-function getSupabaseClient(req: any) {
-  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
-  const token =
-    typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('bearer ')
-      ? authHeader.slice(7).trim()
-      : '';
-
-  // 1. If service role key is securely configured in server environment, use it
-  if (SUPABASE_SERVICE_ROLE_KEY && SUPABASE_SERVICE_ROLE_KEY.trim() !== '') {
-    return {
-      client: createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.trim(), {
-        auth: { persistSession: false },
-      }),
-      isServiceRole: true,
-      hasAuth: true,
-    };
+// Helper to obtain privileged Supabase Admin client with service_role key
+function getSupabaseAdminClient() {
+  if (!SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
   }
-
-  // 2. If caller passed user JWT token, use authenticated role (respects RLS for auth.uid() = user_id)
-  if (token) {
-    return {
-      client: createClient(SUPABASE_URL, 'sb_publishable_O8oVIAZLkvJveyQ0Qiehhg_AX82Ehqw', {
-        global: { headers: { Authorization: `Bearer ${token}` } },
-        auth: { persistSession: false },
-      }),
-      isServiceRole: false,
-      hasAuth: true,
-    };
-  }
-
-  // 3. Fallback to public anon client
-  return {
-    client: createClient(SUPABASE_URL, 'sb_publishable_O8oVIAZLkvJveyQ0Qiehhg_AX82Ehqw', {
-      auth: { persistSession: false },
-    }),
-    isServiceRole: false,
-    hasAuth: false,
-  };
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
 }
 
 export default async function handler(req: any, res: any) {
-  // Set CORS headers
+  // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'authorization, content-type, x-webhook-secret');
@@ -162,19 +134,25 @@ export default async function handler(req: any, res: any) {
     return res.status(200).end();
   }
 
+  // Health check & status verification
   if (req.method === 'GET') {
+    const isServiceRoleAvailable = Boolean(SUPABASE_SERVICE_ROLE_KEY);
     const local = readLocalSubscriptions();
-    return res.status(200).json({ status: 'ok', activeSubscriptionsCount: local.length });
+    return res.status(200).json({
+      status: 'ok',
+      serviceRoleConfigured: isServiceRoleAvailable,
+      vapidConfigured: Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY),
+      localCacheCount: local.length,
+    });
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, error: 'Method not allowed' });
+    return res.status(405).json({ success: false, error: 'Método não permitido.' });
   }
 
   try {
     const incomingWebhookSecret = req.headers['x-webhook-secret'] || req.headers['X-Webhook-Secret'];
     const body = req.body || {};
-    const { client: supabaseClient, isServiceRole, hasAuth } = getSupabaseClient(req);
 
     // 1. ACTION: subscribe
     if (body.action === 'subscribe') {
@@ -182,7 +160,20 @@ export default async function handler(req: any, res: any) {
       if (!sub || !sub.endpoint || !sub.keys?.p256dh || !sub.keys?.auth) {
         return res.status(400).json({
           success: false,
-          error: 'Subscrição push incompleta ou parâmetros criptográficos ausentes (endpoint/keys).',
+          savedToDatabase: false,
+          error: 'Subscrição push incompleta: parâmetros criptográficos (endpoint, p256dh, auth) ausentes.',
+        });
+      }
+
+      // Check if SUPABASE_SERVICE_ROLE_KEY is configured
+      const supabaseAdmin = getSupabaseAdminClient();
+      if (!supabaseAdmin) {
+        console.error('[push] SUPABASE_SERVICE_ROLE_KEY ausente no servidor.');
+        return res.status(500).json({
+          success: false,
+          savedToDatabase: false,
+          code: 'MISSING_SERVICE_ROLE_KEY',
+          error: 'Configuração do servidor incompleta: A variável SUPABASE_SERVICE_ROLE_KEY não está configurada no servidor (Vercel). É obrigatória para persistir subscrições na base de dados com RLS ativo.',
         });
       }
 
@@ -195,29 +186,45 @@ export default async function handler(req: any, res: any) {
         updated_at: new Date().toISOString(),
       };
 
-      // Always save to high-resilience local cache
-      saveLocalSubscription(record);
+      // Perform privileged upsert to public.admin_push_subscriptions
+      const { error: upsertErr } = await supabaseAdmin
+        .from('admin_push_subscriptions')
+        .upsert(record, { onConflict: 'endpoint' });
 
-      // Attempt database upsert
-      let dbError: string | null = null;
-      try {
-        const { error: upsertErr } = await supabaseClient
-          .from('admin_push_subscriptions')
-          .upsert(record, { onConflict: 'endpoint' });
-
-        if (upsertErr) {
-          dbError = upsertErr.message;
-          console.warn('[push] Supabase upsert notice:', upsertErr.code, upsertErr.message);
-        }
-      } catch (e: any) {
-        dbError = e?.message || String(e);
+      if (upsertErr) {
+        console.error('[push] Erro ao gravar subscrição no Supabase:', upsertErr.message);
+        return res.status(500).json({
+          success: false,
+          savedToDatabase: false,
+          code: 'DATABASE_SAVE_FAILED',
+          error: `Falha ao gravar subscrição na base de dados Supabase: ${upsertErr.message}`,
+        });
       }
+
+      // Verify immediate persistence in database
+      const { data: verified, error: verifyErr } = await supabaseAdmin
+        .from('admin_push_subscriptions')
+        .select('id, endpoint')
+        .eq('endpoint', record.endpoint)
+        .maybeSingle();
+
+      if (verifyErr || !verified) {
+        console.error('[push] Falha na verificação pós-gravação:', verifyErr?.message);
+        return res.status(500).json({
+          success: false,
+          savedToDatabase: false,
+          code: 'VERIFICATION_FAILED',
+          error: 'A subscrição foi enviada para o Supabase mas a confirmação de persistência na base de dados falhou.',
+        });
+      }
+
+      // Save to local cache as secondary safeguard
+      saveLocalSubscription(record);
 
       return res.status(200).json({
         success: true,
-        message: 'Dispositivo registado com sucesso para notificações push.',
-        savedToDatabase: !dbError,
-        databaseNote: dbError ? `Nota base de dados: ${dbError}` : undefined,
+        savedToDatabase: true,
+        message: 'Dispositivo registado e confirmado com sucesso na base de dados Supabase.',
       });
     }
 
@@ -225,14 +232,17 @@ export default async function handler(req: any, res: any) {
     if (body.action === 'unsubscribe') {
       if (body.endpoint) {
         removeLocalSubscription(body.endpoint);
-        try {
-          await supabaseClient.from('admin_push_subscriptions').delete().eq('endpoint', body.endpoint);
-        } catch {}
+        const supabaseAdmin = getSupabaseAdminClient();
+        if (supabaseAdmin) {
+          try {
+            await supabaseAdmin.from('admin_push_subscriptions').delete().eq('endpoint', body.endpoint);
+          } catch {}
+        }
       }
       return res.status(200).json({ success: true, message: 'Subscrição cancelada com sucesso.' });
     }
 
-    // 3. ACTION: test OR new order webhook
+    // 3. ACTION: test OR new order notification
     const isTestRequest = body.action === 'test';
     let pushPayload = {
       title: 'Wearing Unusual • Nova Encomenda',
@@ -264,72 +274,88 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // 4. Gather all active subscriptions
-    const allSubsMap = new Map<string, any>();
-
-    // A. Local file & in-memory subscriptions
-    const localSubs = readLocalSubscriptions();
-    for (const s of localSubs) {
-      if (s && s.endpoint && s.p256dh && s.auth) {
-        allSubsMap.set(s.endpoint, s);
-      }
+    // Check SUPABASE_SERVICE_ROLE_KEY
+    const supabaseAdmin = getSupabaseAdminClient();
+    if (!supabaseAdmin) {
+      console.error('[push] SUPABASE_SERVICE_ROLE_KEY ausente no envio de notificações.');
+      return res.status(500).json({
+        success: false,
+        code: 'MISSING_SERVICE_ROLE_KEY',
+        error: 'Configuração do servidor incompleta: SUPABASE_SERVICE_ROLE_KEY não está configurada no servidor. O envio de notificações exige esta credencial para aceder à tabela de subscrições sob RLS.',
+      });
     }
 
-    // B. Direct current subscription if passed during test (ensures immediate targeted delivery to the iPhone)
+    // If test request includes current subscription, ensure it is upserted to database
     const currentSub = body.currentSubscription || body.subscription;
-    if (currentSub && currentSub.endpoint && currentSub.keys?.p256dh && currentSub.keys?.auth) {
-      const directRecord = {
-        endpoint: currentSub.endpoint,
-        p256dh: currentSub.keys.p256dh,
-        auth: currentSub.keys.auth,
-        user_id: body.userId || null,
-        user_agent: req.headers['user-agent'] || '',
-        updated_at: new Date().toISOString(),
-      };
-      allSubsMap.set(directRecord.endpoint, directRecord);
-      saveLocalSubscription(directRecord);
-
-      // Upsert to database as well
+    if (isTestRequest && currentSub?.endpoint && currentSub.keys?.p256dh && currentSub.keys?.auth) {
       try {
-        await supabaseClient
-          .from('admin_push_subscriptions')
-          .upsert(directRecord, { onConflict: 'endpoint' });
-      } catch {}
-    }
-
-    // C. Supabase database query
-    try {
-      const { data: dbSubs, error: dbErr } = await supabaseClient
-        .from('admin_push_subscriptions')
-        .select('id, user_id, endpoint, p256dh, auth');
-
-      if (!dbErr && Array.isArray(dbSubs)) {
-        for (const s of dbSubs) {
-          if (s && s.endpoint && s.p256dh && s.auth) {
-            allSubsMap.set(s.endpoint, s);
-          }
-        }
-      } else if (dbErr) {
-        console.warn('[push] Database select notice:', dbErr.code, dbErr.message);
+        await supabaseAdmin.from('admin_push_subscriptions').upsert(
+          {
+            endpoint: currentSub.endpoint,
+            p256dh: currentSub.keys.p256dh,
+            auth: currentSub.keys.auth,
+            user_id: body.userId || null,
+            user_agent: req.headers['user-agent'] || '',
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'endpoint' }
+        );
+      } catch (e) {
+        console.warn('[push] Aviso ao gravar subscrição de teste:', e);
       }
-    } catch (e: any) {
-      console.warn('[push] Supabase select catch notice:', e?.message || e);
     }
 
-    const subscriptions = Array.from(allSubsMap.values());
+    // Query active subscriptions from public.admin_push_subscriptions via service_role
+    let query = supabaseAdmin.from('admin_push_subscriptions').select('id, user_id, endpoint, p256dh, auth');
+    if (isTestRequest && body.userId) {
+      // For test, target authenticated admin if provided
+      query = query.eq('user_id', body.userId);
+    }
 
-    // 5. IF NO SUBSCRIPTIONS FOUND:
-    // Return explicit HTTP 404 with success: false (allows frontend to distinguish from sent notifications)
+    const { data: dbSubs, error: dbErr } = await query;
+
+    if (dbErr) {
+      console.error('[push] Erro ao consultar admin_push_subscriptions:', dbErr.message);
+      return res.status(500).json({
+        success: false,
+        error: `Erro ao consultar subscrições na base de dados: ${dbErr.message}`,
+      });
+    }
+
+    // Deduplicate subscriptions by endpoint
+    const subsMap = new Map<string, any>();
+    if (Array.isArray(dbSubs)) {
+      for (const s of dbSubs) {
+        if (s?.endpoint && s.p256dh && s.auth) {
+          subsMap.set(s.endpoint, s);
+        }
+      }
+    }
+
+    // Fallback: If test has direct subscription and DB was empty, include it
+    if (isTestRequest && currentSub?.endpoint && currentSub.keys?.p256dh && currentSub.keys?.auth) {
+      if (!subsMap.has(currentSub.endpoint)) {
+        subsMap.set(currentSub.endpoint, {
+          endpoint: currentSub.endpoint,
+          p256dh: currentSub.keys.p256dh,
+          auth: currentSub.keys.auth,
+        });
+      }
+    }
+
+    const subscriptions = Array.from(subsMap.values());
+
+    // 4. If no subscriptions found in database: return explicit HTTP 404
     if (subscriptions.length === 0) {
       return res.status(404).json({
         success: false,
         sent: 0,
         totalTargeted: 0,
-        error: 'Nenhum dispositivo de administrador subscrito no momento. Toque primeiro em «Ativar Notificações no iPhone».',
+        error: 'Nenhum dispositivo de administrador subscrito na base de dados. Toque primeiro em «Ativar Notificações no iPhone» no painel administrativo.',
       });
     }
 
-    // 6. Send push notifications via Web Push
+    // 5. Send push notifications via Web Push
     let sentCount = 0;
     const sendErrors: string[] = [];
     const expiredEndpoints: string[] = [];
@@ -352,51 +378,51 @@ export default async function handler(req: any, res: any) {
         sentCount++;
       } catch (sendErr: any) {
         const status = sendErr.statusCode || sendErr.status;
-        const msg = sendErr.body || sendErr.message || String(sendErr);
-        console.warn('[push] Send error for endpoint:', status, msg);
+        const safeError = `HTTP ${status || 'err'}: ${sendErr.message || 'Falha Web Push'}`;
+        console.warn('[push] Erro no envio Web Push para dispositivo:', safeError);
 
         if (status === 410 || status === 404) {
-          // Device has revoked permissions or subscription has expired
           expiredEndpoints.push(subRecord.endpoint);
         } else {
-          sendErrors.push(`(HTTP ${status || 'err'}): ${msg}`);
+          sendErrors.push(safeError);
         }
       }
     }
 
-    // 7. Cleanup expired subscriptions
-    for (const ep of expiredEndpoints) {
-      removeLocalSubscription(ep);
+    // 6. Cleanup expired endpoints from Supabase using service_role
+    if (expiredEndpoints.length > 0) {
       try {
-        await supabaseClient.from('admin_push_subscriptions').delete().eq('endpoint', ep);
-      } catch {}
+        await supabaseAdmin.from('admin_push_subscriptions').delete().in('endpoint', expiredEndpoints);
+        for (const ep of expiredEndpoints) removeLocalSubscription(ep);
+      } catch (e) {
+        console.warn('[push] Aviso ao limpar subscrições expiradas:', e);
+      }
     }
 
-    // 8. EVALUATE DELIVERY RESULT
+    // 7. Verify delivery outcome
     if (sentCount === 0) {
       return res.status(502).json({
         success: false,
         sent: 0,
         totalTargeted: subscriptions.length,
-        error: `Falha na entrega da notificação push aos servidores da Apple: ${sendErrors.join(', ') || 'Dispositivo inacessível'}`,
+        error: `Falha na entrega da notificação Web Push: ${sendErrors.join('; ') || 'Servidor de notificações rejeitou o envio.'}`,
       });
     }
 
     return res.status(200).json({
       success: true,
       sent: sentCount,
-      expiredRemoved: expiredEndpoints.length,
       totalTargeted: subscriptions.length,
+      expiredRemoved: expiredEndpoints.length,
       message: isTestRequest
-        ? `Notificação de teste enviada com sucesso para o seu iPhone (${sentCount} aparelho(s) ativo(s)).`
-        : `Notificações processadas com sucesso (${sentCount} enviadas para aparelhos ativos).`,
+        ? `Notificação de teste enviada com sucesso para o seu iPhone (${sentCount} dispositivo(s) notificado(s)).`
+        : `Notificação enviada com sucesso (${sentCount} dispositivo(s) notificado(s)).`,
     });
   } catch (err: any) {
-    console.error('[push] Fatal error in notify-order handler:', err);
+    console.error('[push] Erro fatal no processamento:', err);
     return res.status(500).json({
       success: false,
       error: `Erro no servidor de notificações: ${err?.message || String(err)}`,
     });
   }
 }
-

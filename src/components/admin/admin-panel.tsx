@@ -53,6 +53,7 @@ import {
   isIOS,
   isIOSStandalone,
   isSubscribedToPush,
+  checkDeviceSubscriptionStatus,
   subscribeAdminToPush,
   unsubscribeAdminFromPush,
   sendTestPushNotification,
@@ -166,13 +167,16 @@ export const AdminPanel: React.FC = () => {
 
   useEffect(() => {
     if (isPushSupported()) {
-      isSubscribedToPush().then((active) => {
-        // Only mark active if both browser has subscription AND device was registered
-        const wasRegistered = typeof window !== 'undefined' ? localStorage.getItem('wu_push_device_subscribed') === 'true' : true;
-        setIsPushActiveOnDevice(active && wasRegistered);
-      }).catch(() => {});
+      checkDeviceSubscriptionStatus(user?.id)
+        .then((status) => {
+          // Strictly require both browser subscription AND confirmed persistence in Supabase
+          setIsPushActiveOnDevice(status.browserSubscribed && status.persistedInDatabase);
+        })
+        .catch(() => {
+          setIsPushActiveOnDevice(false);
+        });
     }
-  }, [isPushModalOpen]);
+  }, [isPushModalOpen, user?.id]);
 
   const handleActivatePush = async () => {
     if (!user) {
