@@ -229,6 +229,25 @@ async function startServer() {
   // Push Notifications API route (Vercel & Local Node compatible)
   app.all('/api/notify-order', (req, res) => notifyOrderHandler(req, res));
 
+  // Service Worker & Manifests with strict anti-caching & PWA scope headers
+  app.get('/sw.js', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    const swPath = path.resolve(__dirname, 'public/sw.js');
+    if (fs.existsSync(swPath)) return res.sendFile(swPath);
+    res.status(404).end();
+  });
+
+  app.get(['/admin.webmanifest', '/site.webmanifest'], (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+    const manifestName = req.path.replace(/^\//, '');
+    const mPath = path.resolve(__dirname, 'public', manifestName);
+    if (fs.existsSync(mPath)) return res.sendFile(mPath);
+    res.status(404).end();
+  });
+
   // API 1: GET /api/store-state
   app.get('/api/store-state', async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0, proxy-revalidate');

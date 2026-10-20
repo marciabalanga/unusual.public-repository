@@ -48,13 +48,13 @@ export function isIOSStandalone(): boolean {
 export async function getBrowserPushSubscription(): Promise<PushSubscription | null> {
   if (!isPushSupported()) return null;
   try {
-    const registration =
-      (await navigator.serviceWorker.ready) ||
+    const reg =
+      (await navigator.serviceWorker.getRegistration()) ||
       (await navigator.serviceWorker.getRegistration('/admin')) ||
       (await navigator.serviceWorker.getRegistration('/')) ||
-      (await navigator.serviceWorker.getRegistration());
-    if (!registration) return null;
-    return await registration.pushManager.getSubscription();
+      (await navigator.serviceWorker.ready);
+    if (!reg) return null;
+    return await reg.pushManager.getSubscription();
   } catch {
     return null;
   }
@@ -161,7 +161,12 @@ export async function subscribeAdminToPush(userId: string): Promise<PushSubscrip
 
   try {
     // 1. Register Service Worker with scope / to control all routes including /admin
-    const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    let registration: ServiceWorkerRegistration;
+    try {
+      registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    } catch {
+      registration = await navigator.serviceWorker.register('/sw.js');
+    }
     await navigator.serviceWorker.ready;
 
     // 2. Request user notification permission via explicit click

@@ -102,6 +102,7 @@ export const AdminPanel: React.FC = () => {
     deleteRestockRequest,
     supabaseStatus,
     refreshSupabase,
+    refreshOrders,
     isSyncing,
     setActiveTab,
     isPreviewMode,
@@ -144,6 +145,7 @@ export const AdminPanel: React.FC = () => {
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
   const [copiedFixSql, setCopiedFixSql] = useState(false);
+  const [isManualSyncing, setIsManualSyncing] = useState(false);
 
   // Push Notifications State (Safari iOS PWA)
   const [isPushModalOpen, setIsPushModalOpen] = useState(false);
@@ -949,15 +951,23 @@ export const AdminPanel: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  disabled={isManualSyncing || isSyncing}
                   onClick={async () => {
-                    await refreshSupabase();
-                    showToast('Base de dados sincronizada com o Supabase!');
+                    setIsManualSyncing(true);
+                    try {
+                      await Promise.all([refreshOrders(false), refreshSupabase()]);
+                      showToast('Lista de encomendas atualizada com o Supabase!');
+                    } catch {
+                      showToast('Erro ao atualizar encomendas.');
+                    } finally {
+                      setIsManualSyncing(false);
+                    }
                   }}
-                  className="px-3.5 py-2 bg-[#1a1a1a] hover:bg-[#252525] border border-[#333333] text-white rounded text-xs font-sans flex items-center gap-1.5 transition-colors"
+                  className="px-3.5 py-2 bg-[#1a1a1a] hover:bg-[#252525] border border-[#333333] text-white rounded text-xs font-sans flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
                   title="Atualizar lista de encomendas e pedidos de restock da nuvem"
                 >
-                  <RefreshCw className="w-3.5 h-3.5 text-[#aaaaaa]" />
-                  <span>Sincronizar Supabase</span>
+                  <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isManualSyncing || isSyncing ? 'animate-spin' : ''}`} />
+                  <span>{isManualSyncing || isSyncing ? 'A Atualizar...' : 'Atualizar Encomendas'}</span>
                 </button>
               </div>
             </div>
@@ -6264,8 +6274,15 @@ export const AdminPanel: React.FC = () => {
                         </ol>
                       </div>
                     ) : (
-                      <div className="p-2.5 bg-emerald-950/20 border border-emerald-800/40 rounded text-emerald-300 text-[10px]">
-                        ✓ Aplicação a correr em modo Ecrã Principal (Standalone PWA) no iPhone.
+                      <div className="space-y-1.5">
+                        <div className="p-2.5 bg-emerald-950/20 border border-emerald-800/40 rounded text-emerald-300 text-[10px]">
+                          ✓ Aplicação a correr em modo Ecrã Principal (Standalone PWA) no iPhone.
+                        </div>
+                        {!isPushActiveOnDevice && (
+                          <div className="p-2.5 bg-amber-950/30 border border-amber-800/50 rounded text-amber-300 text-[11px] leading-relaxed">
+                            <strong>Aviso:</strong> A Web App instalada possui um identificador próprio no iOS independente do Safari. Toque em <strong>«Ativar Notificações no iPhone»</strong> abaixo para registar este aplicativo no servidor.
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

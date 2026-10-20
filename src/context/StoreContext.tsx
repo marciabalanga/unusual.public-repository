@@ -82,6 +82,7 @@ interface StoreContextType {
   updateRestockStatus: (id: string, status: string, notes?: string) => Promise<boolean>;
   deleteRestockRequest: (id: string) => Promise<boolean>;
   restockRequests: RestockRequest[];
+  refreshOrders: (triggerChimeForNew?: boolean) => Promise<void>;
 
   // Cart
   cart: CartItem[];
@@ -1415,6 +1416,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Set to track order IDs already processed, preventing duplicate alerts or duplicate additions
   const processedOrderIdsRef = useRef<Set<string>>(new Set());
+  const initialLoadCompletedRef = useRef<boolean>(false);
 
   // Populate processedOrderIdsRef with existing orders to prevent re-alerting on app start
   useEffect(() => {
@@ -1422,9 +1424,87 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (o.id) processedOrderIdsRef.current.add(o.id);
       if (o.tracking_code) processedOrderIdsRef.current.add(o.tracking_code);
     });
+    initialLoadCompletedRef.current = true;
   }, [orders]);
 
-  // Supabase Realtime Listener + Polling Fallback for Orders
+  // Centralized, deduplicated order refresher
+  const refreshOrders = useCallback(async (triggerChimeForNew = false) => {
+    if (!supabase) return;
+    try {
+      const { data: latestOrders, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && Array.isArray(latestOrders)) {
+        let hasAnyNewOrder = false;
+        let newestOrderToAlert: Order | null = null;
+
+        const hydratedLatest: Order[] = latestOrders.map((ord: any) => {
+          const activeEv = ord.status_timeline?.find((ev: any) => ev.active);
+          const noteEv = ord.status_timeline?.find((ev: any) => ev.admin_note && ev.admin_note.trim() !== '');
+          const hydratedNotes =
+            ord.admin_notes ||
+            noteEv?.admin_note ||
+            (activeEv && !activeEv.description?.includes('vaga reservada') ? activeEv.description : undefined);
+
+          return {
+            ...ord,
+            admin_notes: hydratedNotes,
+          };
+        });
+
+        // Detect genuinely new orders
+        for (const ord of hydratedLatest) {
+          const orderKey = ord.tracking_code || ord.id;
+          if (orderKey && !processedOrderIdsRef.current.has(orderKey)) {
+            processedOrderIdsRef.current.add(orderKey);
+            if (ord.id) processedOrderIdsRef.current.add(ord.id);
+            if (ord.tracking_code) processedOrderIdsRef.current.add(ord.tracking_code);
+            hasAnyNewOrder = true;
+            if (!newestOrderToAlert) newestOrderToAlert = ord;
+          }
+        }
+
+        setOrders((prevLocal) => {
+          let deletedOrdersList: string[] = [];
+          try {
+            const rawDel = localStorage.getItem(LOCAL_STORAGE_KEYS.DELETED_ORDERS);
+            if (rawDel) deletedOrdersList = JSON.parse(rawDel);
+          } catch {}
+          const deletedSet = new Set(deletedOrdersList);
+
+          const orderMap = new Map<string, Order>();
+          prevLocal.forEach((o) => {
+            if (!deletedSet.has(o.id) && !deletedSet.has(o.tracking_code)) {
+              orderMap.set(o.tracking_code || o.id, o);
+            }
+          });
+          hydratedLatest.forEach((o) => {
+            if (!deletedSet.has(o.id) && !deletedSet.has(o.tracking_code)) {
+              orderMap.set(o.tracking_code || o.id, o);
+            }
+          });
+
+          const combined = Array.from(orderMap.values());
+          combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          return combined;
+        });
+
+        if (hasAnyNewOrder && triggerChimeForNew && initialLoadCompletedRef.current && newestOrderToAlert && typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('wu:new_order', {
+              detail: newestOrderToAlert,
+            })
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('[Orders Sync] Falha ao atualizar encomendas:', err);
+    }
+  }, []);
+
+  // Supabase Realtime Listener + Lifecycle Recovery (PWA Standalone & Safari) + Polling Fallback
   useEffect(() => {
     if (!supabase) return;
 
@@ -1453,14 +1533,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
 
       setOrders((prev) => {
-        // Prevent duplicate in state
         if (prev.some((o) => o.id === newOrder.id || (newOrder.tracking_code && o.tracking_code === newOrder.tracking_code))) {
           return prev;
         }
         return [newOrder, ...prev];
       });
 
-      // Dispatch custom event for admin-panel notification chime and toast
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
           new CustomEvent('wu:new_order', {
@@ -1486,7 +1564,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     // 1. Subscribe to Supabase Realtime 'orders' table
-    const ordersChannel = supabase
+    let ordersChannel = supabase
       .channel('public:orders:realtime')
       .on(
         'postgres_changes',
@@ -1507,29 +1585,50 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.log('[Supabase Realtime] Orders channel status:', status);
       });
 
-    // 2. Safety Polling (Every 25 seconds if document is visible)
-    const pollInterval = setInterval(async () => {
+    // 2. High-Frequency Polling (every 8 seconds when window is active)
+    const pollInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
-      try {
-        const { data: latestOrders, error } = await supabase
-          .from('orders')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(20);
+      refreshOrders(true);
+    }, 8000);
 
-        if (!error && Array.isArray(latestOrders)) {
-          for (const ord of latestOrders) {
-            handleIncomingOrder(ord);
+    // 3. iOS PWA / Standalone Lifecycle Recovery (Waking up from background or device lock)
+    const handleAppResume = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        // Immediate sync upon returning to the app
+        refreshOrders(true);
+
+        // Reconnect Supabase Realtime WebSocket if closed by iOS power management
+        try {
+          if (ordersChannel && (ordersChannel.state === 'closed' || ordersChannel.state === 'errored')) {
+            console.log('[Supabase Realtime] Re-subscrevendo canal após suspensão do PWA...');
+            ordersChannel.subscribe();
           }
-        }
-      } catch {}
-    }, 25000);
+        } catch {}
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleAppResume);
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', handleAppResume);
+      window.addEventListener('pageshow', handleAppResume);
+    }
 
     return () => {
       clearInterval(pollInterval);
-      supabase.removeChannel(ordersChannel);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleAppResume);
+      }
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', handleAppResume);
+        window.removeEventListener('pageshow', handleAppResume);
+      }
+      try {
+        supabase.removeChannel(ordersChannel);
+      } catch {}
     };
-  }, []);
+  }, [refreshOrders]);
 
   // Translation helper with strict graceful fallback
   const t = useCallback(
@@ -3405,6 +3504,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         navigateTo,
         supabaseStatus,
         refreshSupabase: syncWithSupabase,
+        refreshOrders,
         isSyncing,
         isPreviewMode,
         setIsPreviewMode,

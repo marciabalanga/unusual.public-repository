@@ -40,7 +40,9 @@
                     k !== 'wu_cart_v1' &&
                     k !== 'wu_wishlist_v1' &&
                     k.indexOf('wu_admin') !== 0 &&
-                    k.indexOf('wu_pwa') !== 0
+                    k.indexOf('wu_pwa') !== 0 &&
+                    k.indexOf('wu_push') !== 0 &&
+                    k.indexOf('wu_orders') !== 0
                   ) {
                     localStorage.removeItem(k);
                   }
