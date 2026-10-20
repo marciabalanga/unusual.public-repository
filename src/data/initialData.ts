@@ -1116,6 +1116,14 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS coming_soon_badge BOOLEAN D
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS return_date TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS enable_request_restock BOOLEAN DEFAULT false;
 
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS order_type TEXT DEFAULT 'regular';
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS is_pre_order BOOLEAN DEFAULT false;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS scheduled_delivery_date TIMESTAMPTZ;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS delivery_window TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS available_delivery_dates JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS actual_delivered_at TIMESTAMPTZ;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS estimated_delivery_text TEXT;
+
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS site_logo_url TEXT;
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS logo_url TEXT;
 ALTER TABLE public.site_settings ADD COLUMN IF NOT EXISTS brand_bio TEXT;
@@ -1247,6 +1255,15 @@ FOR UPDATE USING (bucket_id = 'receipts');
 
 CREATE POLICY "Public Delete Receipts" ON storage.objects
 FOR DELETE USING (bucket_id = 'receipts');
+
+-- 7. Garante que a tabela orders está associada à publicação Realtime
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN undefined_object THEN NULL;
+END $$;
 `;
 
 export const SUPABASE_PUSH_NOTIFICATIONS_SQL = `-- ==============================================================================

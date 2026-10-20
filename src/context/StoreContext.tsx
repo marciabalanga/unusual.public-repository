@@ -296,6 +296,66 @@ export const isUnusualModelsMenuItem = (m: SiteMenuItem): boolean => {
   return false;
 };
 
+/**
+ * Serializa uma Encomenda exclusivamente com as colunas reais existentes no PostgreSQL (Supabase orders).
+ * Exclui colunas não existentes no PostgREST (como order_type e is_pre_order separadas) para evitar
+ * o erro PGRST204 ('Could not find the column in the schema cache'), permitindo persistência imediata.
+ */
+export const toSupabaseOrderPayload = (order: Partial<Order>): Record<string, unknown> => {
+  return {
+    id: order.id,
+    tracking_code: order.tracking_code,
+    customer_name: order.customer_name || 'Cliente',
+    customer_phone: order.customer_phone || '',
+    customer_city: order.customer_city || order.customer_address || 'Luanda',
+    customer_notes: order.customer_notes || order.customer_reference || null,
+    items: order.items || [],
+    total_aoa: Number(order.total_aoa) || 0,
+    payment_method: order.payment_method || 'Multicaixa Express',
+    payment_proof_url: order.payment_proof_url || null,
+    status: order.status || 'ORDER CONFIRMED',
+    status_timeline: order.status_timeline || [],
+    created_at: order.created_at || new Date().toISOString(),
+    updated_at: order.updated_at || new Date().toISOString(),
+  };
+};
+
+/**
+ * Hidrata a encomenda vinda do Supabase garantindo os campos computados da aplicação
+ * (is_pre_order, order_type e admin_notes), sem perda de dados entre Safari e PWA Standalone.
+ */
+export const hydrateOrderFromRemote = (raw: any): Order => {
+  if (!raw) return raw;
+  const activeEv = raw.status_timeline?.find((ev: any) => ev && ev.active);
+  const noteEv = raw.status_timeline?.find((ev: any) => ev && ev.admin_note && ev.admin_note.trim() !== '');
+  const isStandardDesc = (desc?: string) =>
+    !desc ||
+    desc.includes('vaga reservada no atelier') ||
+    desc.includes('Peça embalada sob padrão') ||
+    desc.includes('estafeta está a caminho') ||
+    desc.includes('entregue em mãos') ||
+    desc.includes('aguardar validação bancária');
+
+  const hydratedNotes =
+    raw.admin_notes ||
+    noteEv?.admin_note ||
+    (activeEv && !isStandardDesc(activeEv.description) ? activeEv.description : undefined);
+
+  const isPreOrder = Boolean(
+    raw.is_pre_order ||
+    raw.order_type === 'pre_order' ||
+    (Array.isArray(raw.items) && raw.items.some((i: any) => i && i.is_pre_order)) ||
+    (Array.isArray(raw.status_timeline) && raw.status_timeline.some((ev: any) => ev && typeof ev.title === 'string' && ev.title.includes('PRE-ORDER')))
+  );
+
+  return {
+    ...raw,
+    is_pre_order: isPreOrder,
+    order_type: isPreOrder ? 'pre_order' : 'regular',
+    admin_notes: hydratedNotes,
+  };
+};
+
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Published State (Live Store for Public Visitors)
   const [publishedProducts, setPublishedProducts] = useState<Product[]>(() => {
@@ -1343,37 +1403,55 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       // 5. Process Orders
       if (!ordRes.error && ordRes.data) {
-        const remoteOrders = (ordRes.data as Order[]).map((o) => {
-          const activeEv = o.status_timeline?.find((ev) => ev.active);
-          const noteEv = o.status_timeline?.find((ev) => ev.admin_note && ev.admin_note.trim() !== '');
-          const isStandardDesc = (desc?: string) =>
-            !desc ||
-            desc.includes('vaga reservada no atelier') ||
-            desc.includes('Peça embalada sob padrão') ||
-            desc.includes('estafeta está a caminho') ||
-            desc.includes('entregue em mãos') ||
-            desc.includes('aguardar validação bancária');
+        const remoteOrders = (ordRes.data as any[]).map(hydrateOrderFromRemote);
 
-          const hydratedNotes =
-            o.admin_notes ||
-            noteEv?.admin_note ||
-            (activeEv && !isStandardDesc(activeEv.description) ? activeEv.description : undefined);
+        // Identifica encomendas locais que ainda não foram persistidas no Supabase (ex: testes anteriores que falharam por PGRST204)
+        let deletedOrdersList: string[] = [];
+        try {
+          const raw = localStorage.getItem(LOCAL_STORAGE_KEYS.DELETED_ORDERS);
+          if (raw) deletedOrdersList = JSON.parse(raw);
+        } catch {}
+        const deletedSet = new Set(deletedOrdersList);
 
-          return {
-            ...o,
-            admin_notes: hydratedNotes,
-          };
+        const remoteKeys = new Set<string>();
+        remoteOrders.forEach((o) => {
+          if (o.id) remoteKeys.add(o.id);
+          if (o.tracking_code) remoteKeys.add(o.tracking_code);
         });
 
-        setOrders((prevLocal) => {
-          if (remoteOrders.length === 0) return prevLocal;
-          let deletedOrdersList: string[] = [];
-          try {
-            const raw = localStorage.getItem(LOCAL_STORAGE_KEYS.DELETED_ORDERS);
-            if (raw) deletedOrdersList = JSON.parse(raw);
-          } catch {}
-          const deletedSet = new Set(deletedOrdersList);
+        // Sincroniza qualquer encomenda local pendente com o Supabase para que a PWA Standalone a receba imediatamente
+        try {
+          const savedLocalRaw = localStorage.getItem(LOCAL_STORAGE_KEYS.ORDERS);
+          if (savedLocalRaw) {
+            const parsedLocal: Order[] = JSON.parse(savedLocalRaw);
+            if (Array.isArray(parsedLocal)) {
+              const pendingSync = parsedLocal.filter(
+                (loc) => loc && (loc.id || loc.tracking_code) &&
+                  !remoteKeys.has(loc.tracking_code || '') &&
+                  !remoteKeys.has(loc.id || '') &&
+                  !deletedSet.has(loc.id) &&
+                  !deletedSet.has(loc.tracking_code)
+              );
+              if (pendingSync.length > 0) {
+                console.log('[Supabase Sync] A sincronizar encomendas locais pendentes para a base de dados:', pendingSync.length);
+                for (const pendingOrder of pendingSync) {
+                  Promise.resolve(
+                    supabase.from('orders').insert([toSupabaseOrderPayload(pendingOrder)])
+                  )
+                    .then(({ error: insErr }) => {
+                      if (!insErr) {
+                        console.log('[Supabase Sync] Encomenda local sincronizada com sucesso:', pendingOrder.tracking_code);
+                      }
+                    })
+                    .catch(() => {});
+                }
+              }
+            }
+          }
+        } catch {}
 
+        setOrders((prevLocal) => {
+          if (remoteOrders.length === 0 && prevLocal.length === 0) return [];
           const orderMap = new Map<string, Order>();
           prevLocal.forEach((o) => {
             if (!deletedSet.has(o.id) && !deletedSet.has(o.tracking_code)) {
@@ -1440,19 +1518,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         let hasAnyNewOrder = false;
         let newestOrderToAlert: Order | null = null;
 
-        const hydratedLatest: Order[] = latestOrders.map((ord: any) => {
-          const activeEv = ord.status_timeline?.find((ev: any) => ev.active);
-          const noteEv = ord.status_timeline?.find((ev: any) => ev.admin_note && ev.admin_note.trim() !== '');
-          const hydratedNotes =
-            ord.admin_notes ||
-            noteEv?.admin_note ||
-            (activeEv && !activeEv.description?.includes('vaga reservada') ? activeEv.description : undefined);
-
-          return {
-            ...ord,
-            admin_notes: hydratedNotes,
-          };
-        });
+        const hydratedLatest: Order[] = latestOrders.map(hydrateOrderFromRemote);
 
         // Detect genuinely new orders
         for (const ord of hydratedLatest) {
@@ -1520,17 +1586,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (rawOrder.id) processedOrderIdsRef.current.add(rawOrder.id);
       if (rawOrder.tracking_code) processedOrderIdsRef.current.add(rawOrder.tracking_code);
 
-      const activeEv = rawOrder.status_timeline?.find((ev: any) => ev.active);
-      const noteEv = rawOrder.status_timeline?.find((ev: any) => ev.admin_note && ev.admin_note.trim() !== '');
-      const hydratedNotes =
-        rawOrder.admin_notes ||
-        noteEv?.admin_note ||
-        (activeEv && !activeEv.description?.includes('vaga reservada') ? activeEv.description : undefined);
-
-      const newOrder: Order = {
-        ...rawOrder,
-        admin_notes: hydratedNotes,
-      };
+      const newOrder: Order = hydrateOrderFromRemote(rawOrder);
 
       setOrders((prev) => {
         if (prev.some((o) => o.id === newOrder.id || (newOrder.tracking_code && o.tracking_code === newOrder.tracking_code))) {
@@ -2818,38 +2874,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Persist to Supabase orders table with timeout protection (guarantees instantaneous order generation)
     if (supabaseStatus.connected && !supabaseStatus.missingTables.includes('orders')) {
-      // Intact proof URL (never truncated or corrupted)
-      const remoteProofUrl = orderData.payment_proof_url || null;
+      const remotePayload = toSupabaseOrderPayload(newOrder);
 
-      // Note: Only transmit columns that exist in the Supabase 'orders' schema to avoid PGRST204
-      const remotePayload: Record<string, unknown> = {
-        id: orderId,
-        tracking_code: code,
-        order_type: isPreOrder ? 'pre_order' : 'regular',
-        customer_name: orderData.customer_name,
-        customer_phone: orderData.customer_phone,
-        customer_city: orderData.customer_city || orderData.customer_address || 'Luanda',
-        customer_notes: orderData.customer_notes || orderData.customer_reference || null,
-        items: orderData.items,
-        total_aoa: orderData.total_aoa,
-        payment_method: orderData.payment_method || 'Multicaixa Express',
-        payment_proof_url: remoteProofUrl,
-        status: initialStatus,
-        status_timeline: initialTimeline,
-        is_pre_order: isPreOrder,
-        created_at: now,
-        updated_at: now,
-      };
-
-      // Wrap in Promise.race with 2.5s timeout so order generation is never blocked
+      // Wrap in Promise.race with 3.5s timeout so order generation is never blocked
       Promise.race([
         supabase.from('orders').insert([remotePayload]),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2500)),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3500)),
       ])
         .then((res: unknown) => {
           const typedRes = res as { error?: { code?: string; message?: string } } | null;
           if (typedRes?.error) {
-            if (typedRes.error.code === 'PGRST205' || typedRes.error.message?.includes('schema cache')) {
+            if (typedRes.error.code === 'PGRST205' || typedRes.error.message?.includes('not find the table')) {
               markTableMissing('orders');
             }
             console.warn('[Supabase] Aviso ao gravar encomenda no servidor:', typedRes.error);
@@ -3185,26 +3220,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .maybeSingle();
 
         if (!error && data) {
-          const rawOrder = data as Order;
-          const activeEv = rawOrder.status_timeline?.find((ev) => ev.active);
-          const noteEv = rawOrder.status_timeline?.find((ev) => ev.admin_note && ev.admin_note.trim() !== '');
-          const isStandardDesc = (desc?: string) =>
-            !desc ||
-            desc.includes('vaga reservada no atelier') ||
-            desc.includes('Peça embalada sob padrão') ||
-            desc.includes('estafeta está a caminho') ||
-            desc.includes('entregue em mãos') ||
-            desc.includes('aguardar validação bancária');
-
-          const hydratedNotes =
-            rawOrder.admin_notes ||
-            noteEv?.admin_note ||
-            (activeEv && !isStandardDesc(activeEv.description) ? activeEv.description : undefined);
-
-          const fullOrder: Order = {
-            ...rawOrder,
-            admin_notes: hydratedNotes,
-          };
+          const fullOrder: Order = hydrateOrderFromRemote(data);
 
           // Update local state if remote was modified by admin
           setOrders((prev) => {
@@ -3215,7 +3231,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             return [fullOrder, ...prev];
           });
           return fullOrder;
-        } else if (error && (error.code === 'PGRST205' || error.message?.includes('schema cache'))) {
+        } else if (error && (error.code === 'PGRST205' || error.message?.includes('not find the table'))) {
           markTableMissing('orders');
         }
       } catch {}
@@ -3282,8 +3298,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           .from('orders')
           .update({
             status: 'DELIVERY SCHEDULED',
-            scheduled_delivery_date: date,
-            delivery_window: timeWindow,
             status_timeline: (updatedOrderForRemote as Order).status_timeline,
             updated_at: now,
           })
@@ -3320,8 +3334,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await supabase
           .from('orders')
           .update({
-            whatsapp_notification_sent: true,
-            whatsapp_notification_sent_at: now,
+            status_timeline: (updatedOrderForRemote as Order).status_timeline,
             updated_at: now,
           })
           .eq('id', (updatedOrderForRemote as Order).id);
