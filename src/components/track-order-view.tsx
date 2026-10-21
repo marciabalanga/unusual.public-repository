@@ -51,6 +51,14 @@ export const TrackOrderView: React.FC = () => {
     try {
       const order = await getOrderByTrackingCode(code);
       setCurrentOrder(order);
+      if (order) {
+        setTimeout(() => {
+          const el = document.getElementById('order-tracking-result');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 120);
+      }
     } catch {
       setCurrentOrder(null);
     } finally {
@@ -59,13 +67,21 @@ export const TrackOrderView: React.FC = () => {
   };
 
   useEffect(() => {
-    scrollToTop(true);
-  }, []);
+    const codeToSearch =
+      trackingInput ||
+      (typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('track') ||
+          new URLSearchParams(window.location.search).get('tracking') ||
+          new URLSearchParams(window.location.search).get('code') ||
+          ''
+        : '');
 
-  useEffect(() => {
-    if (trackingInput) {
-      setSearchedCode(trackingInput);
-      handleSearch(trackingInput);
+    if (codeToSearch) {
+      const formatted = codeToSearch.trim().toUpperCase();
+      setSearchedCode(formatted);
+      handleSearch(formatted);
+    } else {
+      scrollToTop(true);
     }
   }, [trackingInput]);
 
@@ -310,7 +326,7 @@ export const TrackOrderView: React.FC = () => {
       {hasSearched && !isLoading && (
         <>
           {currentOrder ? (
-            <div className="bg-[#0e0e0e] border border-[#222222] rounded-lg p-6 sm:p-10 shadow-2xl space-y-10 animate-in fade-in duration-300">
+            <div id="order-tracking-result" className="bg-[#0e0e0e] border border-[#222222] rounded-lg p-6 sm:p-10 shadow-2xl space-y-10 animate-in fade-in duration-300 scroll-mt-24">
               {/* Order Top Bar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-[#1f1f1f] gap-4">
                 <div>
@@ -374,7 +390,7 @@ export const TrackOrderView: React.FC = () => {
               )}
 
               {/* VISUAL TIMELINE (LINHA DO TEMPO) */}
-              <div className="space-y-6">
+              <div id="order-timeline-section" className="space-y-6 scroll-mt-24">
                 <h3 className="text-xs font-sans tracking-[0.25em] text-[#aaaaaa] uppercase flex items-center gap-2">
                   <Clock className="w-4 h-4 text-white" />
                   <span>{language === 'en' ? 'ORDER TIMELINE' : 'LINHA DO TEMPO DA ENCOMENDA'}</span>

@@ -99,7 +99,7 @@ const MainContent: React.FC = () => {
       const hash = window.location.hash.toLowerCase();
       const searchParams = new URLSearchParams(window.location.search);
       const scheduleCode = searchParams.get('schedule_delivery') || searchParams.get('schedule');
-      const trackCode = searchParams.get('track') || searchParams.get('tracking');
+      const trackCode = searchParams.get('track') || searchParams.get('tracking') || searchParams.get('code');
 
       if (trackCode) {
         setTrackingInput(trackCode.toUpperCase());
@@ -432,9 +432,7 @@ const MainContent: React.FC = () => {
 
   const handleViewTracking = (trackingCode: string) => {
     setConfirmedOrder(null);
-    setTrackingInput(trackingCode);
-    setActiveTab('track');
-    scrollToTop(true);
+    navigateTo({ tab: 'track', code: trackingCode });
   };
 
   // Se o utilizador tentar aceder à rota privada /admin:

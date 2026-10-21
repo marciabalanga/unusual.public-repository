@@ -820,8 +820,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
 
         const targetUrl = isPreviewMode
-          ? (dest.code ? `/preview#track?code=${encodeURIComponent(dest.code)}` : '/preview#track')
-          : (dest.code ? `/track?code=${encodeURIComponent(dest.code)}` : '/track');
+          ? (dest.code ? `/?track=${encodeURIComponent(dest.code)}#preview` : '/?track=true#preview')
+          : (dest.code ? `/?track=${encodeURIComponent(dest.code)}` : '/track');
         try {
           window.history.pushState({ tab: 'track', code: dest.code }, '', targetUrl);
           window.dispatchEvent(new PopStateEvent('popstate', { state: { tab: 'track', code: dest.code } }));
@@ -2853,14 +2853,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Modo de Simulação de Preview: Permite testar todo o fluxo visual de checkout sem criar encomenda real
     if (isPreviewMode) {
-      return {
+      const previewOrder: Order = {
         ...newOrder,
         id: `PREVIEW-${Date.now()}`,
         tracking_code: `WU-PREVIEW-${Math.floor(1000 + Math.random() * 9000)}`,
         status_timeline: [
           {
             step: 1,
-            title: 'ENCOMENDA SIMULADA (PREVIEW)',
+            title: 'ORDER CONFIRMED',
             description: 'Fluxo testado com sucesso no modo Preview. Nenhum dado gravado no banco de dados.',
             timestamp: now,
             completed: true,
@@ -2868,6 +2868,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           },
         ],
       };
+      setOrders((prev) => [previewOrder, ...prev]);
+      return previewOrder;
     }
 
     setOrders((prev) => [newOrder, ...prev]);
@@ -3202,14 +3204,43 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const getOrderByTrackingCode = async (code: string): Promise<Order | null> => {
+    if (!code || typeof code !== 'string') return null;
     const formatted = code.trim().toUpperCase();
 
-    // Check local memory first
-    const local = orders.find(
-      (o) => o.tracking_code.trim().toUpperCase() === formatted
-    );
+    // 1. Check local state memory safely (handles undefined tracking_code without throwing)
+    const local = orders.find((o) => {
+      if (!o) return false;
+      const tc = typeof o.tracking_code === 'string' ? o.tracking_code.trim().toUpperCase() : '';
+      const id = typeof o.id === 'string' ? o.id.trim().toUpperCase() : '';
+      return tc === formatted || id === formatted;
+    });
 
-    // Also query Supabase directly for live real-time sync if table exists
+    if (local) {
+      return local;
+    }
+
+    // 2. Check localStorage fallback (in case order was just generated and state has not finished re-render)
+    try {
+      const raw = localStorage.getItem(LOCAL_STORAGE_KEYS.ORDERS);
+      if (raw) {
+        const parsed: Order[] = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const match = parsed.find((o) => {
+            if (!o) return false;
+            const tc = typeof o.tracking_code === 'string' ? o.tracking_code.trim().toUpperCase() : '';
+            const id = typeof o.id === 'string' ? o.id.trim().toUpperCase() : '';
+            return tc === formatted || id === formatted;
+          });
+          if (match) {
+            const hydrated = hydrateOrderFromRemote(match);
+            setOrders((prev) => [hydrated, ...prev.filter((p) => p && p.id !== hydrated.id)]);
+            return hydrated;
+          }
+        }
+      }
+    } catch {}
+
+    // 3. Query Supabase directly for live real-time sync if table exists
     const canSyncOrders = supabaseStatus.connected && !supabaseStatus.missingTables.includes('orders');
     if (canSyncOrders) {
       try {
@@ -3224,9 +3255,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
           // Update local state if remote was modified by admin
           setOrders((prev) => {
-            const exists = prev.some((o) => o.id === fullOrder.id);
+            const exists = prev.some((o) => o && o.id === fullOrder.id);
             if (exists) {
-              return prev.map((o) => (o.id === fullOrder.id ? fullOrder : o));
+              return prev.map((o) => (o && o.id === fullOrder.id ? fullOrder : o));
             }
             return [fullOrder, ...prev];
           });
@@ -3237,7 +3268,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       } catch {}
     }
 
-    return local || null;
+    return null;
   };
 
   const scheduleDeliveryDate = async (orderId: string, date: string, timeWindow?: string): Promise<boolean> => {
