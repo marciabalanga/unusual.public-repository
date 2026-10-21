@@ -2901,17 +2901,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Dispara notificação push instantânea para os iPhones dos administradores
     try {
+      const primaryItem = orderData.items && orderData.items[0];
+      const primaryProductName = primaryItem
+        ? ((primaryItem as any).product_name || (primaryItem as any).name || (primaryItem as any).title)
+        : undefined;
+
       fetch('/api/notify-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'INSERT',
+          event_type: isPreOrder ? 'pre_order' : 'order',
           record: {
             id: orderId,
             tracking_code: code,
             customer_name: orderData.customer_name,
             total_aoa: orderData.total_aoa,
             order_type: isPreOrder ? 'pre_order' : 'regular',
+            is_pre_order: isPreOrder,
+            product_name: primaryProductName,
+            items: orderData.items?.map((it: any) => ({
+              product_id: it.product_id || it.id,
+              product_name: it.product_name || it.name || it.title,
+              quantity: it.quantity,
+              is_pre_order: it.is_pre_order,
+            })),
           },
         }),
       }).catch((notifyErr) => {
@@ -3416,6 +3430,28 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.warn('[Supabase] Aviso ao gravar restock request:', err);
       }
     }
+
+    // Dispara notificação push instantânea para os iPhones dos administradores
+    try {
+      fetch('/api/notify-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'INSERT',
+          event_type: 'restock_request',
+          record: {
+            id: newReq.id,
+            product_id: productId,
+            product_name: productName,
+            collection_name: collectionName || 'Cápsula do Tempo',
+            customer_name: customerName?.trim() || undefined,
+            created_at: now,
+          },
+        }),
+      }).catch((notifyErr) => {
+        console.warn('[Push] Aviso ao disparar notificação de pedido de reposição:', notifyErr);
+      });
+    } catch {}
 
     return true;
   };

@@ -39,7 +39,7 @@ self.addEventListener('push', (event) => {
     icon: '/apple-touch-icon.png',
     badge: '/brand-favicon.png',
     vibrate: [200, 100, 200],
-    tag: 'wu-order-alert-' + Date.now(),
+    tag: payload.tag || ('wu-alert-' + Date.now()),
     renotify: true,
     data: {
       url: payload.url || '/admin',
@@ -59,15 +59,26 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // If a window is already open with the admin panel, focus it
+      // If a window is already open with the admin panel, notify it, navigate and focus
       for (const client of clientList) {
-        if ('focus' in client) {
-          if (client.url.includes('/admin')) {
+        if (client.url && client.url.includes('/admin')) {
+          if ('postMessage' in client) {
+            client.postMessage({
+              type: 'WU_NAVIGATE_ADMIN',
+              url: targetUrl,
+            });
+          }
+          if ('navigate' in client && targetUrl) {
+            try {
+              client.navigate(targetUrl);
+            } catch {}
+          }
+          if ('focus' in client) {
             return client.focus();
           }
         }
       }
-      // Otherwise open a new window pointing to /admin
+      // Otherwise open a new window pointing to targetUrl
       if (self.clients.openWindow) {
         return self.clients.openWindow(targetUrl);
       }

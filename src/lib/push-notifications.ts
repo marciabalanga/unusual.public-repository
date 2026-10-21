@@ -346,7 +346,9 @@ export async function unsubscribeAdminFromPush(userId: string): Promise<{ succes
 }
 
 // Send isolated test push to authenticated administrator only
-export async function sendTestPushNotification(): Promise<{ success: boolean; message?: string; error?: string }> {
+export async function sendTestPushNotification(
+  eventType: 'test' | 'order' | 'pre_order' | 'restock_request' = 'test'
+): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.access_token) {
@@ -371,6 +373,7 @@ export async function sendTestPushNotification(): Promise<{ success: boolean; me
 
     const payload = {
       action: 'test',
+      eventType,
       userId: session.user?.id,
       currentSubscription,
     };

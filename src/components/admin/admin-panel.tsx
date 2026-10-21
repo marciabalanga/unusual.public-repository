@@ -137,10 +137,63 @@ export const AdminPanel: React.FC = () => {
     'orders' | 'catalog' | 'blocks' | 'dictionary' | 'brand' | 'settings' | 'supabase'
   >('orders');
 
+  const getCategoryFromUrl = (urlStr?: string): 'pre_orders' | 'regular_orders' | 'restock_requests' => {
+    try {
+      const url = urlStr && typeof window !== 'undefined'
+        ? new URL(urlStr, window.location.origin)
+        : typeof window !== 'undefined' ? window.location : null;
+      if (!url) return 'pre_orders';
+      const params = new URLSearchParams(url.search);
+      const cat = params.get('category') || params.get('tab') || params.get('section');
+      if (cat === 'pre_orders' || cat === 'pre-orders' || cat === 'preorders') return 'pre_orders';
+      if (cat === 'regular_orders' || cat === 'orders' || cat === 'regular') return 'regular_orders';
+      if (cat === 'restock_requests' || cat === 'restock' || cat === 'restocks') return 'restock_requests';
+
+      const hash = (url.hash || '').toLowerCase();
+      if (hash.includes('restock')) return 'restock_requests';
+      if (hash.includes('regular') || (hash.includes('orders') && !hash.includes('pre'))) return 'regular_orders';
+      if (hash.includes('pre_order') || hash.includes('pre-order') || hash.includes('preorder')) return 'pre_orders';
+    } catch {}
+    return 'pre_orders';
+  };
+
   // Sub-categories within Orders Engine (1. PRE-ORDERS | 2. ORDERS | 3. RESTOCK REQUESTS)
-  const [ordersCategory, setOrdersCategory] = useState<'pre_orders' | 'regular_orders' | 'restock_requests'>('pre_orders');
+  const [ordersCategory, setOrdersCategory] = useState<'pre_orders' | 'regular_orders' | 'restock_requests'>(() => {
+    return getCategoryFromUrl();
+  });
   const [restockSearch, setRestockSearch] = useState('');
   const [restockStatusFilter, setRestockStatusFilter] = useState<string>('all');
+
+  // Synchronize category with browser navigation, hash changes, and Service Worker notification clicks
+  useEffect(() => {
+    const handleUrlUpdate = () => {
+      const targetCat = getCategoryFromUrl();
+      setOrdersCategory(targetCat);
+      setActiveEngine('orders');
+    };
+
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'WU_NAVIGATE_ADMIN' && event.data.url) {
+        const targetCat = getCategoryFromUrl(event.data.url);
+        setOrdersCategory(targetCat);
+        setActiveEngine('orders');
+      }
+    };
+
+    window.addEventListener('popstate', handleUrlUpdate);
+    window.addEventListener('hashchange', handleUrlUpdate);
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handleUrlUpdate);
+      window.removeEventListener('hashchange', handleUrlUpdate);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+      }
+    };
+  }, []);
 
   const [successToast, setSuccessToast] = useState<string | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
@@ -227,16 +280,16 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
-  const handleSendTestPush = async () => {
+  const handleSendTestPush = async (eventType: 'test' | 'order' | 'pre_order' | 'restock_request' = 'test') => {
     setIsPushTesting(true);
     setPushMessage(null);
     try {
-      const res = await sendTestPushNotification();
+      const res = await sendTestPushNotification(eventType);
       if (res.success) {
-        setPushMessage({ type: 'success', text: res.message || 'Notificação de teste enviada com sucesso!' });
-        showToast('Notificação de teste enviada para o seu iPhone!');
+        setPushMessage({ type: 'success', text: res.message || 'Notificação enviada com sucesso!' });
+        showToast('Notificação enviada para o seu iPhone!');
       } else {
-        setPushMessage({ type: 'error', text: res.error || 'Falha ao enviar notificação de teste.' });
+        setPushMessage({ type: 'error', text: res.error || 'Falha ao enviar notificação.' });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -986,7 +1039,12 @@ export const AdminPanel: React.FC = () => {
                   {/* 1. PRE-ORDERS */}
                   <button
                     type="button"
-                    onClick={() => setOrdersCategory('pre_orders')}
+                    onClick={() => {
+                      setOrdersCategory('pre_orders');
+                      try {
+                        window.history.replaceState(null, '', '/admin?category=pre_orders');
+                      } catch {}
+                    }}
                     className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative overflow-hidden ${
                       ordersCategory === 'pre_orders'
                         ? 'bg-amber-500/10 border-amber-400 text-white shadow-xl ring-1 ring-amber-400/50'
@@ -1010,7 +1068,12 @@ export const AdminPanel: React.FC = () => {
                   {/* 2. ORDERS */}
                   <button
                     type="button"
-                    onClick={() => setOrdersCategory('regular_orders')}
+                    onClick={() => {
+                      setOrdersCategory('regular_orders');
+                      try {
+                        window.history.replaceState(null, '', '/admin?category=regular_orders');
+                      } catch {}
+                    }}
                     className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative overflow-hidden ${
                       ordersCategory === 'regular_orders'
                         ? 'bg-white/10 border-white text-white shadow-xl ring-1 ring-white/50'
@@ -1034,7 +1097,12 @@ export const AdminPanel: React.FC = () => {
                   {/* 3. RESTOCK REQUESTS */}
                   <button
                     type="button"
-                    onClick={() => setOrdersCategory('restock_requests')}
+                    onClick={() => {
+                      setOrdersCategory('restock_requests');
+                      try {
+                        window.history.replaceState(null, '', '/admin?category=restock_requests');
+                      } catch {}
+                    }}
                     className={`p-4 rounded-xl border text-left transition-all cursor-pointer relative overflow-hidden ${
                       ordersCategory === 'restock_requests'
                         ? 'bg-amber-400/10 border-amber-300 text-white shadow-xl ring-1 ring-amber-300/50'
@@ -6315,25 +6383,64 @@ export const AdminPanel: React.FC = () => {
                     <span>{isPushLoading ? 'A Configurar Chaves...' : 'Ativar Notificações no iPhone'}</span>
                   </button>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      disabled={isPushTesting}
-                      onClick={handleSendTestPush}
-                      className="py-2.5 px-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-white font-semibold uppercase text-[11px] tracking-wider rounded transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                      title="Envia uma notificação direta para o seu aparelho sem criar pedidos de compra"
-                    >
-                      <Send className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>{isPushTesting ? 'A Enviar...' : 'Enviar Teste'}</span>
-                    </button>
+                  <div className="space-y-2">
+                    <div className="text-[10px] uppercase font-mono tracking-wider text-[#777777] mb-1">
+                      Testar Envio por Tipo de Evento no seu iPhone:
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        disabled={isPushTesting}
+                        onClick={() => handleSendTestPush('order')}
+                        className="py-2 px-2.5 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 text-white font-medium text-[11px] rounded transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        title="Simula notificação de nova encomenda regular"
+                      >
+                        <PackageCheck className="w-3.5 h-3.5 text-white" />
+                        <span>Encomenda</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isPushTesting}
+                        onClick={() => handleSendTestPush('pre_order')}
+                        className="py-2 px-2.5 bg-amber-950/30 hover:bg-amber-900/40 border border-amber-800/60 text-amber-300 font-medium text-[11px] rounded transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        title="Simula notificação de nova pré-encomenda"
+                      >
+                        <Clock className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Pré-encomenda</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isPushTesting}
+                        onClick={() => handleSendTestPush('restock_request')}
+                        className="py-2 px-2.5 bg-amber-950/20 hover:bg-amber-900/30 border border-amber-600/40 text-amber-200 font-medium text-[11px] rounded transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        title="Simula notificação de novo pedido de reposição"
+                      >
+                        <BellRing className="w-3.5 h-3.5 text-amber-300" />
+                        <span>Reposição</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isPushTesting}
+                        onClick={() => handleSendTestPush('test')}
+                        className="py-2 px-2.5 bg-[#161616] hover:bg-[#222222] border border-[#2a2a2a] text-[#cccccc] font-medium text-[11px] rounded transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        title="Teste geral de ligação"
+                      >
+                        <Send className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Teste Geral</span>
+                      </button>
+                    </div>
+
                     <button
                       type="button"
                       disabled={isPushLoading}
                       onClick={handleDeactivatePush}
-                      className="py-2.5 px-3 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/60 text-rose-300 font-semibold uppercase text-[11px] tracking-wider rounded transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="w-full mt-2 py-2 px-3 bg-rose-950/30 hover:bg-rose-900/50 border border-rose-900/60 text-rose-300 font-semibold uppercase text-[10px] tracking-wider rounded transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       <BellOff className="w-3.5 h-3.5" />
-                      <span>Desativar</span>
+                      <span>Desativar Notificações Neste Aparelho</span>
                     </button>
                   </div>
                 )}

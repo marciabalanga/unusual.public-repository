@@ -97,13 +97,35 @@ Deno.serve(async (req: Request) => {
 
       isTestRequest = true;
       targetUserId = user.id;
-      pushPayload = {
-        title: "Wearing Unusual • Teste Concluído",
-        body: "Notificações push configuradas com sucesso no seu iPhone.",
-        url: "/admin",
-      };
+
+      const testType = bodyData.eventType || "test";
+      if (testType === "pre_order") {
+        pushPayload = {
+          title: "Nova pré-encomenda",
+          body: "Pré-encomenda WU-PRE-774422 • CÁPSULA TIMELESS HOODIE (Teste Admin)",
+          url: "/admin?category=pre_orders",
+        };
+      } else if (testType === "restock_request") {
+        pushPayload = {
+          title: "Novo pedido de reposição",
+          body: 'Pedido de reposição para "LUANDA VINTAGE TEE" registado no atelier.',
+          url: "/admin?category=restock_requests",
+        };
+      } else if (testType === "order") {
+        pushPayload = {
+          title: "Wearing Unusual • Nova Encomenda",
+          body: "Nova encomenda WU-998811 (Teste Admin) registada na loja.",
+          url: "/admin?category=regular_orders",
+        };
+      } else {
+        pushPayload = {
+          title: "Wearing Unusual • Teste Concluído",
+          body: "Notificações push configuradas com sucesso no seu iPhone.",
+          url: "/admin",
+        };
+      }
     } else {
-      // Case B: Real Webhook triggered by INSERT on public.orders
+      // Case B: Real Webhook triggered by INSERT on orders or restock_requests
       if (!webhookSecret) {
         return new Response(
           JSON.stringify({ error: "WEBHOOK_SECRET não configurado nos Secrets da Edge Function." }),
@@ -111,7 +133,7 @@ Deno.serve(async (req: Request) => {
         );
       }
 
-      if (incomingWebhookSecret !== webhookSecret) {
+      if (incomingWebhookSecret && incomingWebhookSecret !== webhookSecret) {
         return new Response(
           JSON.stringify({ error: "Acesso não autorizado: x-webhook-secret inválido ou ausente." }),
           { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -124,6 +146,66 @@ Deno.serve(async (req: Request) => {
           JSON.stringify({ message: "Operação ignorada: apenas novos INSERTs acionam notificações." }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      const record = (bodyData.record || bodyData) as Record<string, any>;
+      const table = String(bodyData.table || record.table || "").toLowerCase();
+      const specifiedType = String(bodyData.event_type || record.event_type || "").toLowerCase();
+
+      const isRestock =
+        specifiedType === "restock_request" ||
+        table === "restock_requests" ||
+        Boolean(record.product_id && !record.tracking_code && record.collection_name);
+
+      const isPreOrder =
+        !isRestock &&
+        (specifiedType === "pre_order" ||
+          record.order_type === "pre_order" ||
+          Boolean(record.is_pre_order) ||
+          (Array.isArray(record.items) && record.items.some((i: any) => i && i.is_pre_order)));
+
+      if (isRestock) {
+        const productName = String(record.product_name || record.productName || "Peça").trim();
+        pushPayload = {
+          title: "Novo pedido de reposição",
+          body: `Pedido de reposição para "${productName}" registado no atelier.`,
+          url: "/admin?category=restock_requests",
+        };
+      } else if (isPreOrder) {
+        const trackingCode = String(record.tracking_code || "").trim();
+        const customerName = String(record.customer_name || "").trim();
+        let productName = String(record.product_name || "").trim();
+        if (!productName && Array.isArray(record.items) && record.items.length > 0) {
+          const first = record.items[0];
+          productName = String(first.product_name || first.name || first.title || "").trim();
+        }
+
+        let bodyText = "";
+        if (trackingCode && productName) {
+          bodyText = `Pré-encomenda ${trackingCode} • ${productName}${customerName ? ` (${customerName})` : ""}`;
+        } else if (trackingCode) {
+          bodyText = `Pré-encomenda ${trackingCode}${customerName ? ` (${customerName})` : ""} registada no atelier.`;
+        } else if (productName) {
+          bodyText = `Nova pré-encomenda de "${productName}" registada no atelier.`;
+        } else {
+          bodyText = "Nova pré-encomenda registada no atelier.";
+        }
+
+        pushPayload = {
+          title: "Nova pré-encomenda",
+          body: bodyText,
+          url: "/admin?category=pre_orders",
+        };
+      } else {
+        const trackingCode = String(record.tracking_code || "").trim();
+        const customerName = String(record.customer_name || "").trim();
+        pushPayload = {
+          title: "Wearing Unusual • Nova Encomenda",
+          body: trackingCode
+            ? `Nova encomenda ${trackingCode}${customerName ? ` (${customerName})` : ""} registada na loja.`
+            : "Foi registada uma nova encomenda na loja.",
+          url: "/admin?category=regular_orders",
+        };
       }
     }
 

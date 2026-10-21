@@ -13,7 +13,11 @@ const __dirname = path.dirname(__filename);
 const isProduction = process.env.NODE_ENV === 'production';
 const portArgIdx = process.argv.indexOf('--port');
 const cliPort = portArgIdx !== -1 && process.argv[portArgIdx + 1] ? Number(process.argv[portArgIdx + 1]) : null;
-const PORT = cliPort && !isNaN(cliPort) && cliPort > 0 ? cliPort : (Number(process.env.PORT) || 3000);
+// Dev server must always run on port 3000 in AI Studio (port 8080 is reserved by container ingress/nginx)
+const rawEnvPort = Number(process.env.PORT);
+const PORT = cliPort && !isNaN(cliPort) && cliPort > 0
+  ? cliPort
+  : (rawEnvPort && rawEnvPort !== 8080 ? rawEnvPort : 3000);
 const APP_VERSION = '20261004_v9';
 
 const SUPABASE_URL = 'https://tmryqhilyisbfdpnsiwo.supabase.co';

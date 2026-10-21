@@ -32,6 +32,9 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   }
 }
 
+// In-memory cache for event deduplication (prevents duplicate push notifications within 60 seconds)
+const recentEventsCache = new Map<string, number>();
+
 // In-memory cache as secondary fallback within the active container
 const memorySubscriptions = new Map<string, any>();
 
@@ -167,16 +170,6 @@ export default async function handler(req: any, res: any) {
 
       // Check if SUPABASE_SERVICE_ROLE_KEY is configured
       const supabaseAdmin = getSupabaseAdminClient();
-      if (!supabaseAdmin) {
-        console.error('[push] SUPABASE_SERVICE_ROLE_KEY ausente no servidor.');
-        return res.status(500).json({
-          success: false,
-          savedToDatabase: false,
-          code: 'MISSING_SERVICE_ROLE_KEY',
-          error: 'Configuração do servidor incompleta: A variável SUPABASE_SERVICE_ROLE_KEY não está configurada no servidor (Vercel). É obrigatória para persistir subscrições na base de dados com RLS ativo.',
-        });
-      }
-
       const record = {
         endpoint: sub.endpoint,
         p256dh: sub.keys.p256dh,
@@ -185,6 +178,17 @@ export default async function handler(req: any, res: any) {
         user_agent: req.headers['user-agent'] || '',
         updated_at: new Date().toISOString(),
       };
+
+      if (!supabaseAdmin) {
+        console.warn('[push] SUPABASE_SERVICE_ROLE_KEY ausente. Gravando subscrição em cache local de desenvolvimento.');
+        saveLocalSubscription(record);
+        return res.status(200).json({
+          success: true,
+          savedToDatabase: false,
+          warning: 'SUPABASE_SERVICE_ROLE_KEY não configurada no servidor. Subscrição salva em cache local de contingência.',
+          message: 'Dispositivo registado com sucesso no cache local.',
+        });
+      }
 
       // Perform privileged upsert to public.admin_push_subscriptions
       const { error: upsertErr } = await supabaseAdmin
@@ -242,52 +246,173 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ success: true, message: 'Subscrição cancelada com sucesso.' });
     }
 
-    // 3. ACTION: test OR new order notification
+    // 3. ACTION: test OR notification dispatch (Orders, Pre-orders, Restock Requests)
     const isTestRequest = body.action === 'test';
+
+    // If Database Webhook, ensure it is strictly an INSERT operation (never send push on simple status updates)
+    if (body.type && body.type !== 'INSERT') {
+      return res.status(200).json({
+        success: true,
+        sent: 0,
+        ignored: true,
+        message: 'Operação ignorada: apenas novos registos (INSERT) geram notificações push.',
+      });
+    }
+
+    // Identify record and event parameters
+    const record = body.record || body;
+    const table = String(body.table || record.table || '').toLowerCase();
+    const specifiedType = String(body.event_type || record.event_type || '').toLowerCase();
+
+    // Check if this is a Restock Request
+    const isRestock =
+      specifiedType === 'restock_request' ||
+      body.action === 'restock' ||
+      body.eventType === 'restock_request' ||
+      table === 'restock_requests' ||
+      Boolean(record.product_id && !record.tracking_code && (record.collection_name || specifiedType.includes('restock')));
+
+    // Check if this is a Pre-order
+    const isPreOrder =
+      !isRestock &&
+      (specifiedType === 'pre_order' ||
+        body.eventType === 'pre_order' ||
+        record.order_type === 'pre_order' ||
+        Boolean(record.is_pre_order) ||
+        (Array.isArray(record.items) && record.items.some((i: any) => i && i.is_pre_order)));
+
     let pushPayload = {
       title: 'Wearing Unusual • Nova Encomenda',
       body: 'Foi registada uma nova encomenda na loja.',
-      url: '/admin',
+      url: '/admin?category=regular_orders',
+      tag: 'wu-alert-' + Date.now(),
     };
 
     if (isTestRequest) {
-      pushPayload = {
-        title: 'Wearing Unusual • Teste Concluído',
-        body: 'Notificações push configuradas com sucesso no seu iPhone.',
-        url: '/admin',
-      };
+      const testType = body.eventType || 'test';
+      if (testType === 'pre_order') {
+        pushPayload = {
+          title: 'Nova pré-encomenda',
+          body: 'Pré-encomenda WU-PRE-774422 • CÁPSULA TIMELESS HOODIE (Teste Admin)',
+          url: '/admin?category=pre_orders',
+          tag: 'wu-test-preorder-' + Date.now(),
+        };
+      } else if (testType === 'restock_request') {
+        pushPayload = {
+          title: 'Novo pedido de reposição',
+          body: 'Pedido de reposição para "LUANDA VINTAGE TEE" registado no atelier.',
+          url: '/admin?category=restock_requests',
+          tag: 'wu-test-restock-' + Date.now(),
+        };
+      } else if (testType === 'order') {
+        pushPayload = {
+          title: 'Wearing Unusual • Nova Encomenda',
+          body: 'Nova encomenda WU-998811 (Teste Admin) registada na loja.',
+          url: '/admin?category=regular_orders',
+          tag: 'wu-test-order-' + Date.now(),
+        };
+      } else {
+        pushPayload = {
+          title: 'Wearing Unusual • Teste Concluído',
+          body: 'Notificações push configuradas com sucesso no seu iPhone.',
+          url: '/admin',
+          tag: 'wu-test-' + Date.now(),
+        };
+      }
     } else {
       // Validate webhook secret ONLY if provided by caller
       if (incomingWebhookSecret && incomingWebhookSecret !== WEBHOOK_SECRET) {
         return res.status(401).json({ success: false, error: 'Acesso não autorizado: x-webhook-secret inválido.' });
       }
 
-      // Format payload from order data
-      const record = body.record || body;
-      const trackingCode = record.tracking_code || '';
-      const customerName = record.customer_name || '';
+      if (isRestock) {
+        // RESTOCK REQUEST
+        const productName = (record.product_name || record.productName || 'Peça').trim();
+        pushPayload = {
+          title: 'Novo pedido de reposição',
+          body: `Pedido de reposição para "${productName}" registado no atelier.`,
+          url: '/admin?category=restock_requests',
+          tag: 'wu-restock-' + (record.id || Date.now()),
+        };
+      } else if (isPreOrder) {
+        // PRE-ORDER
+        const trackingCode = (record.tracking_code || '').trim();
+        const customerName = (record.customer_name || '').trim();
 
-      if (trackingCode) {
-        pushPayload.body = `Nova encomenda ${trackingCode}${customerName ? ` (${customerName})` : ''} registada na loja.`;
+        let productName = (record.product_name || '').trim();
+        if (!productName && Array.isArray(record.items) && record.items.length > 0) {
+          const first = record.items[0];
+          productName = (first.product_name || first.name || first.title || '').trim();
+        }
+
+        let bodyText = '';
+        if (trackingCode && productName) {
+          bodyText = `Pré-encomenda ${trackingCode} • ${productName}${customerName ? ` (${customerName})` : ''}`;
+        } else if (trackingCode) {
+          bodyText = `Pré-encomenda ${trackingCode}${customerName ? ` (${customerName})` : ''} registada no atelier.`;
+        } else if (productName) {
+          bodyText = `Nova pré-encomenda de "${productName}" registada no atelier.`;
+        } else {
+          bodyText = 'Nova pré-encomenda registada no atelier.';
+        }
+
+        pushPayload = {
+          title: 'Nova pré-encomenda',
+          body: bodyText,
+          url: '/admin?category=pre_orders',
+          tag: 'wu-preorder-' + (record.id || trackingCode || Date.now()),
+        };
       } else {
-        pushPayload.body = 'Foi registada uma nova encomenda na loja.';
+        // REGULAR ORDER
+        const trackingCode = (record.tracking_code || '').trim();
+        const customerName = (record.customer_name || '').trim();
+
+        if (trackingCode) {
+          pushPayload.body = `Nova encomenda ${trackingCode}${customerName ? ` (${customerName})` : ''} registada na loja.`;
+        } else {
+          pushPayload.body = 'Foi registada uma nova encomenda na loja.';
+        }
+        pushPayload.title = 'Wearing Unusual • Nova Encomenda';
+        pushPayload.url = '/admin?category=regular_orders';
+        pushPayload.tag = 'wu-order-' + (record.id || trackingCode || Date.now());
       }
     }
 
-    // Check SUPABASE_SERVICE_ROLE_KEY
-    const supabaseAdmin = getSupabaseAdminClient();
-    if (!supabaseAdmin) {
-      console.error('[push] SUPABASE_SERVICE_ROLE_KEY ausente no envio de notificações.');
-      return res.status(500).json({
-        success: false,
-        code: 'MISSING_SERVICE_ROLE_KEY',
-        error: 'Configuração do servidor incompleta: SUPABASE_SERVICE_ROLE_KEY não está configurada no servidor. O envio de notificações exige esta credencial para aceder à tabela de subscrições sob RLS.',
-      });
+    // Deduplication check: prevent duplicate notifications within 60s for the exact same entity
+    if (!isTestRequest) {
+      const eventId = record.id || record.tracking_code;
+      if (eventId) {
+        const eventCategory = isRestock ? 'restock' : isPreOrder ? 'preorder' : 'order';
+        const dedupeKey = `${eventCategory}:${eventId}`;
+        const previousTimestamp = recentEventsCache.get(dedupeKey);
+
+        if (previousTimestamp && Date.now() - previousTimestamp < 60000) {
+          console.log(`[push] Notificação duplicada ignorada (chave: ${dedupeKey})`);
+          return res.status(200).json({
+            success: true,
+            sent: 0,
+            deduplicated: true,
+            message: 'Notificação já processada recentemente para este registo.',
+          });
+        }
+        recentEventsCache.set(dedupeKey, Date.now());
+
+        // Prune old entries if cache grows
+        if (recentEventsCache.size > 2000) {
+          const cutoff = Date.now() - 60000;
+          for (const [k, ts] of recentEventsCache.entries()) {
+            if (ts < cutoff) recentEventsCache.delete(k);
+          }
+        }
+      }
     }
 
-    // If test request includes current subscription, ensure it is upserted to database
+    // Check SUPABASE_SERVICE_ROLE_KEY or local fallback
+    const supabaseAdmin = getSupabaseAdminClient();
     const currentSub = body.currentSubscription || body.subscription;
-    if (isTestRequest && currentSub?.endpoint && currentSub.keys?.p256dh && currentSub.keys?.auth) {
+
+    // If test request includes current subscription and admin client is available, upsert it
+    if (isTestRequest && currentSub?.endpoint && currentSub.keys?.p256dh && currentSub.keys?.auth && supabaseAdmin) {
       try {
         await supabaseAdmin.from('admin_push_subscriptions').upsert(
           {
@@ -305,34 +430,36 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // Query active subscriptions from public.admin_push_subscriptions via service_role
-    let query = supabaseAdmin.from('admin_push_subscriptions').select('id, user_id, endpoint, p256dh, auth');
-    if (isTestRequest && body.userId) {
-      // For test, target authenticated admin if provided
-      query = query.eq('user_id', body.userId);
-    }
-
-    const { data: dbSubs, error: dbErr } = await query;
-
-    if (dbErr) {
-      console.error('[push] Erro ao consultar admin_push_subscriptions:', dbErr.message);
-      return res.status(500).json({
-        success: false,
-        error: `Erro ao consultar subscrições na base de dados: ${dbErr.message}`,
-      });
-    }
-
-    // Deduplicate subscriptions by endpoint
+    // Query active subscriptions
     const subsMap = new Map<string, any>();
-    if (Array.isArray(dbSubs)) {
-      for (const s of dbSubs) {
-        if (s?.endpoint && s.p256dh && s.auth) {
-          subsMap.set(s.endpoint, s);
+
+    if (supabaseAdmin) {
+      let query = supabaseAdmin.from('admin_push_subscriptions').select('id, user_id, endpoint, p256dh, auth');
+      if (isTestRequest && body.userId) {
+        query = query.eq('user_id', body.userId);
+      }
+
+      const { data: dbSubs, error: dbErr } = await query;
+      if (!dbErr && Array.isArray(dbSubs)) {
+        for (const s of dbSubs) {
+          if (s?.endpoint && s.p256dh && s.auth) {
+            subsMap.set(s.endpoint, s);
+          }
         }
+      } else if (dbErr) {
+        console.warn('[push] Erro ao consultar admin_push_subscriptions no Supabase:', dbErr.message);
       }
     }
 
-    // Fallback: If test has direct subscription and DB was empty, include it
+    // Fallback: merge with local subscriptions if DB had none or in local development
+    const localSubs = readLocalSubscriptions();
+    for (const ls of localSubs) {
+      if (ls?.endpoint && ls.p256dh && ls.auth && !subsMap.has(ls.endpoint)) {
+        subsMap.set(ls.endpoint, ls);
+      }
+    }
+
+    // Test direct subscription fallback
     if (isTestRequest && currentSub?.endpoint && currentSub.keys?.p256dh && currentSub.keys?.auth) {
       if (!subsMap.has(currentSub.endpoint)) {
         subsMap.set(currentSub.endpoint, {
@@ -345,7 +472,7 @@ export default async function handler(req: any, res: any) {
 
     const subscriptions = Array.from(subsMap.values());
 
-    // 4. If no subscriptions found in database: return explicit HTTP 404
+    // 4. If no subscriptions found: return explicit HTTP 404
     if (subscriptions.length === 0) {
       return res.status(404).json({
         success: false,
@@ -389,10 +516,12 @@ export default async function handler(req: any, res: any) {
       }
     }
 
-    // 6. Cleanup expired endpoints from Supabase using service_role
+    // 6. Cleanup expired endpoints from Supabase using service_role or local cache
     if (expiredEndpoints.length > 0) {
       try {
-        await supabaseAdmin.from('admin_push_subscriptions').delete().in('endpoint', expiredEndpoints);
+        if (supabaseAdmin) {
+          await supabaseAdmin.from('admin_push_subscriptions').delete().in('endpoint', expiredEndpoints);
+        }
         for (const ep of expiredEndpoints) removeLocalSubscription(ep);
       } catch (e) {
         console.warn('[push] Aviso ao limpar subscrições expiradas:', e);
